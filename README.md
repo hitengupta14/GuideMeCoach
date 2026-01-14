@@ -1,0 +1,136 @@
+# GuideMeCoach
+
+A structured exercise knowledge platform with personalized training engine for India.
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL 14+
+- npm or yarn
+
+### Installation
+
+1. Clone the repository
+```bash
+git clone <repository-url>
+cd GuideMeCoach
+```
+
+2. Install dependencies
+```bash
+npm install
+```
+
+3. Set up environment variables
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and update your database URL with the correct port:
+```
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:YOUR_PORT/guidemecoach"
+```
+
+**Note**: Check which port your PostgreSQL is running on. If using Postgres.app, it might be on port 3000 instead of the default 5432.
+
+4. Generate and apply database schema
+```bash
+# Generate migration files
+npm run db:generate
+
+# Apply migrations to database (run the generated SQL file)
+PGPASSWORD=YOUR_PASSWORD psql -h localhost -p YOUR_PORT -U postgres -d guidemecoach -f drizzle/0000_*.sql
+```
+
+5. Seed the database with initial data
+```bash
+npm run db:seed
+```
+
+6. Start the development server
+```bash
+npm run dev
+```
+
+Visit [http://localhost:3000](http://localhost:3000)
+
+## 📚 Tech Stack
+
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes, Drizzle ORM
+- **Database**: PostgreSQL
+- **State Management**: React Query
+
+## 🗂️ Project Structure
+
+```
+src/
+├── app/              # Next.js app router pages
+│   ├── api/          # API routes
+│   └── ...
+├── db/               # Database schema and connection
+│   ├── schema.ts     # Drizzle schema
+│   ├── index.ts      # Database client
+│   └── seed.ts       # Seed script
+└── components/       # React components (to be added)
+```
+
+## 🎯 Features
+
+### MVP (Current)
+- ✅ Exercise library with 100+ exercises
+- ✅ Muscle-wise navigation
+- ✅ Detailed exercise pages
+- ✅ Search and filter
+- ✅ Video integration (YouTube embeds)
+
+### Upcoming
+- User authentication
+- Personalized workout plans
+- Progress tracking
+- AI chatbot assistance
+- Premium features
+
+## 📖 API Endpoints
+
+### Exercises
+- `GET /api/exercises` - List all exercises with filters
+- `GET /api/exercises/:id` - Get single exercise
+- `POST /api/exercises` - Create exercise (admin)
+- `PATCH /api/exercises/:id` - Update exercise
+- `DELETE /api/exercises/:id` - Delete exercise
+
+### Muscle Groups
+- `GET /api/muscles` - List muscle groups
+- `GET /api/muscles/:id/exercises` - Get exercises for muscle
+
+## 🛠️ Development
+
+### Database Commands
+
+```bash
+# Generate migrations
+npm run db:generate
+
+# Run migrations
+npm run db:migrate
+
+# Open Drizzle Studio (DB GUI)
+npm run db:studio
+```
+
+### Code Style
+
+- TypeScript strict mode
+- ESLint + Prettier
+- Conventional commits
+
+## 📝 License
+
+Private project - All rights reserved
+
+## 🤝 Contributing
+
+This is a private project. Contact the owner for contribution guidelines.
