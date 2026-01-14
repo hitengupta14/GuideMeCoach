@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     const equipment = searchParams.get('equipment')
     const location = searchParams.get('location')
     const search = searchParams.get('search')
+    const includeMuscles = searchParams.get('includeMuscles') === 'true'
     
     let query = db.select().from(exercises)
     
@@ -39,9 +40,32 @@ export async function GET(request: Request) {
     
     const results = await query
     
+    // If requested, fetch muscle groups for each exercise
+    let enrichedResults = results
+    if (includeMuscles) {
+      enrichedResults = await Promise.all(
+        results.map(async (exercise) => {
+          const muscles = await db
+            .select({
+              muscleGroupId: exerciseMuscles.muscleGroupId,
+              muscleGroupName: muscleGroups.name,
+              role: exerciseMuscles.role,
+            })
+            .from(exerciseMuscles)
+            .leftJoin(muscleGroups, eq(exerciseMuscles.muscleGroupId, muscleGroups.id))
+            .where(eq(exerciseMuscles.exerciseId, exercise.id))
+          
+          return {
+            ...exercise,
+            muscles,
+          }
+        })
+      )
+    }
+    
     return NextResponse.json({ 
-      exercises: results,
-      count: results.length 
+      exercises: enrichedResults,
+      count: enrichedResults.length 
     })
   } catch (error) {
     console.error('Error fetching exercises:', error)

@@ -1,8 +1,10 @@
 'use client'
 
+import type { Metadata } from 'next'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { MuscleGroup } from '@/db/schema'
+import { LoadingSkeleton, ErrorState } from '@/components/LoadingStates'
 
 async function fetchMuscleGroups() {
   const response = await fetch('/api/muscles')
@@ -53,15 +55,20 @@ export default function BodyMapPage() {
       {/* Content */}
       <div className="container mx-auto px-4 py-12">
         {isLoading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-            <p className="mt-4 text-gray-600">Loading body map...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <LoadingSkeleton key={i} type="card" />
+            ))}
           </div>
         ) : error ? (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <p className="text-red-800 font-semibold">Failed to load muscle groups</p>
-            <p className="text-red-600 text-sm mt-1">Please try again later</p>
-          </div>
+          <ErrorState 
+            title="Failed to load muscle groups"
+            message="We couldn't fetch the muscle groups. Please try again."
+            action={{
+              label: 'Retry',
+              onClick: () => window.location.reload()
+            }}
+          />
         ) : (
           <div className="space-y-12">
             {bodyParts.map((part) => {

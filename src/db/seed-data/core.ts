@@ -250,33 +250,6 @@ export const coreExercises = [
 
   // Obliques Exercises
   {
-    name: 'Cable Woodchops',
-    slug: 'cable-woodchops',
-    category: 'strength',
-    difficulty: 'intermediate',
-    equipment: ['cable'],
-    location: 'gym',
-    movementPattern: ['rotate'],
-    description: 'Rotational core exercise using cable resistance for functional strength and oblique targeting.',
-    stepByStep: [
-      'Stand perpendicular to cable machine',
-      'Grasp handle at shoulder height',
-      'Rotate torso pulling handle across body diagonally downward',
-      'Complete movement fully through core rotation',
-      'Return to starting position in controlled manner',
-      'Complete set on one side before switching'
-    ],
-    breathingTechnique: 'Exhale during rotation, inhale during return',
-    tempo: '1-0-2-0',
-    commonMistakes: ['Using arms instead of core', 'Incomplete range of motion', 'Excessive weight'],
-    injuryRisks: ['Lower back strain', 'Lumbar rotation strain'],
-    benefits: { muscleGrowth: true, posture: true, sportsPerformance: true },
-    muscleGroups: [
-      { muscleGroup: 'obliques', role: 'primary' },
-      { muscleGroup: 'lower_back', role: 'secondary' }
-    ]
-  },
-  {
     name: 'Russian Twists',
     slug: 'russian-twists',
     category: 'strength',

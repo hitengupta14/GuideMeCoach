@@ -294,36 +294,7 @@ export const legsExercises = [
       { muscleGroup: 'quads', role: 'secondary' }
     ]
   },
-
   // Hamstrings Exercises
-  {
-    name: 'Romanian Deadlifts',
-    slug: 'romanian-deadlifts',
-    category: 'strength',
-    difficulty: 'intermediate',
-    equipment: ['barbell', 'dumbbell'],
-    location: 'gym',
-    movementPattern: ['hinge'],
-    description: 'Hip hinge movement emphasizing hamstring and lower back while maintaining straighter legs.',
-    stepByStep: [
-      'Stand with feet hip-width apart',
-      'Hold barbell at hip height',
-      'Hinge at hips while keeping knees slightly bent',
-      'Lower bar along legs until feeling hamstring stretch',
-      'Maintain neutral spine throughout',
-      'Drive hips forward to return to standing'
-    ],
-    breathingTechnique: 'Inhale while lowering, exhale while standing',
-    tempo: '2-0-2-0',
-    commonMistakes: ['Rounding lower back', 'Knees bending too much', 'Not achieving full stretch'],
-    injuryRisks: ['Lower back strain', 'Hamstring strain'],
-    benefits: { muscleGrowth: true, posture: true, mobility: true },
-    muscleGroups: [
-      { muscleGroup: 'hamstrings', role: 'primary' },
-      { muscleGroup: 'lower_back', role: 'primary' },
-      { muscleGroup: 'glutes', role: 'secondary' }
-    ]
-  },
   {
     name: 'Lying Leg Curl',
     slug: 'lying-leg-curl',
@@ -432,34 +403,6 @@ export const legsExercises = [
 
   // Glutes Exercises
   {
-    name: 'Barbell Back Squat',
-    slug: 'barbell-back-squat',
-    category: 'strength',
-    difficulty: 'advanced',
-    equipment: ['barbell', 'bench'],
-    location: 'gym',
-    movementPattern: ['squat'],
-    description: 'Fundamental compound leg exercise targeting quadriceps and glutes through barbell loaded squat pattern.',
-    stepByStep: [
-      'Position barbell on upper back',
-      'Stand with feet shoulder-width apart',
-      'Keep chest up and core engaged',
-      'Descend by bending hips and knees',
-      'Lower until thighs parallel to ground',
-      'Drive through heels to return to standing'
-    ],
-    breathingTechnique: 'Inhale while descending, exhale while rising',
-    tempo: '3-0-1-0',
-    commonMistakes: ['Forward lean excessive', 'Knees caving inward', 'Not achieving depth'],
-    injuryRisks: ['Knee strain', 'Lower back strain'],
-    benefits: { muscleGrowth: true, sportsPerformance: true, fatLoss: true },
-    muscleGroups: [
-      { muscleGroup: 'glutes', role: 'primary' },
-      { muscleGroup: 'quads', role: 'primary' },
-      { muscleGroup: 'hamstrings', role: 'secondary' }
-    ]
-  },
-  {
     name: 'Hip Thrusts',
     slug: 'hip-thrusts',
     category: 'strength',
@@ -485,32 +428,6 @@ export const legsExercises = [
     muscleGroups: [
       { muscleGroup: 'glutes', role: 'primary' },
       { muscleGroup: 'hamstrings', role: 'secondary' }
-    ]
-  },
-  {
-    name: 'Leg Press',
-    slug: 'leg-press',
-    category: 'strength',
-    difficulty: 'beginner',
-    equipment: ['machine'],
-    location: 'gym',
-    movementPattern: ['squat'],
-    description: 'Machine-based leg press providing safe, bilateral leg development with quad and glute targeting.',
-    stepByStep: [
-      'Sit upright in leg press machine',
-      'Position feet hip to shoulder-width apart on platform',
-      'Plant feet firmly',
-      'Lower platform by bending knees',
-      'Drive through heels to extend legs'
-    ],
-    breathingTechnique: 'Inhale while lowering, exhale while pressing',
-    tempo: '2-0-1-0',
-    commonMistakes: ['Excessive depth', 'Feet too high or low', 'Locking out knees'],
-    injuryRisks: ['Knee strain'],
-    benefits: { muscleGrowth: true },
-    muscleGroups: [
-      { muscleGroup: 'glutes', role: 'primary' },
-      { muscleGroup: 'quads', role: 'primary' }
     ]
   },
   {

@@ -1,10 +1,12 @@
 'use client'
 
+import type { Metadata } from 'next'
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Exercise } from '@/db/schema'
 import { ExerciseCard } from '@/components/ExerciseCard'
 import { FilterSidebar } from '@/components/FilterSidebar'
+import { LoadingSkeleton, ErrorState, EmptyState } from '@/components/LoadingStates'
 
 async function fetchExercises(filters: Record<string, string | null>) {
   const params = new URLSearchParams()
@@ -24,7 +26,12 @@ async function fetchExercises(filters: Record<string, string | null>) {
 
 export default function ExercisesPage() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<{
+    category: string | null
+    difficulty: string | null
+    equipment: string | null
+    location: string | null
+  }>({
     category: null,
     difficulty: null,
     equipment: null,
@@ -78,26 +85,35 @@ export default function ExercisesPage() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar */}
           <div className="hidden lg:block lg:col-span-1">
-            <FilterSidebar filters={filters} onFilterChange={handleFilterChange} />
+            <FilterSidebar 
+              filters={filters as any} 
+              onFilterChange={handleFilterChange} 
+            />
           </div>
 
           {/* Grid */}
           <div className="lg:col-span-3">
             {isLoading ? (
-              <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-                <p className="mt-4 text-gray-600">Loading exercises...</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <LoadingSkeleton key={i} type="card" />
+                ))}
               </div>
             ) : error ? (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-                <p className="text-red-800 font-semibold">Failed to load exercises</p>
-                <p className="text-red-600 text-sm mt-1">Please try again later</p>
-              </div>
+              <ErrorState 
+                title="Failed to load exercises"
+                message="We couldn't fetch the exercises. Please check your connection and try again."
+                action={{
+                  label: 'Retry',
+                  onClick: () => window.location.reload()
+                }}
+              />
             ) : filteredExercises.length === 0 ? (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                <p className="text-yellow-800 font-semibold">No exercises found</p>
-                <p className="text-yellow-600 text-sm mt-1">Try adjusting your filters or search term</p>
-              </div>
+              <EmptyState 
+                title="No exercises found"
+                message="Try adjusting your filters or search term"
+                icon="💪"
+              />
             ) : (
               <>
                 {/* Results Count */}

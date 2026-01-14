@@ -85,33 +85,6 @@ export const shouldersExercises = [
     ]
   },
   {
-    name: 'Incline Dumbbell Press',
-    slug: 'incline-dumbbell-press',
-    category: 'strength',
-    difficulty: 'beginner',
-    equipment: ['dumbbell', 'bench'],
-    location: 'gym',
-    movementPattern: ['push'],
-    description: 'Incline bench press targeting front deltoids with secondary chest involvement.',
-    stepByStep: [
-      'Lie on inclined bench at 45-60 degree angle',
-      'Hold dumbbells at shoulder height',
-      'Press dumbbells upward and slightly inward',
-      'Achieve full arm extension at top',
-      'Lower dumbbells back to shoulder height',
-      'Control descent throughout movement'
-    ],
-    breathingTechnique: 'Inhale while lowering, exhale while pressing',
-    tempo: '2-0-1-0',
-    commonMistakes: ['Dumbbells too close together', 'Incomplete range of motion', 'Bouncing weight'],
-    injuryRisks: ['Shoulder strain', 'Rotator cuff strain'],
-    benefits: { muscleGrowth: true },
-    muscleGroups: [
-      { muscleGroup: 'front_delts', role: 'primary' },
-      { muscleGroup: 'upper_chest', role: 'secondary' }
-    ]
-  },
-  {
     name: 'Front Dumbbell Raise',
     slug: 'front-dumbbell-raise',
     category: 'strength',
@@ -246,60 +219,6 @@ export const shouldersExercises = [
 
   // Rear Deltoids Exercises
   {
-    name: 'Face Pulls',
-    slug: 'face-pulls',
-    category: 'strength',
-    difficulty: 'beginner',
-    equipment: ['cable'],
-    location: 'gym',
-    movementPattern: ['pull'],
-    description: 'Shoulder health exercise targeting rear deltoids through high cable pulling motion.',
-    stepByStep: [
-      'Set cable to face height',
-      'Grasp rope attachment with both hands',
-      'Pull rope toward face while spreading ends',
-      'Bring elbows high and wide',
-      'Squeeze upper back and rear shoulders',
-      'Return to starting position in controlled manner'
-    ],
-    breathingTechnique: 'Exhale while pulling, inhale while returning',
-    tempo: '1-0-2-0',
-    commonMistakes: ['Using weight too heavy', 'Not spreading rope ends', 'Incomplete range of motion'],
-    injuryRisks: [],
-    benefits: { posture: true, rehab: true, sportsPerformance: true },
-    muscleGroups: [
-      { muscleGroup: 'rear_delts', role: 'primary' },
-      { muscleGroup: 'upper_back', role: 'secondary' }
-    ]
-  },
-  {
-    name: 'Reverse Pec Deck',
-    slug: 'reverse-pec-deck',
-    category: 'strength',
-    difficulty: 'beginner',
-    equipment: ['machine'],
-    location: 'gym',
-    movementPattern: ['pull'],
-    description: 'Machine-based exercise isolating rear deltoids through controlled motion.',
-    stepByStep: [
-      'Sit upright in reverse pec deck machine',
-      'Adjust seat height so handles align with shoulders',
-      'Grasp handles with straight arms',
-      'Pull handles backward in wide arc motion',
-      'Squeeze rear shoulders and upper back',
-      'Return to starting position'
-    ],
-    breathingTechnique: 'Exhale while pulling, inhale while returning',
-    tempo: '1-0-2-0',
-    commonMistakes: ['Using momentum', 'Incomplete range of motion', 'Rounding upper back'],
-    injuryRisks: [],
-    benefits: { posture: true },
-    muscleGroups: [
-      { muscleGroup: 'rear_delts', role: 'primary' },
-      { muscleGroup: 'upper_back', role: 'secondary' }
-    ]
-  },
-  {
     name: 'Dumbbell Reverse Fly',
     slug: 'dumbbell-reverse-fly',
     category: 'strength',
@@ -350,5 +269,124 @@ export const shouldersExercises = [
     muscleGroups: [
       { muscleGroup: 'rear_delts', role: 'primary' }
     ]
+  },
+  {
+    name: 'Face Pull',
+    slug: 'face-pull',
+    category: 'strength',
+    difficulty: 'beginner',
+    equipment: ['cable'],
+    location: 'gym',
+    movementPattern: ['pull'],
+    description: 'Cable exercise targeting rear deltoids and upper back, excellent for posture correction.',
+    stepByStep: [
+      'Set cable to upper chest height',
+      'Attach rope handle',
+      'Stand with feet shoulder-width apart',
+      'Pull rope towards face while separating hands',
+      'Squeeze shoulder blades together at end',
+      'Return to starting position with control'
+    ],
+    breathingTechnique: 'Exhale while pulling, inhale while returning',
+    tempo: '1-0-2-0',
+    commonMistakes: ['Pulling too low towards chest', 'Not separating hands enough', 'Using momentum'],
+    injuryRisks: [],
+    benefits: { muscleGrowth: true, posture: true },
+    muscleGroups: [
+      { muscleGroup: 'rear_delts', role: 'primary' },
+      { muscleGroup: 'upper_back', role: 'secondary' }
+    ],
+    videos: {
+      demoVideo: 'https://www.youtube.com/watch?v=rep-qVOkqgk'
+    }
+  },
+  {
+    name: 'Arnold Press',
+    slug: 'arnold-press',
+    category: 'strength',
+    difficulty: 'intermediate',
+    equipment: ['dumbbell', 'bench'],
+    location: 'gym',
+    movementPattern: ['push'],
+    description: 'Advanced dumbbell press variation with rotation targeting all three deltoid heads.',
+    stepByStep: [
+      'Sit upright holding dumbbells at shoulder height, palms facing you',
+      'Press dumbbells up while rotating palms outward',
+      'End with palms facing forward at top',
+      'Reverse the motion on the way down',
+      'Return to starting position'
+    ],
+    breathingTechnique: 'Exhale while pressing, inhale while lowering',
+    tempo: '2-0-1-0',
+    commonMistakes: ['Rushing the rotation', 'Not achieving full range of motion', 'Excessive lower back arch'],
+    injuryRisks: ['Shoulder impingement', 'Rotator cuff strain'],
+    benefits: { muscleGrowth: true },
+    muscleGroups: [
+      { muscleGroup: 'front_delts', role: 'primary' },
+      { muscleGroup: 'side_delts', role: 'primary' },
+      { muscleGroup: 'triceps', role: 'secondary' }
+    ],
+    videos: {
+      demoVideo: 'https://www.youtube.com/watch?v=6Z15_WdXmVw'
+    }
+  },
+  {
+    name: 'Pike Push-Up',
+    slug: 'pike-push-up',
+    category: 'strength',
+    difficulty: 'intermediate',
+    equipment: ['none'],
+    location: 'both',
+    movementPattern: ['push'],
+    description: 'Bodyweight shoulder exercise mimicking overhead press movement pattern.',
+    stepByStep: [
+      'Start in downward dog position with hands shoulder-width apart',
+      'Keep hips elevated and legs as straight as possible',
+      'Bend elbows and lower head towards ground',
+      'Press back up to starting position',
+      'Maintain pike position throughout'
+    ],
+    breathingTechnique: 'Inhale while lowering, exhale while pushing up',
+    tempo: '2-0-1-0',
+    commonMistakes: ['Hips dropping too low', 'Not achieving full range of motion', 'Elbows flaring excessively'],
+    injuryRisks: ['Shoulder strain', 'Wrist strain'],
+    benefits: { muscleGrowth: true, mobility: true },
+    muscleGroups: [
+      { muscleGroup: 'front_delts', role: 'primary' },
+      { muscleGroup: 'triceps', role: 'secondary' }
+    ],
+    videos: {
+      demoVideo: 'https://www.youtube.com/watch?v=x5n4WfzeGH8'
+    }
+  },
+  {
+    name: 'Seated Rear Delt Fly Machine',
+    slug: 'seated-rear-delt-fly-machine',
+    category: 'strength',
+    difficulty: 'beginner',
+    equipment: ['machine'],
+    location: 'gym',
+    movementPattern: ['isolation'],
+    description: 'Machine-based rear deltoid isolation exercise, excellent for beginners.',
+    stepByStep: [
+      'Adjust seat so handles align with shoulder height',
+      'Sit facing the machine with chest against pad',
+      'Grasp handles with neutral grip',
+      'Pull handles back in wide arc motion',
+      'Squeeze shoulder blades together',
+      'Return to starting position with control'
+    ],
+    breathingTechnique: 'Exhale while pulling, inhale while returning',
+    tempo: '1-0-2-0',
+    commonMistakes: ['Seat height incorrect', 'Using too much weight', 'Partial range of motion'],
+    injuryRisks: [],
+    benefits: { muscleGrowth: true, posture: true },
+    muscleGroups: [
+      { muscleGroup: 'rear_delts', role: 'primary' },
+      { muscleGroup: 'upper_back', role: 'secondary' }
+    ],
+    videos: {
+      demoVideo: 'https://www.youtube.com/watch?v=T7a2VoYR6XE'
+    }
   }
 ]

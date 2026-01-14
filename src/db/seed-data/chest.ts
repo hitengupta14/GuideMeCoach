@@ -273,33 +273,6 @@ export const chestExercises = [
 
   // Lower Chest Exercises
   {
-    name: 'Decline Barbell Bench Press',
-    slug: 'decline-barbell-bench-press',
-    category: 'strength',
-    difficulty: 'intermediate',
-    equipment: ['barbell', 'bench'],
-    location: 'gym',
-    movementPattern: ['push'],
-    description: 'Compound movement performed on decline bench targeting the inferior sternal fibers of the chest.',
-    stepByStep: [
-      'Adjust bench to decline position (30-45 degrees)',
-      'Position feet securely in foot pad',
-      'Grip barbell slightly wider than shoulders',
-      'Lower bar to lower chest area',
-      'Press bar upward explosively',
-      'Maintain control throughout movement'
-    ],
-    breathingTechnique: 'Inhale while lowering, exhale while pressing',
-    tempo: '2-0-1-0',
-    commonMistakes: ['Bar trajectory toward neck', 'Feet slipping', 'Incomplete range of motion'],
-    injuryRisks: ['Pectoralis strain', 'Abdominal strain from decline'],
-    benefits: { muscleGrowth: true },
-    muscleGroups: [
-      { muscleGroup: 'lower_chest', role: 'primary' },
-      { muscleGroup: 'triceps', role: 'secondary' }
-    ]
-  },
-  {
     name: 'Decline Dumbbell Press',
     slug: 'decline-dumbbell-press',
     category: 'strength',
@@ -324,34 +297,6 @@ export const chestExercises = [
     muscleGroups: [
       { muscleGroup: 'lower_chest', role: 'primary' },
       { muscleGroup: 'triceps', role: 'secondary' }
-    ]
-  },
-  {
-    name: 'Tricep Dips',
-    slug: 'tricep-dips',
-    category: 'strength',
-    difficulty: 'intermediate',
-    equipment: ['pull_up_bar'],
-    location: 'gym',
-    movementPattern: ['push'],
-    description: 'Bodyweight dip exercise that heavily targets lower chest when leaning forward, with secondary triceps involvement.',
-    stepByStep: [
-      'Grip dip bars with hands shoulder-width apart',
-      'Support yourself with arms extended',
-      'Lean forward at torso angle',
-      'Lower body by bending elbows',
-      'Lower until upper arms parallel to ground',
-      'Drive through palms to return to starting position'
-    ],
-    breathingTechnique: 'Inhale while lowering, exhale while pressing up',
-    tempo: '2-0-1-0',
-    commonMistakes: ['Staying too upright', 'Insufficient range of motion', 'Flaring elbows too wide'],
-    injuryRisks: ['Shoulder impingement', 'Pectoralis strain', 'Elbow strain'],
-    benefits: { muscleGrowth: true, sportsPerformance: true },
-    muscleGroups: [
-      { muscleGroup: 'lower_chest', role: 'primary' },
-      { muscleGroup: 'triceps', role: 'primary' },
-      { muscleGroup: 'front_delts', role: 'secondary' }
     ]
   },
   {

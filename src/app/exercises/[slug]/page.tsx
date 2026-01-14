@@ -4,6 +4,9 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Exercise } from '@/db/schema'
+import { ExerciseAlternatives } from '@/components/ExerciseAlternatives'
+import { RelatedExercises } from '@/components/RelatedExercises'
+import { exerciseAlternatives } from '@/db/add-videos-alternatives'
 
 async function fetchExercise(id: string) {
   const response = await fetch(`/api/exercises/${id}`)
@@ -27,6 +30,15 @@ async function fetchExerciseBySlug(slug: string) {
   return exercise
 }
 
+async function fetchAllExercises() {
+  const response = await fetch('/api/exercises?includeMuscles=true')
+  if (!response.ok) {
+    throw new Error('Failed to fetch exercises')
+  }
+  const data = await response.json()
+  return data.exercises
+}
+
 export default function ExerciseDetailPage() {
   const params = useParams()
   const slug = params.slug as string
@@ -34,6 +46,11 @@ export default function ExerciseDetailPage() {
   const { data: exercise, isLoading, error } = useQuery({
     queryKey: ['exercise', slug],
     queryFn: () => fetchExerciseBySlug(slug),
+  })
+
+  const { data: allExercises } = useQuery({
+    queryKey: ['allExercises'],
+    queryFn: () => fetchAllExercises(),
   })
 
   if (isLoading) {
@@ -63,13 +80,13 @@ export default function ExerciseDetailPage() {
     )
   }
 
-  const difficultyColors = {
+  const difficultyColors: Record<string, string> = {
     beginner: 'bg-green-100 text-green-800',
     intermediate: 'bg-yellow-100 text-yellow-800',
     advanced: 'bg-red-100 text-red-800',
   }
 
-  const categoryIcons = {
+  const categoryIcons: Record<string, string> = {
     strength: '💪',
     mobility: '🔄',
     rehab: '⚕️',
@@ -78,6 +95,30 @@ export default function ExerciseDetailPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
+      {/* SEO: Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'ExerciseAction',
+            name: exercise.name,
+            description: exercise.description,
+            exerciseType: exercise.category,
+            intensityLevel: exercise.difficulty,
+            instructions: exercise.stepByStep,
+            video: exercise.videos?.demoVideo
+              ? {
+                  '@type': 'VideoObject',
+                  name: `How to perform ${exercise.name}`,
+                  description: exercise.description,
+                  contentUrl: exercise.videos.demoVideo,
+                }
+              : undefined,
+          }),
+        }}
+      />
+
       {/* Header */}
       <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white py-8">
         <div className="container mx-auto px-4">
@@ -261,6 +302,12 @@ export default function ExerciseDetailPage() {
                 )}
               </div>
             )}
+
+            {/* Exercise Alternatives */}
+            <ExerciseAlternatives slug={slug} alternatives={exerciseAlternatives[slug]} />
+
+            {/* Related Exercises */}
+            {allExercises && <RelatedExercises currentExercise={exercise} allExercises={allExercises} />}
           </div>
         </div>
       </div>
