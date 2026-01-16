@@ -1,12 +1,16 @@
 'use client'
 
-import type { Metadata } from 'next'
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Exercise } from '@/db/schema'
 import { ExerciseCard } from '@/components/ExerciseCard'
 import { FilterSidebar } from '@/components/FilterSidebar'
 import { LoadingSkeleton, ErrorState, EmptyState } from '@/components/LoadingStates'
+
+// Set page metadata
+if (typeof window !== 'undefined') {
+  document.title = 'Exercise Library - GuideMeCoach'
+}
 
 async function fetchExercises(filters: Record<string, string | null>) {
   const params = new URLSearchParams()

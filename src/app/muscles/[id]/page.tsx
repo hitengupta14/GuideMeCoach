@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Exercise } from '@/db/schema'
+import { useEffect } from 'react'
 
 async function fetchMuscleExercises(muscleId: string) {
   const response = await fetch(`/api/muscles/${muscleId}/exercises`)
@@ -21,6 +22,13 @@ export default function MusclePage() {
     queryKey: ['muscle-exercises', muscleId],
     queryFn: () => fetchMuscleExercises(muscleId),
   })
+
+  // Update page title when data loads
+  useEffect(() => {
+    if (data?.muscleGroup) {
+      document.title = `${data.muscleGroup.displayName} Exercises - GuideMeCoach`
+    }
+  }, [data])
 
   const roleColors = {
     primary: 'bg-red-100 text-red-800',

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, muscleGroups } from '@/db/schema'
-import { eq, ilike, and, inArray } from 'drizzle-orm'
+import { eq, ilike, and, or, sql } from 'drizzle-orm'
 
 export async function GET(request: Request) {
   try {
@@ -38,7 +38,14 @@ export async function GET(request: Request) {
       query = query.where(and(...conditions)) as any
     }
     
-    const results = await query
+    let results = await query
+
+    // Filter by equipment on the client side since it's an array
+    if (equipment) {
+      results = results.filter((ex: any) => 
+        Array.isArray(ex.equipment) && ex.equipment.includes(equipment)
+      )
+    }
     
     // If requested, fetch muscle groups for each exercise
     let enrichedResults = results

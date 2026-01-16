@@ -7,6 +7,7 @@ import { Exercise } from '@/db/schema'
 import { ExerciseAlternatives } from '@/components/ExerciseAlternatives'
 import { RelatedExercises } from '@/components/RelatedExercises'
 import { exerciseAlternatives } from '@/db/add-videos-alternatives'
+import { useEffect } from 'react'
 
 async function fetchExercise(id: string) {
   const response = await fetch(`/api/exercises/${id}`)
@@ -47,6 +48,24 @@ export default function ExerciseDetailPage() {
     queryKey: ['exercise', slug],
     queryFn: () => fetchExerciseBySlug(slug),
   })
+
+  // Update page title when exercise loads
+  useEffect(() => {
+    if (exercise) {
+      document.title = `${exercise.name} - GuideMeCoach`
+      
+      // Add meta description
+      const metaDescription = document.querySelector('meta[name="description"]')
+      if (metaDescription) {
+        metaDescription.setAttribute('content', exercise.description)
+      } else {
+        const meta = document.createElement('meta')
+        meta.name = 'description'
+        meta.content = exercise.description
+        document.head.appendChild(meta)
+      }
+    }
+  }, [exercise])
 
   const { data: allExercises } = useQuery({
     queryKey: ['allExercises'],

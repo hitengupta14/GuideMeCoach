@@ -1,4 +1,16 @@
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'GuideMeCoach - Master Every Exercise with Detailed Instructions & Videos',
+  description: 'Your structured guide to 100+ exercises with step-by-step instructions, video demos, muscle targeting, and medical-safe filtering. Perfect for gym and home workouts.',
+  keywords: ['exercise library', 'workout guide', 'fitness exercises', 'gym exercises', 'home workouts', 'exercise videos', 'muscle training'],
+  openGraph: {
+    title: 'GuideMeCoach - Exercise Knowledge Platform',
+    description: 'Structured exercise library with detailed instructions, videos, and personalized filtering',
+    type: 'website',
+  },
+}
 
 export default function Home() {
   return (

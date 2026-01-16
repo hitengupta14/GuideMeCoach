@@ -1,10 +1,14 @@
 'use client'
 
-import type { Metadata } from 'next'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { MuscleGroup } from '@/db/schema'
 import { LoadingSkeleton, ErrorState } from '@/components/LoadingStates'
+
+// Set page metadata
+if (typeof window !== 'undefined') {
+  document.title = 'Body Map - Browse by Muscle - GuideMeCoach'
+}
 
 async function fetchMuscleGroups() {
   const response = await fetch('/api/muscles')
