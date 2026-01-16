@@ -35,6 +35,19 @@ export default function WorkoutsPage() {
 
         setUser(data.user)
         fetchExercises()
+        
+        // Check if we have exercises from saved plan
+        const savedWorkout = sessionStorage.getItem('workoutExercises')
+        if (savedWorkout) {
+          try {
+            const exercises = JSON.parse(savedWorkout)
+            setSelectedExercises(exercises)
+            setShowLogger(true)
+            sessionStorage.removeItem('workoutExercises')
+          } catch (e) {
+            console.error('Failed to parse saved workout', e)
+          }
+        }
       } catch (err) {
         console.error('Session check failed:', err)
         router.push('/auth/login')

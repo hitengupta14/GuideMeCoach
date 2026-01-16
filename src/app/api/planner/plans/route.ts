@@ -4,7 +4,7 @@ import { workoutPlans, users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
 /**
- * POST /api/planner/save
+ * POST /api/planner/plans
  * Save a generated workout plan for a user
  */
 export async function POST(request: NextRequest) {
@@ -48,61 +48,6 @@ export async function POST(request: NextRequest) {
     console.error('Error saving plan:', error)
     return NextResponse.json(
       { error: 'Failed to save workout plan' },
-      { status: 500 }
-    )
-  }
-}
-
-/**
- * GET /api/planner/plans/:userId
- * Fetch saved workout plans for a user
- */
-export async function GET(request: NextRequest, { params }: { params: { userId: string } }) {
-  try {
-    const { userId } = params
-
-    const plans = await db.query.workoutPlans.findMany({
-      where: eq(workoutPlans.userId, userId),
-    })
-
-    return NextResponse.json({
-      success: true,
-      plans,
-    })
-  } catch (error) {
-    console.error('Error fetching plans:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch workout plans' },
-      { status: 500 }
-    )
-  }
-}
-
-/**
- * DELETE /api/planner/plans/:planId
- * Delete a workout plan
- */
-export async function DELETE(request: NextRequest, { params }: { params: { planId: string } }) {
-  try {
-    const { planId } = params
-
-    const result = await db.delete(workoutPlans).where(eq(workoutPlans.id, planId)).returning()
-
-    if (result.length === 0) {
-      return NextResponse.json(
-        { error: 'Plan not found' },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Plan deleted successfully',
-    })
-  } catch (error) {
-    console.error('Error deleting plan:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete workout plan' },
       { status: 500 }
     )
   }

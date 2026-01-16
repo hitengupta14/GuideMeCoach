@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { QuestionnaireForm } from '@/components/QuestionnaireForm'
 import PlanDisplay from '@/components/PlanDisplay'
+import MyPlans from '@/components/MyPlans'
 import type { UserPreferences, WeeklyPlan } from '@/lib/planner/types'
 
 type PageState = 'questionnaire' | 'loading' | 'display' | 'error'
@@ -12,6 +13,7 @@ export default function PlannerPageClient() {
   const [plan, setPlan] = useState<WeeklyPlan | null>(null)
   const [metadata, setMetadata] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [user, setUser] = useState<{ id: string; name?: string } | null>(null)
 
   const handleGeneratePlan = async (preferences: UserPreferences) => {
     setPageState('loading')
@@ -46,6 +48,49 @@ export default function PlannerPageClient() {
     setPlan(null)
     setMetadata(null)
     setError(null)
+  }
+
+  // Fetch current session user for Save Plan action
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await fetch('/api/auth/session', { credentials: 'include' })
+        const data = await res.json()
+        if (res.ok && data.user) {
+          setUser({ id: data.user.id, name: data.user.name })
+        }
+      } catch (e) {
+        // silently ignore
+      }
+    }
+    fetchUser()
+  }, [])
+
+  const handleSavePlan = async () => {
+    if (!user || !plan) {
+      alert('Please login to save your plan.')
+      return
+    }
+    try {
+      const response = await fetch('/api/planner/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          planData: plan,
+          name: 'My Personalized Plan',
+          description: 'Generated via GuideMeCoach Planner',
+          durationWeeks: metadata?.durationWeeks || 12,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save plan')
+      }
+      alert('Plan saved successfully!')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save plan')
+    }
   }
 
   return (
@@ -95,6 +140,14 @@ export default function PlannerPageClient() {
               >
                 Create New Plan
               </button>
+              {user && (
+                <button
+                  onClick={handleSavePlan}
+                  className="ml-4 px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                >
+                  Save Plan
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -111,6 +164,12 @@ export default function PlannerPageClient() {
                 Try Again
               </button>
             </div>
+          </div>
+        )}
+
+        {user && (
+          <div className="max-w-6xl mx-auto mt-8">
+            <MyPlans userId={user.id} />
           </div>
         )}
       </div>
