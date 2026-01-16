@@ -1,38 +1,57 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, muscleGroups } from '@/db/schema'
-import { eq, ilike, and, or, sql } from 'drizzle-orm'
+import { eq, ilike, and, sql } from 'drizzle-orm'
+import { exerciseFilterSchema } from '@/lib/validations'
+import { logger } from '@/lib/logger'
+import { apiRateLimiter } from '@/lib/rate-limit'
+import { z } from 'zod'
 
 export async function GET(request: Request) {
   try {
+    // Rate limiting
+    const rateLimitResult = apiRateLimiter(request)
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimitResult.retryAfter) },
+        }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     
-    const category = searchParams.get('category')
-    const difficulty = searchParams.get('difficulty')
-    const equipment = searchParams.get('equipment')
-    const location = searchParams.get('location')
-    const search = searchParams.get('search')
-    const includeMuscles = searchParams.get('includeMuscles') === 'true'
-    
-    let query = db.select().from(exercises)
-    
+    // Parse and validate query parameters
+    const filters = exerciseFilterSchema.parse({
+      category: searchParams.get('category'),
+      difficulty: searchParams.get('difficulty'),
+      equipment: searchParams.get('equipment'),
+      location: searchParams.get('location'),
+      search: searchParams.get('search'),
+      includeMuscles: searchParams.get('includeMuscles') === 'true',
+    })
+
     const conditions = []
     
-    if (category) {
-      conditions.push(eq(exercises.category, category as any))
+    if (filters.category) {
+      conditions.push(eq(exercises.category, filters.category as any))
     }
     
-    if (difficulty) {
-      conditions.push(eq(exercises.difficulty, difficulty as any))
+    if (filters.difficulty) {
+      conditions.push(eq(exercises.difficulty, filters.difficulty as any))
     }
     
-    if (location) {
-      conditions.push(eq(exercises.location, location as any))
+    if (filters.location) {
+      conditions.push(eq(exercises.location, filters.location as any))
     }
     
-    if (search) {
-      conditions.push(ilike(exercises.name, `%${search}%`))
+    if (filters.search) {
+      conditions.push(ilike(exercises.name, `%${filters.search}%`))
     }
+
+    let query = db.select().from(exercises)
     
     if (conditions.length > 0) {
       query = query.where(and(...conditions)) as any
@@ -40,16 +59,16 @@ export async function GET(request: Request) {
     
     let results = await query
 
-    // Filter by equipment on the client side since it's an array
-    if (equipment) {
+    // Filter by equipment (array contains)
+    if (filters.equipment) {
       results = results.filter((ex: any) => 
-        Array.isArray(ex.equipment) && ex.equipment.includes(equipment)
+        Array.isArray(ex.equipment) && ex.equipment.includes(filters.equipment)
       )
     }
     
-    // If requested, fetch muscle groups for each exercise
+    // Add muscle groups if requested
     let enrichedResults = results
-    if (includeMuscles) {
+    if (filters.includeMuscles) {
       enrichedResults = await Promise.all(
         results.map(async (exercise) => {
           const muscles = await db
@@ -69,13 +88,26 @@ export async function GET(request: Request) {
         })
       )
     }
+
+    logger.info('Exercises fetched', { count: enrichedResults.length, filters })
     
     return NextResponse.json({ 
       exercises: enrichedResults,
       count: enrichedResults.length 
     })
   } catch (error) {
-    console.error('Error fetching exercises:', error)
+    if (error instanceof z.ZodError) {
+      logger.warn('Exercise filter validation failed', { errors: error.issues })
+      return NextResponse.json(
+        { 
+          error: 'Invalid filter parameters',
+          issues: error.issues.map(i => ({ path: i.path.join('.'), message: i.message })),
+        },
+        { status: 400 }
+      )
+    }
+
+    logger.error('Error fetching exercises', error as Error)
     return NextResponse.json(
       { error: 'Failed to fetch exercises' },
       { status: 500 }

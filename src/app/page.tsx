@@ -1,18 +1,49 @@
-import Link from 'next/link'
-import type { Metadata } from 'next'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'GuideMeCoach - Master Every Exercise with Detailed Instructions & Videos',
-  description: 'Your structured guide to 100+ exercises with step-by-step instructions, video demos, muscle targeting, and medical-safe filtering. Perfect for gym and home workouts.',
-  keywords: ['exercise library', 'workout guide', 'fitness exercises', 'gym exercises', 'home workouts', 'exercise videos', 'muscle training'],
-  openGraph: {
-    title: 'GuideMeCoach - Exercise Knowledge Platform',
-    description: 'Structured exercise library with detailed instructions, videos, and personalized filtering',
-    type: 'website',
-  },
-}
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function Home() {
+  const router = useRouter()
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    // Check session via cookie
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.user) {
+            router.replace('/dashboard')
+            return
+          }
+        }
+      } catch (err) {
+        // Not logged in, continue to home page
+      } finally {
+        setChecking(false)
+      }
+    }
+
+    checkSession()
+  }, [router])
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <main className="min-h-screen">
       {/* Hero Section */}
@@ -164,17 +195,25 @@ export default function Home() {
       <section className="py-16 bg-gradient-to-r from-primary-600 to-primary-700 text-white">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">
-            Start Your Fitness Journey Today
+            Ready to Transform Your Fitness?
           </h2>
           <p className="text-primary-100 mb-8 text-lg">
-            Browse exercises by muscle group or explore our complete library
+            Start for free and unlock your full potential
           </p>
-          <Link 
-            href="/exercises" 
-            className="inline-block bg-white text-primary-700 px-8 py-4 rounded-lg font-semibold hover:bg-primary-50 transition-all transform hover:scale-105 shadow-lg"
-          >
-            Get Started →
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link 
+              href="/auth/signup" 
+              className="inline-block bg-white text-primary-700 px-8 py-4 rounded-lg font-semibold hover:bg-primary-50 transition-all transform hover:scale-105 shadow-lg"
+            >
+              Sign Up Free →
+            </Link>
+            <Link 
+              href="/exercises" 
+              className="inline-block bg-primary-500 text-white px-8 py-4 rounded-lg font-semibold hover:bg-primary-400 transition-all border-2 border-white/20"
+            >
+              Explore First
+            </Link>
+          </div>
         </div>
       </section>
     </main>

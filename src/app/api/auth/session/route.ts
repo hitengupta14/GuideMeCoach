@@ -1,0 +1,46 @@
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { db } from '@/db'
+import { users } from '@/db/schema'
+import { eq } from 'drizzle-orm'
+import { logger } from '@/lib/logger'
+
+export async function GET() {
+  try {
+    const cookieStore = cookies()
+    const sessionToken = cookieStore.get('session')?.value
+
+    if (!sessionToken) {
+      return NextResponse.json({ user: null }, { status: 401 })
+    }
+
+    // Find user by session token
+    const [user] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        height: users.height,
+        weight: users.weight,
+        age: users.age,
+        experienceLevel: users.experienceLevel,
+        goals: users.goals,
+        emailVerified: users.emailVerified,
+      })
+      .from(users)
+      .where(eq(users.id, sessionToken))
+      .limit(1)
+
+    if (!user) {
+      logger.warn('Invalid session token')
+      return NextResponse.json({ user: null }, { status: 401 })
+    }
+
+    logger.info('Session validated', { userId: user.id })
+    
+    return NextResponse.json({ user })
+  } catch (error) {
+    logger.error('Session validation error', error as Error)
+    return NextResponse.json({ user: null }, { status: 500 })
+  }
+}
