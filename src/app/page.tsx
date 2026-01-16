@@ -34,8 +34,14 @@ export default function Home() {
                 Explore Exercise Library
               </Link>
               <Link 
-                href="/body-map" 
+                href="/planner" 
                 className="bg-primary-500 text-white px-8 py-4 rounded-lg font-semibold hover:bg-primary-400 transition-all border-2 border-white/20"
+              >
+                Create Your Plan
+              </Link>
+              <Link 
+                href="/body-map" 
+                className="bg-primary-400 text-white px-8 py-4 rounded-lg font-semibold hover:bg-primary-300 transition-all"
               >
                 Browse by Muscle
               </Link>
@@ -74,7 +80,7 @@ export default function Home() {
           <h2 className="text-3xl font-bold text-center mb-12">
             Why GuideMeCoach?
           </h2>
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-4 gap-8 max-w-6xl mx-auto">
             <div className="text-center">
               <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">📚</span>
@@ -104,6 +110,51 @@ export default function Home() {
                 Home workout options, equipment alternatives, and guidance 
                 for Indian fitness enthusiasts
               </p>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">📋</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-3">Smart Planner</h3>
+              <p className="text-gray-600">
+                Personalized 12-week plans based on goals, experience, 
+                and medical conditions
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Planner CTA Section */}
+      <section className="py-16 bg-gradient-to-b from-blue-50 to-blue-100">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-lg shadow-lg p-8">
+              <div className="flex gap-8 items-center">
+                <div className="flex-shrink-0">
+                  <div className="text-5xl">📋</div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-3xl font-bold mb-2">Get Your Personalized Plan</h3>
+                  <p className="text-gray-600 mb-4">
+                    Answer a quick questionnaire and get a custom 12-week workout plan tailored to:
+                  </p>
+                  <ul className="grid grid-cols-2 gap-2 text-gray-700 mb-6">
+                    <li>✓ Your fitness goals</li>
+                    <li>✓ Experience level</li>
+                    <li>✓ Available equipment</li>
+                    <li>✓ Medical conditions</li>
+                    <li>✓ Time availability</li>
+                    <li>✓ Location preference</li>
+                  </ul>
+                  <Link 
+                    href="/planner"
+                    className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+                  >
+                    Create Your Plan Now →
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         </div>
