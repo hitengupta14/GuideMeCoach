@@ -51,7 +51,7 @@ export default function ChatPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Chatbot userId={user.id} />
+      <Chatbot />
     </div>
   )
 }

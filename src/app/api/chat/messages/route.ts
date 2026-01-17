@@ -1,11 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { jwtVerify } from 'jose'
 import { db } from '@/db'
-import { chatMessages } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { chatMessages, users, chatConversations } from '@/db/schema'
+import { eq, and, desc } from 'drizzle-orm'
+import { logger } from '@/lib/logger'
+import { apiRateLimiter } from '@/lib/rate-limit'
+import { generateChatResponse, isOpenAIConfigured } from '@/lib/ai'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+
+// Helper to verify session and get userId
+async function verifySession(request: NextRequest): Promise<string | null> {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get('session')?.value
+
+    if (!token) return null
+
+    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    if (!verified) return null
+
+    return verified.payload.userId as string
+  } catch {
+    return null
+  }
+}
 
 // Get messages in a conversation
 export async function GET(request: NextRequest) {
   try {
+    // Verify session
+    const userId = await verifySession(request)
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const conversationId = searchParams.get('conversationId')
 
@@ -13,33 +43,112 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Valid conversationId is required' }, { status: 400 })
     }
 
+    // Verify conversation belongs to user
+    const [conversation] = await db
+      .select()
+      .from(chatConversations)
+      .where(
+        and(
+          eq(chatConversations.id, conversationId),
+          eq(chatConversations.userId, userId)
+        )
+      )
+      .limit(1)
+
+    if (!conversation) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+    }
+
     const messages = await db
       .select()
       .from(chatMessages)
       .where(eq(chatMessages.conversationId, conversationId))
+      .orderBy(chatMessages.createdAt)
 
     return NextResponse.json(messages)
   } catch (error) {
-    console.error('Error fetching messages:', error)
+    logger.error('Error fetching messages', error as Error)
     return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 })
   }
 }
 
+
 // Add a message to a conversation
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { conversationId, userId, role, content } = body
-
-    if (!conversationId || !userId || !role || !content) {
+    // Rate limiting
+    const rateLimitResult = apiRateLimiter(request)
+    if (!rateLimitResult.allowed) {
       return NextResponse.json(
-        { error: 'conversationId, userId, role, and content are required' },
+        { error: 'Too many requests. Please try again later.' },
+        { 
+          status: 429,
+          headers: { 'Retry-After': rateLimitResult.retryAfter?.toString() || '60' }
+        }
+      )
+    }
+
+    // Verify session
+    const userId = await verifySession(request)
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { conversationId, content } = body
+
+    if (!conversationId || !content || typeof content !== 'string') {
+      return NextResponse.json(
+        { error: 'conversationId and content are required' },
         { status: 400 }
       )
     }
 
-    // Add user message
-    const userMessage = await db
+    // Verify conversation belongs to user
+    const [conversation] = await db
+      .select()
+      .from(chatConversations)
+      .where(
+        and(
+          eq(chatConversations.id, conversationId),
+          eq(chatConversations.userId, userId)
+        )
+      )
+      .limit(1)
+
+    if (!conversation) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+    }
+
+    // Get user profile for context
+    const [user] = await db
+      .select({
+        name: users.name,
+        experienceLevel: users.experienceLevel,
+        goals: users.goals,
+        medicalConditions: users.medicalConditions,
+        age: users.age,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+
+    // Get conversation history (last 10 messages for context)
+    const previousMessages = await db
+      .select({
+        role: chatMessages.role,
+        content: chatMessages.content,
+      })
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, conversationId))
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(10)
+
+    // Reverse to chronological order
+    const conversationHistory = previousMessages.reverse()
+
+    // Save user message
+    const [userMessage] = await db
       .insert(chatMessages)
       .values({
         conversationId,
@@ -49,142 +158,150 @@ export async function POST(request: NextRequest) {
       })
       .returning()
 
-    // Generate and add AI response
-    const aiResponse = await generateResponse(content, conversationId)
-    const assistantMessage = await db
+    logger.info('User message saved', { conversationId, userId })
+
+    // Generate AI response
+    let aiResponseText: string
+    
+    if (isOpenAIConfigured()) {
+      try {
+        // Build message history for AI
+        const messages = [
+          ...conversationHistory.map(msg => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content,
+          })),
+          { role: 'user' as const, content },
+        ]
+
+        aiResponseText = await generateChatResponse(messages, {
+          name: user?.name || undefined,
+          experienceLevel: user?.experienceLevel || undefined,
+          goals: user?.goals || undefined,
+          medicalConditions: user?.medicalConditions || undefined,
+          age: user?.age || undefined,
+        })
+      } catch (aiError) {
+        logger.error('AI generation failed, using fallback', aiError as Error)
+        aiResponseText = getFallbackResponse(content)
+      }
+    } else {
+      logger.warn('OpenAI not configured, using rule-based responses')
+      aiResponseText = getFallbackResponse(content)
+    }
+
+    // Save AI response
+    const [assistantMessage] = await db
       .insert(chatMessages)
       .values({
         conversationId,
         userId,
         role: 'assistant',
-        content: aiResponse,
+        content: aiResponseText,
       })
       .returning()
 
+    // Update conversation timestamp
+    await db
+      .update(chatConversations)
+      .set({ updatedAt: new Date() })
+      .where(eq(chatConversations.id, conversationId))
+
+    logger.info('Assistant message generated', { conversationId })
+
     return NextResponse.json(
       {
-        userMessage: userMessage[0],
-        assistantMessage: assistantMessage[0],
+        userMessage,
+        assistantMessage,
       },
       { status: 201 }
     )
   } catch (error) {
-    console.error('Error adding message:', error)
+    logger.error('Error adding message', error as Error)
     return NextResponse.json({ error: 'Failed to add message' }, { status: 500 })
   }
 }
 
-// Rule-based response generator
-async function generateResponse(userMessage: string, conversationId: string): Promise<string> {
+// Fallback response when OpenAI is not available
+function getFallbackResponse(userMessage: string): string {
   const lower = userMessage.toLowerCase()
 
   // Exercise form responses
   if (lower.includes('form') || lower.includes('technique')) {
-    if (lower.includes('shoulder')) {
-      return `For shoulder exercises, form is critical. Key points:
+    if (lower.includes('squat')) {
+      return `Great question about squats! Here are key form points:
+      
+✓ **Feet**: Shoulder-width apart, toes slightly out
+✓ **Depth**: Aim for parallel or below
+✓ **Back**: Neutral spine, chest up
+✓ **Weight**: On heels and midfoot
 
-✓ **Overhead Press**: Stable core, full-body tension, press straight up
-✓ **Lateral Raises**: Control the weight, slight arm bend, lead with elbows
-✓ **Pull-ups**: Full range, controlled descent, scapular engagement
-
-The shoulder is complex - improper form can lead to injury. Start light and focus on feeling the target muscle work.
-
-What specific shoulder movement are you working on?`
+Start light and master the form. Would you like tips for a specific issue?`
     }
 
-    if (lower.includes('back') || lower.includes('deadlift')) {
-      return `Back health is crucial! Here's proper form:
+    if (lower.includes('bench')) {
+      return `Bench press form is crucial! Key points:
 
-✓ **Deadlift**: Neutral spine, shoulders over bar, drive through heels
-✓ **Rows**: Retract shoulder blades, keep elbows close, neutral spine
-✓ **Lat pulldowns**: Control the movement, full range, retract lats
+✓ **Setup**: Flat back, shoulder blades retracted
+✓ **Grip**: Slightly wider than shoulders
+✓ **Path**: Lower to mid-chest, elbows ~45°
+✓ **Drive**: Explosive press up
 
-Never sacrifice form for weight. A lighter properly executed rep beats a heavy sloppy one.
-
-Any other questions about back training?`
+Focus on controlled reps over heavy weight. What aspect needs work?`
     }
 
-    if (lower.includes('knee') || lower.includes('leg')) {
-      return `Leg training form prevents injury:
+    return `I can help with proper form! Common exercises I cover:
 
-✓ **Squats**: Knees track over toes, neutral spine, depth matters
-✓ **Leg Press**: Back and head against pad, knees slightly past parallel
-✓ **Hamstring Curl**: Controlled movement, full range
+- Squat variations
+- Bench press and pressing
+- Deadlifts and hinges
+- Row variations
+- Overhead pressing
 
-Watch out for knee caving or rounding your lower back. These are common issues that lead to pain.
-
-Do you have pain during any leg movements?`
-    }
-  }
-
-  // Progressive overload guidance
-  if (lower.includes('progress') || lower.includes('overload') || lower.includes('more weight')) {
-    return `Great question on progression! Here's how to progress safely:
-
-**Progressive Overload Methods**:
-1. **Increase Weight**: Add 2-5% weekly (smallest increment available)
-2. **Increase Volume**: More reps or sets
-3. **Increase Frequency**: Train the muscle more often
-4. **Decrease Rest**: Shorter rest periods
-5. **Improve Form**: Better control and range
-
-**Rule of 10s**: Once you hit 10+ reps comfortably, increase weight next session.
-
-Most people try to go too heavy too fast. Patience with progression prevents injury and builds sustainable gains.
-
-What lift are you looking to progress on?`
+What specific exercise would you like form tips for?`
   }
 
   // Injury and safety
-  if (lower.includes('hurt') || lower.includes('pain') || lower.includes('sore')) {
-    return `Listen to your body! Let me help:
+  if (lower.includes('hurt') || lower.includes('pain') || lower.includes('injury')) {
+    return `⚠️ **Safety First!**
 
-**Soreness vs Injury**:
-- Soreness: Delayed onset (24-48h), dull, improves with activity ✓
-- Injury: Immediate, sharp, worsens with activity ✗
+**Stop if you experience**:
+- Sharp, shooting pain
+- Joint popping with pain
+- Pain that worsens during movement
 
-**If You Have Pain**:
-1. Stop the exercise immediately
-2. Assess: Can you move the joint?
-3. Alternative: Is there a pain-free version?
-4. Recovery: Ice, rest, and avoid the aggravating movement
+**Normal sensations**:
+- Muscle burn/fatigue ✓
+- Delayed soreness (24-48h later) ✓
 
-**Common Issues**:
-- Knee pain: Usually form-related, often fixable
-- Shoulder pain: Often from overhead positions
-- Lower back: Usually from rounding or poor bracing
-
-Tell me where the pain is and when it occurs, and I can help find alternatives!`
+For persistent pain, please consult a healthcare professional. I can suggest alternative exercises if you describe where and when the pain occurs.`
   }
 
-  // Motivation and consistency
-  if (lower.includes('motivation') || lower.includes('consistent') || lower.includes('quit')) {
-    return `Stay motivated! Here's what works:
+  // Progressive overload
+  if (lower.includes('progress') || lower.includes('stronger') || lower.includes('weight')) {
+    return `Progressive overload strategies:
 
-**Build Consistency**:
-1. **Make it easy**: Same time, same place
-2. **Track progress**: Log every workout (you're already doing this!)
-3. **Find your why**: Clear goal matters
-4. **Community**: Share goals with friends
-5. **Celebrate small wins**: Every workout counts
+1. **Add Weight**: 2-5% when you hit target reps
+2. **Add Reps**: Increase by 1-2 reps per set
+3. **Add Sets**: Extra volume for the exercise
+4. **Improve Form**: Better range and control
+5. **Decrease Rest**: Shorter rest between sets
 
-**Remember**:
-- Progress isn't linear - plateaus are normal
-- Rest days are productive - recovery = growth
-- Results take time - trust the process (8-12 weeks minimum)
-- You're already here - that's the hardest step!
-
-You've got a solid plan and tracking system. Keep going! What's your biggest goal?`
+Progress takes time - be patient and consistent! What lift are you working on?`
   }
 
-  // Default helpful response
-  return `I'm here to support your fitness journey! I can help with:
+  // Default
+  return `I'm here to help with your fitness journey! 
 
-💪 Exercise form and technique
-📈 Progressive overload strategies  
-🛡️ Injury prevention and modifications
-🎯 Training principles and programming
-✨ Staying motivated and consistent
+💪 **I can assist with**:
+- Exercise form and technique
+- Progressive overload strategies
+- Injury prevention
+- Alternative exercises
+- Training principles
 
-Feel free to ask about any of these topics. What's on your mind?`
+*Note: AI features are enhanced with OpenAI. Currently using basic assistance.*
+
+What would you like to know?`
 }
+

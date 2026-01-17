@@ -2,12 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Exercise } from '@/db/schema'
 import { ExerciseAlternatives } from '@/components/ExerciseAlternatives'
 import { RelatedExercises } from '@/components/RelatedExercises'
 import { exerciseAlternatives } from '@/db/add-videos-alternatives'
 import { useEffect } from 'react'
+import { usePlanHistory } from '@/context/PlanContext'
 
 async function fetchExercise(id: string) {
   const response = await fetch(`/api/exercises/${id}`)
@@ -42,6 +43,8 @@ async function fetchAllExercises() {
 
 export default function ExerciseDetailPage() {
   const params = useParams()
+  const router = useRouter()
+  const { previousPage } = usePlanHistory()
   const slug = params.slug as string
 
   const { data: exercise, isLoading, error } = useQuery({
@@ -141,9 +144,18 @@ export default function ExerciseDetailPage() {
       {/* Header */}
       <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white py-8">
         <div className="container mx-auto px-4">
-          <Link href="/exercises" className="text-primary-100 hover:text-white mb-4 inline-block">
-            ← Back to Exercises
-          </Link>
+          <button
+            onClick={() => {
+              if (previousPage && previousPage !== '/exercises') {
+                router.push(previousPage)
+              } else {
+                router.back()
+              }
+            }}
+            className="text-primary-100 hover:text-white mb-4 inline-block"
+          >
+            ← Back
+          </button>
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-4 mb-2">

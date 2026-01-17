@@ -21,13 +21,16 @@
     "drizzle-orm": "^0.29.3",
     "jose": "^5.4.1",
     "next": "^14.0.4",
+    "openai": "^6.16.0",
+    "pg": "8.17.1",
     "postgres": "^3.4.3",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.2.0",
-    "zod": "^3.22.4",
-    "pg":"8.17.1"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",

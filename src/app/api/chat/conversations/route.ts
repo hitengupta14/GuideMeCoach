@@ -1,23 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { jwtVerify } from 'jose'
 import { db } from '@/db'
 import { chatConversations, chatMessages } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { logger } from '@/lib/logger'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+
+// Helper to verify session
+async function verifySession(request: NextRequest): Promise<string | null> {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get('session')?.value
+
+    if (!token) return null
+
+    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    if (!verified) return null
+
+    return verified.payload.userId as string
+  } catch {
+    return null
+  }
+}
 
 // Create a new conversation
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { userId, topic, title, firstMessage } = body
+    // Verify session
+    const userId = await verifySession(request)
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!userId || !topic || !title) {
+    const body = await request.json()
+    const { topic, title, firstMessage } = body
+
+    if (!topic || !title) {
       return NextResponse.json(
-        { error: 'userId, topic, and title are required' },
+        { error: 'topic and title are required' },
         { status: 400 }
       )
     }
 
+
     // Create conversation
-    const newConversation = await db
+    const [conversation] = await db
       .insert(chatConversations)
       .values({
         userId,
@@ -26,7 +55,7 @@ export async function POST(request: NextRequest) {
       })
       .returning()
 
-    const conversation = newConversation[0]
+    logger.info('Conversation created', { conversationId: conversation.id, userId })
 
     // Add first user message if provided
     if (firstMessage) {
@@ -37,19 +66,19 @@ export async function POST(request: NextRequest) {
         content: firstMessage,
       })
 
-      // Add AI response (basic rules-based for now)
-      const aiResponse = await generateAIResponse(firstMessage, topic, userId)
+      // Add welcome AI response
+      const welcomeMessage = getWelcomeMessage(topic)
       await db.insert(chatMessages).values({
         conversationId: conversation.id,
         userId,
         role: 'assistant',
-        content: aiResponse,
+        content: welcomeMessage,
       })
     }
 
     return NextResponse.json(conversation, { status: 201 })
   } catch (error) {
-    console.error('Error creating conversation:', error)
+    logger.error('Error creating conversation', error as Error)
     return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
   }
 }
@@ -57,140 +86,69 @@ export async function POST(request: NextRequest) {
 // Get user's conversations
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const userId = searchParams.get('userId')
-
+    // Verify session
+    const userId = await verifySession(request)
     if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const conversations = await db
       .select()
       .from(chatConversations)
       .where(eq(chatConversations.userId, userId))
+      .orderBy(chatConversations.updatedAt)
 
     return NextResponse.json(conversations)
   } catch (error) {
-    console.error('Error fetching conversations:', error)
+    logger.error('Error fetching conversations', error as Error)
     return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 })
   }
 }
 
-// Basic rules-based AI response generator
-async function generateAIResponse(userMessage: string, topic: string, userId: string): Promise<string> {
-  const lowerMessage = userMessage.toLowerCase()
+// Welcome messages based on topic
+function getWelcomeMessage(topic: string): string {
+  const messages: Record<string, string> = {
+    exercise_form: `👋 Welcome! I'm your fitness coach, here to help you perfect your exercise form.
 
-  // Exercise form guidance
-  if (topic === 'exercise_form') {
-    if (lowerMessage.includes('squat')) {
-      return `Great question about squats! Here are key form points:
-      
-✓ **Feet**: Shoulder-width apart, toes slightly out (5-15°)
-✓ **Depth**: Aim for parallel or below (knees ~90°)
-✓ **Back**: Neutral spine, slight forward lean
-✓ **Chest**: Keep up and proud
-✓ **Weight**: On heels and midfoot, not toes
+Whether you're learning a new movement or refining your technique, I can provide:
+- Detailed form breakdowns
+- Common mistakes to avoid
+- Cues to improve execution
+- Progressive variations
 
-**Common Mistakes**:
-✗ Knees caving inward
-✗ Rounding lower back
-✗ Leaning too far forward
-
-Start light and master the form before adding weight. Would you like tips for any specific issue?`
-    }
-
-    if (lowerMessage.includes('bench') || lowerMessage.includes('press')) {
-      return `Excellent - bench press form is crucial! Here's the breakdown:
-
-✓ **Setup**: Flat back on bench, shoulder blades retracted
-✓ **Grip**: Hands slightly wider than shoulders
-✓ **Path**: Lower bar to mid-chest, keep elbows ~45°
-✓ **Feet**: Flat on floor, drive them down
-✓ **Head**: Neutral position against bench
-
-**Form Cues**:
-- Create a "leg drive" - push feet for stability
-- Retract shoulder blades before starting
-- Control the descent (2-3 seconds)
-- Explosive drive up
-
-Focus on controlled reps over heavy weight. What aspect would you like to improve?`
-    }
-
-    return `I'd be happy to help with your form! I can provide guidance on:
+What exercise would you like to work on?`,
     
-- Squat variations (back, front, goblet)
-- Bench press and variations
-- Deadlifts and hinges
-- Shoulder pressing
-- Row variations
-- And many more!
+    alternative_exercises: `👋 Hi! I'm here to help you find the perfect exercise alternatives.
 
-What specific exercise would you like form tips for?`
+I can suggest substitutes based on:
+- Available equipment
+- Injury limitations
+- Training goals
+- Personal preferences
+
+Tell me what exercise you're looking to replace and why!`,
+    
+    safety: `👋 Safety is our top priority! I'm here to help you train smart and avoid injuries.
+
+I can help with:
+- Pain assessment and alternatives
+- Injury prevention strategies
+- Safe progression guidelines
+- Form corrections
+
+What safety concerns do you have?`,
+    
+    general: `👋 Welcome! I'm your AI fitness coach, ready to help with all your training questions.
+
+I can assist with:
+💪 Exercise technique
+📈 Progressive overload
+🛡️ Injury prevention
+🎯 Training programming
+✨ Motivation tips
+
+What's on your mind today?`,
   }
 
-  // Alternative exercises
-  if (topic === 'alternative_exercises') {
-    if (lowerMessage.includes('no equipment') || lowerMessage.includes('home')) {
-      return `Perfect! Here are effective alternatives without equipment:
-
-**For Chest**: Push-ups, Diamond push-ups, Decline push-ups
-**For Back**: Reverse snow angels, Superman holds, Door frame rows (resistance band optional)
-**For Legs**: Bodyweight squats, Lunges, Step-ups, Glute bridges
-**For Arms**: Pike push-ups (shoulders), Tricep dips (bench)
-**For Core**: Planks, Dead bugs, Bird dogs
-
-All of these can build serious strength and muscle. Progressive overload by:
-- Increasing reps
-- Adding tempo work (slower negatives)
-- Changing angles
-- Adding pauses
-
-Which movement pattern interests you most?`
-    }
-
-    return `I can suggest alternatives based on your needs:
-
-Tell me:
-- What's your current exercise?
-- Why do you need an alternative? (Equipment, injury, boredom)
-- What's your fitness goal?
-
-This helps me recommend the best swap-in exercise!`
-  }
-
-  // Safety questions
-  if (topic === 'safety' || lowerMessage.includes('pain') || lowerMessage.includes('injury')) {
-    return `Safety first! Here's important info:
-
-⚠️ **When to STOP immediately**:
-- Sharp, shooting pain
-- Chest pain or difficulty breathing
-- Dizziness or nausea
-- Joint popping with pain
-
-✓ **Normal sensations**:
-- Muscle burn/fatigue
-- Delayed onset muscle soreness (next day)
-- Pump/fullness
-
-**General Guidelines**:
-1. Start with light weight to learn form
-2. Increase gradually (5-10% per week)
-3. Listen to your body
-4. Rest between intense sessions
-5. Proper nutrition aids recovery
-
-If you have pain during a specific movement, we can find alternatives. What concerns you?`
-  }
-
-  // Default response
-  return `I'm here to help with your fitness questions! I can assist with:
-
-💪 **Exercise Form** - Technique and cues for proper form
-🔄 **Alternatives** - Exercise swaps based on your needs
-⚠️ **Safety** - Injury prevention and listening to your body
-💡 **General Questions** - Fitness principles and programming
-
-What would you like to know about?`
+  return messages[topic] || messages.general
 }

@@ -1,9 +1,9 @@
 import { Metadata } from 'next'
-import PlannerPageClient from './client'
+import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = {
   title: 'Workout Planner | GuideMeCoach',
-  description: 'Create your personalized workout plan based on your goals, experience level, and medical conditions',
+  description: 'Create your personalized workout plan using AI or custom selection',
   openGraph: {
     title: 'Workout Planner | GuideMeCoach',
     description: 'Create your personalized workout plan',
@@ -11,5 +11,6 @@ export const metadata: Metadata = {
 }
 
 export default function PlannerPage() {
-  return <PlannerPageClient />
+  // Redirect to the unified planner
+  redirect('/planner/unified')
 }

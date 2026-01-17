@@ -1,25 +1,28 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
 
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
   createdAt: string
+  streaming?: boolean
 }
 
 interface ChatbotProps {
-  userId: string
   conversationId?: string
 }
 
-export default function Chatbot({ userId, conversationId: initialConversationId }: ChatbotProps) {
+export default function Chatbot({ conversationId: initialConversationId }: ChatbotProps) {
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId || null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [topic, setTopic] = useState<string | null>(null)
+  const [streamingMessage, setStreamingMessage] = useState<string>('')
+  const [isStreaming, setIsStreaming] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom
@@ -58,12 +61,16 @@ export default function Chatbot({ userId, conversationId: initialConversationId 
       const response = await fetch('/api/chat/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          userId,
           topic: selectedTopic,
           title: `${selectedTopic} Discussion`,
         }),
       })
+
+      if (!response.ok) {
+        throw new Error('Failed to create conversation')
+      }
 
       const data = await response.json()
       setConversationId(data.id)
@@ -77,47 +84,147 @@ export default function Chatbot({ userId, conversationId: initialConversationId 
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || !conversationId || loading) return
+    if (!input.trim() || !conversationId || loading || isStreaming) return
 
     const userMessage = input
     setInput('')
     setLoading(true)
 
+    // Add user message immediately
+    const tempUserMessage: Message = {
+      id: 'temp-' + Date.now(),
+      role: 'user',
+      content: userMessage,
+      createdAt: new Date().toISOString(),
+    }
+    setMessages((prev) => [...prev, tempUserMessage])
+
     try {
-      const response = await fetch('/api/chat/messages', {
+      // Try streaming first
+      const streamResponse = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           conversationId,
-          userId,
-          role: 'user',
           content: userMessage,
         }),
       })
 
-      const data = await response.json()
+      if (streamResponse.ok && streamResponse.body) {
+        setIsStreaming(true)
+        setStreamingMessage('')
 
-      // Add both messages to state
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: data.userMessage.id,
-          role: 'user',
-          content: data.userMessage.content,
-          createdAt: data.userMessage.createdAt,
-        },
-        {
-          id: data.assistantMessage.id,
-          role: 'assistant',
-          content: data.assistantMessage.content,
-          createdAt: data.assistantMessage.createdAt,
-        },
-      ])
+        const reader = streamResponse.body.getReader()
+        const decoder = new TextDecoder()
+        let accumulatedContent = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6)
+              if (data === '[DONE]') {
+                // Save the complete message
+                const savedMessages = await saveStreamedMessage(conversationId, userMessage, accumulatedContent)
+                if (savedMessages) {
+                  setMessages((prev) => {
+                    // Remove temp user message
+                    const filtered = prev.filter(m => m.id !== tempUserMessage.id)
+                    return [
+                      ...filtered,
+                      savedMessages.userMessage,
+                      savedMessages.assistantMessage,
+                    ]
+                  })
+                }
+                break
+              }
+
+              try {
+                const parsed = JSON.parse(data)
+                if (parsed.content) {
+                  accumulatedContent += parsed.content
+                  setStreamingMessage(accumulatedContent)
+                }
+              } catch (e) {
+                // Ignore parse errors
+              }
+            }
+          }
+        }
+
+        setIsStreaming(false)
+        setStreamingMessage('')
+      } else {
+        // Fallback to non-streaming
+        const response = await fetch('/api/chat/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            conversationId,
+            content: userMessage,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to send message')
+        }
+
+        const data = await response.json()
+
+        setMessages((prev) => {
+          // Remove temp user message and add real ones
+          const filtered = prev.filter(m => m.id !== tempUserMessage.id)
+          return [
+            ...filtered,
+            data.userMessage,
+            data.assistantMessage,
+          ]
+        })
+      }
     } catch (error) {
       console.error('Error sending message:', error)
+      // Remove temp message on error
+      setMessages((prev) => prev.filter(m => m.id !== tempUserMessage.id))
     } finally {
       setLoading(false)
     }
+  }
+
+  // Helper to save streamed message to DB
+  const saveStreamedMessage = async (conversationId: string, userContent: string, assistantContent: string) => {
+    try {
+      const response = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          conversationId,
+          content: userContent,
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        return {
+          userMessage: data.userMessage,
+          assistantMessage: {
+            ...data.assistantMessage,
+            content: assistantContent, // Use streamed content
+          },
+        }
+      }
+    } catch (error) {
+      console.error('Error saving streamed message:', error)
+    }
+    return null
   }
 
   // Topic selection view
@@ -208,12 +315,27 @@ export default function Chatbot({ userId, conversationId: initialConversationId 
                     : 'bg-gray-100 text-gray-900 rounded-bl-none'
                 }`}
               >
-                <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                {message.role === 'assistant' ? (
+                  <div className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-2 prose-p:my-2">
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                )}
               </div>
             </div>
           ))
         )}
-        {loading && (
+        {isStreaming && streamingMessage && (
+          <div className="flex justify-start">
+            <div className="bg-gray-100 text-gray-900 px-4 py-3 rounded-lg rounded-bl-none max-w-xs lg:max-w-md">
+              <div className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-2 prose-p:my-2">
+                <ReactMarkdown>{streamingMessage}</ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        )}
+        {loading && !isStreaming && (
           <div className="flex justify-start">
             <div className="bg-gray-100 text-gray-900 px-4 py-3 rounded-lg rounded-bl-none">
               <div className="flex gap-2">
@@ -236,14 +358,14 @@ export default function Chatbot({ userId, conversationId: initialConversationId 
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask anything..."
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            disabled={loading}
+            disabled={loading || isStreaming}
           />
           <button
             type="submit"
-            disabled={loading || !input.trim()}
+            disabled={loading || isStreaming || !input.trim()}
             className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
           >
-            Send
+            {isStreaming ? 'Thinking...' : 'Send'}
           </button>
         </div>
       </form>
