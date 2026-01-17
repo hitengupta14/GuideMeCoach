@@ -165,12 +165,12 @@ export function Header() {
                         <span>Achievements</span>
                       </Link>
                       <Link 
-                        href="/planner/enhanced"
+                        href="/planner"
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">🧠</span>
-                        <span>Enhanced Planner</span>
+                        <span>Planner</span>
                       </Link>
                       <Link 
                         href="/recovery"

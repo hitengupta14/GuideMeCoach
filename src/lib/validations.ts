@@ -35,14 +35,14 @@ export const newPasswordSchema = z.object({
 
 // User Profile Schemas
 export const userProfileSchema = z.object({
-  name: z.string().min(2).max(100).optional(),
-  height: z.number().min(100).max(300).optional(), // in cm
-  weight: z.number().min(20).max(500).optional(), // in kg
-  age: z.number().min(13).max(120).optional(),
-  experienceLevel: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
-  goals: z.array(z.string()).optional(),
-  medicalConditions: z.array(z.string()).optional(),
-  bio: z.string().max(500).optional(),
+  name: z.string().min(2).max(100).optional().nullable(),
+  height: z.number().min(100).max(300).optional().nullable(), // in cm
+  weight: z.number().min(20).max(500).optional().nullable(), // in kg
+  age: z.number().min(13).max(120).optional().nullable(),
+  experienceLevel: z.enum(['beginner', 'intermediate', 'advanced']).optional().nullable(),
+  goals: z.array(z.string()).optional().nullable(),
+  medicalConditions: z.array(z.string()).optional().nullable(),
+  bio: z.string().max(500).optional().nullable(),
 })
 
 // Workout Logging Schemas

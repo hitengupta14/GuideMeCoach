@@ -65,6 +65,16 @@ export default function ProfilePage() {
     }))
   }
 
+  const handleEdit = () => {
+    setIsEditing(true)
+  }
+
+  const handleCancel = () => {
+    setIsEditing(false)
+    setFormData(user || {})
+    setMessage('')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
@@ -81,6 +91,7 @@ export default function ProfilePage() {
 
       const updated = await response.json()
       setUser(updated)
+      setFormData(updated)
       // No need to update localStorage - session cookie handles authentication
       setIsEditing(false)
       setMessage('Profile updated successfully!')
@@ -126,7 +137,27 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
+        {/* Edit Mode Toggle Button - Outside Form */}
+        {!isEditing && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6 flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-gray-900">Profile Information</h2>
+            <button
+              type="button"
+              onClick={handleEdit}
+              className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+            >
+              ✏️ Edit Profile
+            </button>
+          </div>
+        )}
+
+        {isEditing && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <p className="text-yellow-700 font-medium">📝 You are now in edit mode. Make your changes and click Save.</p>
+          </div>
+        )}
+
+        <form onSubmit={isEditing ? handleSubmit : (e) => e.preventDefault()} className="bg-white rounded-lg shadow p-6 space-y-6">
           {/* Basic Info */}
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">Basic Information</h2>
@@ -243,37 +274,24 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-4 pt-6 border-t border-gray-200">
-            {!isEditing ? (
+          {/* Action Buttons - Only show in edit mode */}
+          {isEditing && (
+            <div className="flex gap-4 pt-6 border-t border-gray-200">
+              <button
+                type="submit"
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                ✅ Save Changes
+              </button>
               <button
                 type="button"
-                onClick={() => setIsEditing(true)}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                onClick={handleCancel}
+                className="px-6 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors font-medium"
               >
-                Edit Profile
+                ❌ Cancel
               </button>
-            ) : (
-              <>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
-                >
-                  Save Changes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditing(false)
-                    setFormData(user)
-                  }}
-                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-              </>
-            )}
-          </div>
+            </div>
+          )}
         </form>
 
         {/* Danger Zone */}
