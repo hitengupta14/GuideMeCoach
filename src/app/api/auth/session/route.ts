@@ -4,17 +4,31 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
+import { jwtVerify } from 'jose'
+
+export const dynamic = 'force-dynamic'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
 export async function GET() {
   try {
-    const cookieStore = cookies()
-    const sessionToken = cookieStore.get('session')?.value
+    const cookieStore = await cookies()
+    const token = cookieStore.get('session')?.value
 
-    if (!sessionToken) {
+    if (!token) {
       return NextResponse.json({ user: null }, { status: 401 })
     }
 
-    // Find user by session token
+    // Verify JWT token
+    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    if (!verified) {
+      logger.warn('Invalid JWT token')
+      return NextResponse.json({ user: null }, { status: 401 })
+    }
+
+    const userId = verified.payload.userId as string
+
+    // Find user by ID from token
     const [user] = await db
       .select({
         id: users.id,
@@ -28,11 +42,11 @@ export async function GET() {
         emailVerified: users.emailVerified,
       })
       .from(users)
-      .where(eq(users.id, sessionToken))
+      .where(eq(users.id, userId))
       .limit(1)
 
     if (!user) {
-      logger.warn('Invalid session token')
+      logger.warn('User not found for JWT token')
       return NextResponse.json({ user: null }, { status: 401 })
     }
 

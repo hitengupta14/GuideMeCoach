@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import crypto from 'crypto'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Email verification endpoint
  * GET /api/auth/verify?token=xxx

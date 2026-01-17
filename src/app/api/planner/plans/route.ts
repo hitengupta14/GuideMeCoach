@@ -1,7 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jwtVerify } from 'jose'
 import { db } from '@/db'
 import { workoutPlans, users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key')
+
+/**
+ * GET /api/planner/plans
+ * Fetch all workout plans for the authenticated user
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const token = request.cookies.get('session')?.value
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      )
+    }
+
+    const decoded = await jwtVerify(token, JWT_SECRET)
+    const userId = decoded.payload.userId as string
+
+    const plans = await db.query.workoutPlans.findMany({
+      where: eq(workoutPlans.userId, userId),
+    })
+
+    return NextResponse.json({
+      success: true,
+      plans,
+    })
+  } catch (error) {
+    console.error('Error fetching plans:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch plans' },
+      { status: 500 }
+    )
+  }
+}
 
 /**
  * POST /api/planner/plans
@@ -9,24 +46,23 @@ import { eq } from 'drizzle-orm'
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId, planData, name, description, durationWeeks } = await request.json()
-
-    if (!userId || !planData) {
+    const token = request.cookies.get('session')?.value
+    if (!token) {
       return NextResponse.json(
-        { error: 'Missing required fields: userId, planData' },
-        { status: 400 }
+        { error: 'Not authenticated' },
+        { status: 401 }
       )
     }
 
-    // Verify user exists
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-    })
+    const decoded = await jwtVerify(token, JWT_SECRET)
+    const userId = decoded.payload.userId as string
 
-    if (!user) {
+    const { planData, name, description, durationWeeks } = await request.json()
+
+    if (!planData) {
       return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
+        { error: 'Missing required field: planData' },
+        { status: 400 }
       )
     }
 

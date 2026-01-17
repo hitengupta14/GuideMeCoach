@@ -81,6 +81,19 @@ export function Header() {
             >
               Planner
             </Link>
+            {/* Discoverability links */}
+            <Link 
+              href="/recovery" 
+              className="hidden sm:inline text-gray-700 hover:text-primary-600 transition"
+            >
+              Recovery
+            </Link>
+            <Link 
+              href="/tools" 
+              className="hidden sm:inline text-gray-700 hover:text-primary-600 transition"
+            >
+              Tools
+            </Link>
 
             {/* User Section */}
             {user ? (
@@ -128,6 +141,14 @@ export function Header() {
                         <span>Progress</span>
                       </Link>
                       <Link 
+                        href="/progress-v2"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <span className="text-lg">🎯</span>
+                        <span>Engagement</span>
+                      </Link>
+                      <Link 
                         href="/workouts"
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
                         onClick={() => setShowMenu(false)}
@@ -142,6 +163,30 @@ export function Header() {
                       >
                         <span className="text-lg">🏆</span>
                         <span>Achievements</span>
+                      </Link>
+                      <Link 
+                        href="/planner/enhanced"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <span className="text-lg">🧠</span>
+                        <span>Enhanced Planner</span>
+                      </Link>
+                      <Link 
+                        href="/recovery"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <span className="text-lg">💚</span>
+                        <span>Recovery</span>
+                      </Link>
+                      <Link 
+                        href="/tools"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <span className="text-lg">🛠️</span>
+                        <span>Tools</span>
                       </Link>
                       <Link 
                         href="/chat"

@@ -11,3 +11,9 @@
 body {
   color: rgb(var(--foreground-rgb));
 }
+
+/* Basic global dark theme support */
+html.dark body {
+  color: #e5e7eb; /* text-gray-200 */
+  background-color: #0f172a; /* slate-900 */
+}

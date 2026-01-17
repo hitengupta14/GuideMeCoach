@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import ProgressTracker from '@/components/ProgressTracker'
+import AnalyticsDashboard from '@/components/AnalyticsDashboard'
 
 export default function ProgressPage() {
   const [user, setUser] = useState<any>(null)
@@ -59,7 +59,7 @@ export default function ProgressPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-12">
-        <ProgressTracker userId={user.id} />
+        <AnalyticsDashboard />
       </main>
     </div>
   )

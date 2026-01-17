@@ -7,6 +7,9 @@ import { loginSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 import { authRateLimiter } from '@/lib/rate-limit'
 import { z } from 'zod'
+import { SignJWT } from 'jose'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,8 +73,12 @@ export async function POST(request: NextRequest) {
       .set({ lastLoginAt: new Date() })
       .where(eq(users.id, foundUser.id))
 
-    // Use user ID as session token (simpler approach without sessions table)
-    const sessionToken = foundUser.id
+    // Generate JWT token
+    const token = await new SignJWT({ userId: foundUser.id })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('30d')
+      .sign(JWT_SECRET)
 
     // Create response
     const response = NextResponse.json(
@@ -91,8 +98,8 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     )
 
-    // Set HTTP-only cookie with user ID
-    response.cookies.set('session', sessionToken, {
+    // Set HTTP-only cookie with JWT token
+    response.cookies.set('session', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
