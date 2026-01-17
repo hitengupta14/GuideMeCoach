@@ -27,6 +27,9 @@ export async function GET(req: Request) {
     // Get last 7 days of workouts
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    
+    const fourteenDaysAgo = new Date()
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
 
     const recentSessions = await db
       .select({
@@ -34,82 +37,159 @@ export async function GET(req: Request) {
         duration: workoutSessions.duration,
         energyLevel: workoutSessions.energyLevel,
         completedAt: workoutSessions.completedAt,
+        difficulty: workoutSessions.difficulty,
       })
       .from(workoutSessions)
       .where(and(eq(workoutSessions.userId, userId), gte(workoutSessions.completedAt, sevenDaysAgo)))
       .orderBy(desc(workoutSessions.completedAt))
 
-    // Get RPE data
+    // Get last 14 days for trend
+    const allRecentSessions = await db
+      .select({
+        id: workoutSessions.id,
+        duration: workoutSessions.duration,
+        energyLevel: workoutSessions.energyLevel,
+        completedAt: workoutSessions.completedAt,
+        difficulty: workoutSessions.difficulty,
+      })
+      .from(workoutSessions)
+      .where(and(eq(workoutSessions.userId, userId), gte(workoutSessions.completedAt, fourteenDaysAgo)))
+      .orderBy(desc(workoutSessions.completedAt))
+
+    // Get RPE data from last 7 days
     const recentLogs = await db
       .select({
         rpe: workoutLogs.rpe,
         duration: workoutLogs.duration,
+        weight: workoutLogs.weight,
       })
       .from(workoutLogs)
       .where(and(eq(workoutLogs.userId, userId), gte(workoutLogs.performedAt, sevenDaysAgo)))
 
     // Calculate recovery score (0-100)
-    let recoveryScore = 100
+    let recoveryScore = 85 // Start with good baseline
     let factors: Array<{ factor: string; impact: number; value: any }> = []
 
-    // Factor 1: Workout volume and frequency
+    // Factor 1: Workout volume and frequency (7 days)
     const workoutFrequency = recentSessions.length
+    const workoutFrequency14Days = allRecentSessions.length
+    
     if (workoutFrequency === 0) {
-      recoveryScore += 10 // Well-rested
-      factors.push({ factor: 'Low Activity', impact: 10, value: 'No workouts this week' })
-    } else if (workoutFrequency <= 3) {
-      factors.push({ factor: 'Activity Level', impact: 0, value: `${workoutFrequency} workouts` })
-    } else if (workoutFrequency <= 5) {
-      recoveryScore -= 10
-      factors.push({ factor: 'High Activity', impact: -10, value: `${workoutFrequency} workouts` })
+      recoveryScore += 15
+      factors.push({ factor: 'Low Activity', impact: 15, value: 'No workouts this week - fully rested' })
+    } else if (workoutFrequency <= 2) {
+      factors.push({ factor: 'Light Activity', impact: 0, value: `${workoutFrequency} workout(s)` })
+    } else if (workoutFrequency <= 4) {
+      recoveryScore -= 5
+      factors.push({ factor: 'Moderate Activity', impact: -5, value: `${workoutFrequency} workouts` })
+    } else if (workoutFrequency <= 6) {
+      recoveryScore -= 15
+      factors.push({ factor: 'High Activity', impact: -15, value: `${workoutFrequency} workouts` })
     } else {
-      recoveryScore -= 20
-      factors.push({ factor: 'Very High Activity', impact: -20, value: `${workoutFrequency} workouts` })
+      recoveryScore -= 25
+      factors.push({ factor: 'Very High Activity', impact: -25, value: `${workoutFrequency} workouts` })
     }
 
     // Factor 2: Average RPE
     let avgRPE: number | null = null
     const validRPE = recentLogs
       .map(l => l.rpe)
-      .filter((rpe): rpe is number => typeof rpe === 'number' && rpe > 0)
+      .filter((rpe): rpe is number => typeof rpe === 'number' && rpe > 0 && rpe <= 10)
+    
     if (validRPE.length > 0) {
       avgRPE = validRPE.reduce((a, b) => a + b, 0) / validRPE.length
       if (avgRPE >= 9) {
-        recoveryScore -= 15
-        factors.push({ factor: 'High Intensity', impact: -15, value: `Average RPE: ${avgRPE.toFixed(1)}` })
-      } else if (avgRPE >= 7) {
+        recoveryScore -= 20
+        factors.push({ factor: 'Very High Intensity', impact: -20, value: `Average RPE: ${avgRPE.toFixed(1)}/10` })
+      } else if (avgRPE >= 8) {
+        recoveryScore -= 12
+        factors.push({ factor: 'High Intensity', impact: -12, value: `Average RPE: ${avgRPE.toFixed(1)}/10` })
+      } else if (avgRPE >= 6) {
         recoveryScore -= 5
-        factors.push({ factor: 'Moderate Intensity', impact: -5, value: `Average RPE: ${avgRPE.toFixed(1)}` })
+        factors.push({ factor: 'Moderate Intensity', impact: -5, value: `Average RPE: ${avgRPE.toFixed(1)}/10` })
       } else {
-        factors.push({ factor: 'Low Intensity', impact: 0, value: `Average RPE: ${avgRPE.toFixed(1)}` })
+        factors.push({ factor: 'Low Intensity', impact: 0, value: `Average RPE: ${avgRPE.toFixed(1)}/10` })
+      }
+    } else {
+      factors.push({ factor: 'Intensity Level', impact: 0, value: 'No recorded RPE data' })
+    }
+
+    // Factor 3: Energy levels (from workouts)
+    const energyLevels = recentSessions
+      .filter(s => typeof s.energyLevel === 'number' && s.energyLevel > 0)
+      .map(s => s.energyLevel || 0)
+
+    if (energyLevels.length > 0) {
+      const avgEnergyLevel = energyLevels.reduce((a, b) => a + b, 0) / energyLevels.length
+      
+      if (avgEnergyLevel < 3) {
+        recoveryScore -= 25
+        factors.push({ factor: 'Very Low Energy', impact: -25, value: `Average: ${avgEnergyLevel.toFixed(1)}/10` })
+      } else if (avgEnergyLevel < 5) {
+        recoveryScore -= 15
+        factors.push({ factor: 'Low Energy Levels', impact: -15, value: `Average: ${avgEnergyLevel.toFixed(1)}/10` })
+      } else if (avgEnergyLevel < 6) {
+        recoveryScore -= 5
+        factors.push({ factor: 'Moderate Energy', impact: -5, value: `Average: ${avgEnergyLevel.toFixed(1)}/10` })
+      } else if (avgEnergyLevel >= 8) {
+        recoveryScore += 10
+        factors.push({ factor: 'High Energy Levels', impact: 10, value: `Average: ${avgEnergyLevel.toFixed(1)}/10` })
+      } else {
+        factors.push({ factor: 'Good Energy', impact: 0, value: `Average: ${avgEnergyLevel.toFixed(1)}/10` })
       }
     }
 
-    // Factor 3: Sleep estimate (we don't have actual data, so we estimate)
-    // Assume lower energy levels = worse sleep
-    const avgEnergyLevel =
-      recentSessions
-        .filter(s => s.energyLevel)
-        .reduce((sum, s) => sum + (s.energyLevel || 0), 0) / Math.max(recentSessions.filter(s => s.energyLevel).length, 1)
+    // Factor 4: Workout duration
+    if (recentSessions.length > 0) {
+      const totalDuration = recentSessions.reduce((sum, s) => sum + s.duration, 0)
+      const avgDuration = totalDuration / recentSessions.length
 
-    if (avgEnergyLevel < 4) {
-      recoveryScore -= 15
-      factors.push({ factor: 'Low Energy Levels', impact: -15, value: `Average: ${avgEnergyLevel.toFixed(1)}/10` })
-    } else if (avgEnergyLevel < 6) {
-      recoveryScore -= 5
-      factors.push({ factor: 'Moderate Energy', impact: -5, value: `Average: ${avgEnergyLevel.toFixed(1)}/10` })
+      if (avgDuration > 150) {
+        recoveryScore -= 15
+        factors.push({ factor: 'Long Sessions', impact: -15, value: `Average: ${avgDuration.toFixed(0)} min` })
+      } else if (avgDuration > 120) {
+        recoveryScore -= 8
+        factors.push({ factor: 'Extended Sessions', impact: -8, value: `Average: ${avgDuration.toFixed(0)} min` })
+      } else if (avgDuration > 90) {
+        recoveryScore -= 3
+        factors.push({ factor: 'Session Duration', impact: -3, value: `Average: ${avgDuration.toFixed(0)} min` })
+      } else if (avgDuration > 30) {
+        factors.push({ factor: 'Efficient Sessions', impact: 0, value: `Average: ${avgDuration.toFixed(0)} min` })
+      } else {
+        recoveryScore += 5
+        factors.push({ factor: 'Quick Workouts', impact: 5, value: `Average: ${avgDuration.toFixed(0)} min` })
+      }
     }
 
-    // Factor 4: Workout duration
-    const totalDuration = recentSessions.reduce((sum, s) => sum + s.duration, 0)
-    const avgDuration = totalDuration / Math.max(recentSessions.length, 1)
-
-    if (avgDuration > 120) {
+    // Factor 5: Rest pattern (7 days activity rate)
+    const restDaysInWeek = 7 - Math.min(workoutFrequency, 7)
+    if (restDaysInWeek === 0) {
+      recoveryScore -= 30
+      factors.push({ factor: 'No Rest Days', impact: -30, value: 'Trained every day' })
+    } else if (restDaysInWeek === 1) {
       recoveryScore -= 10
-      factors.push({ factor: 'Long Sessions', impact: -10, value: `Average: ${avgDuration.toFixed(0)} min` })
-    } else if (avgDuration > 90) {
-      recoveryScore -= 5
-      factors.push({ factor: 'Session Duration', impact: -5, value: `Average: ${avgDuration.toFixed(0)} min` })
+      factors.push({ factor: 'Minimal Rest', impact: -10, value: '1 rest day' })
+    } else if (restDaysInWeek >= 2) {
+      recoveryScore += 5
+      factors.push({ factor: 'Adequate Rest', impact: 5, value: `${restDaysInWeek} rest days` })
+    }
+
+    // Factor 6: Difficulty trend
+    if (recentSessions.length > 0) {
+      const validDifficulties = recentSessions
+        .filter(s => typeof s.difficulty === 'number' && s.difficulty > 0)
+        .map(s => (s.difficulty as unknown) as number)
+      
+      if (validDifficulties.length > 0) {
+        const avgDifficulty = validDifficulties.reduce((sum, d) => sum + d, 0) / validDifficulties.length
+        
+        if (avgDifficulty > 7) {
+          recoveryScore -= 5
+          factors.push({ factor: 'High Difficulty Workouts', impact: -5, value: `Average: ${avgDifficulty.toFixed(1)}/10` })
+        } else {
+          factors.push({ factor: 'Difficulty Level', impact: 0, value: `Average: ${avgDifficulty.toFixed(1)}/10` })
+        }
+      }
     }
 
     recoveryScore = Math.max(0, Math.min(100, recoveryScore))
@@ -124,18 +204,32 @@ export async function GET(req: Request) {
     // Generate recommendations
     const recommendations: string[] = []
     if (recoveryScore < 50) {
-      recommendations.push('Consider reducing workout intensity')
-      recommendations.push('Prioritize sleep and rest days')
-      recommendations.push('Increase recovery activities (stretching, yoga)')
+      recommendations.push('⚠️ Your recovery is compromised. Add a full rest day ASAP.')
+      recommendations.push('💤 Prioritize sleep - aim for 7-9 hours')
+      recommendations.push('🧘 Try stretching, yoga, or foam rolling')
+    } else if (recoveryScore < 70) {
+      recommendations.push('😴 Good sleep is important - target 7+ hours')
+      recommendations.push('🚶 Consider a light active recovery day')
     }
-    if (workoutFrequency >= 5) {
-      recommendations.push('Add a full rest day to your schedule')
+    
+    if (workoutFrequency >= 6) {
+      recommendations.push('📅 You\'ve worked hard - take at least 1 full rest day')
     }
-    if (avgRPE && avgRPE >= 8) {
-      recommendations.push('Mix in lighter intensity sessions')
+    
+    if (avgRPE && avgRPE >= 8.5) {
+      recommendations.push('🎯 Mix in 1-2 lower intensity sessions this week')
     }
-    if (avgEnergyLevel < 5) {
-      recommendations.push('Focus on nutrition and sleep')
+    
+    if (energyLevels.length > 0) {
+      const avgEnergy = energyLevels.reduce((a: number, b: number) => a + b, 0) / energyLevels.length
+      if (avgEnergy < 5) {
+        recommendations.push('🥗 Boost nutrition intake - consider more calories and protein')
+        recommendations.push('💧 Stay hydrated throughout your workouts')
+      }
+    }
+
+    if (recoveryScore >= 80) {
+      recommendations.push('🎉 Excellent recovery! You can handle increased training intensity.')
     }
 
     return Response.json({
@@ -143,6 +237,13 @@ export async function GET(req: Request) {
       status,
       factors,
       recommendations,
+      summary: {
+        workoutsThisWeek: workoutFrequency,
+        workoutsLast14Days: workoutFrequency14Days,
+        avgSessionDuration: recentSessions.length > 0 ? Math.round(recentSessions.reduce((sum: number, s: any) => sum + s.duration, 0) / recentSessions.length) : 0,
+        restDaysThisWeek: restDaysInWeek,
+        averageRPE: avgRPE ? avgRPE.toFixed(1) : 'N/A',
+      },
       lastUpdated: new Date().toISOString(),
     })
   } catch (error) {

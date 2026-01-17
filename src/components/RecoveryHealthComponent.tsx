@@ -7,6 +7,13 @@ interface RecoveryData {
   status: 'excellent' | 'good' | 'fair' | 'poor'
   factors: Array<{ factor: string; impact: number; value: any }>
   recommendations: string[]
+  summary?: {
+    workoutsThisWeek: number
+    workoutsLast14Days: number
+    avgSessionDuration: number
+    restDaysThisWeek: number
+    averageRPE: string | number
+  }
 }
 
 interface RestDaysData {
@@ -184,9 +191,31 @@ export default function RecoveryHealthComponent() {
                 </p>
               </div>
 
+              {/* Summary Stats */}
+              {recoveryData.summary && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-blue-50 rounded-lg p-3 text-center border border-blue-200">
+                    <p className="text-2xl font-bold text-gray-900">{recoveryData.summary.workoutsThisWeek}</p>
+                    <p className="text-xs text-gray-600 mt-1">Workouts This Week</p>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-3 text-center border border-purple-200">
+                    <p className="text-2xl font-bold text-gray-900">{recoveryData.summary.restDaysThisWeek}</p>
+                    <p className="text-xs text-gray-600 mt-1">Rest Days</p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-3 text-center border border-green-200">
+                    <p className="text-2xl font-bold text-gray-900">{recoveryData.summary.avgSessionDuration}</p>
+                    <p className="text-xs text-gray-600 mt-1">Avg Duration (min)</p>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-3 text-center border border-orange-200">
+                    <p className="text-2xl font-bold text-gray-900">{recoveryData.summary.averageRPE}</p>
+                    <p className="text-xs text-gray-600 mt-1">Avg RPE/10</p>
+                  </div>
+                </div>
+              )}
+
               {/* Factors */}
               <div>
-                <h4 className="font-bold text-gray-900 mb-3">Contributing Factors</h4>
+                <h4 className="font-bold text-gray-900 mb-3">📊 Contributing Factors</h4>
                 <div className="space-y-2">
                   {recoveryData.factors.map((factor, idx) => (
                     <div
@@ -208,7 +237,7 @@ export default function RecoveryHealthComponent() {
                           {factor.impact}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600">{factor.value}</p>
+                      <p className="text-sm text-gray-600 mt-1">{factor.value}</p>
                     </div>
                   ))}
                 </div>
@@ -217,10 +246,13 @@ export default function RecoveryHealthComponent() {
               {/* Recommendations */}
               {recoveryData.recommendations.length > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-bold text-blue-900 mb-2">Recommendations</h4>
-                  <ul className="space-y-1 text-sm text-blue-900">
+                  <h4 className="font-bold text-blue-900 mb-2">💡 Recommendations</h4>
+                  <ul className="space-y-2 text-sm text-blue-900">
                     {recoveryData.recommendations.map((rec, idx) => (
-                      <li key={idx}>• {rec}</li>
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-lg">→</span>
+                        <span>{rec}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>

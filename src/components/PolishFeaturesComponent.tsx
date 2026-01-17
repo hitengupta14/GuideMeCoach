@@ -28,24 +28,35 @@ export default function PolishFeaturesComponent() {
         }),
       })
 
-      const data = await res.json()
+      if (!res.ok) {
+        throw new Error('Export failed')
+      }
 
       if (exportFormat === 'json') {
-        // Download JSON
+        const data = await res.json()
         const element = document.createElement('a')
-        element.setAttribute('href', `data:text/plain;charset=utf-8,${encodeURIComponent(JSON.stringify(data.data, null, 2))}`)
-        element.setAttribute('download', 'workout-data.json')
+        element.setAttribute('href', `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`)
+        element.setAttribute('download', `workout-data-${new Date().toISOString().split('T')[0]}.json`)
         element.style.display = 'none'
         document.body.appendChild(element)
         element.click()
         document.body.removeChild(element)
+        alert('✅ JSON export downloaded successfully!')
       } else if (exportFormat === 'csv') {
-        // For CSV, the API returns the CSV directly
-        alert('CSV export ready. Check your downloads.')
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `workout-data-${new Date().toISOString().split('T')[0]}.csv`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+        alert('✅ CSV export downloaded successfully!')
       }
     } catch (error) {
       console.error('Export failed:', error)
-      alert('Export failed. Please try again.')
+      alert('❌ Export failed. Please try again.')
     }
   }
 
@@ -324,74 +335,48 @@ export default function PolishFeaturesComponent() {
             <div className="space-y-6">
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <p className="text-sm text-amber-900">
-                  <strong>Customize appearance:</strong> Choose your preferred color scheme and display options.
+                  <strong>Choose your theme:</strong> Select between Light and Dark mode for comfortable viewing.
                 </p>
               </div>
 
               <div className="space-y-4">
-                <div>
-                  <label className="flex items-center justify-between cursor-pointer p-4 border-2 border-gray-200 rounded-lg hover:border-gray-300 transition dark:border-gray-700 dark:hover:border-gray-600">
-                    <div>
-                      <p className="font-bold text-gray-900 dark:text-white">Dark Mode</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Easier on the eyes during evening workouts</p>
-                    </div>
-                    <div className={`relative w-12 h-6 rounded-full transition ${theme === 'dark' ? 'bg-indigo-600' : 'bg-gray-300'}`}>
-                      <div
-                        className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition ${
-                          theme === 'dark' ? 'translate-x-6' : ''
-                        }`}
-                      />
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={theme === 'dark'}
-                      onChange={toggleTheme}
-                      className="hidden"
-                    />
-                  </label>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Light Mode */}
+                  <button
+                    onClick={() => theme === 'dark' && toggleTheme()}
+                    className={`p-6 rounded-lg border-2 transition ${
+                      theme === 'light'
+                        ? 'border-indigo-600 bg-indigo-50'
+                        : 'border-gray-300 hover:border-gray-400 bg-white'
+                    }`}
+                  >
+                    <div className="text-4xl mb-3">☀️</div>
+                    <p className="font-bold text-gray-900 mb-1">Light Mode</p>
+                    <p className="text-xs text-gray-600">Bright and clear for daytime</p>
+                  </button>
+
+                  {/* Dark Mode */}
+                  <button
+                    onClick={() => theme === 'light' && toggleTheme()}
+                    className={`p-6 rounded-lg border-2 transition ${
+                      theme === 'dark'
+                        ? 'border-indigo-600 bg-indigo-50'
+                        : 'border-gray-300 hover:border-gray-400 bg-white'
+                    }`}
+                  >
+                    <div className="text-4xl mb-3">🌙</div>
+                    <p className="font-bold text-gray-900 mb-1">Dark Mode</p>
+                    <p className="text-xs text-gray-600">Easy on eyes at night</p>
+                  </button>
                 </div>
 
-                <div>
-                  <p className="font-bold text-gray-900 dark:text-white mb-3">Color Theme</p>
-                  <div className="grid grid-cols-4 gap-3">
-                    {[
-                      { name: 'Indigo', color: 'bg-indigo-600' },
-                      { name: 'Blue', color: 'bg-blue-600' },
-                      { name: 'Purple', color: 'bg-purple-600' },
-                      { name: 'Pink', color: 'bg-pink-600' },
-                    ].map(t => (
-                      <button
-                        key={t.name}
-                        className={`p-4 rounded-lg border-2 border-transparent hover:border-gray-300 transition dark:hover:border-gray-700`}
-                      >
-                        <div className={`w-8 h-8 rounded-full ${t.color} mx-auto mb-2`} />
-                        <p className="text-xs font-medium text-gray-600 dark:text-gray-400">{t.name}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="flex items-center space-x-3 cursor-pointer p-3 border border-gray-200 rounded-lg dark:border-gray-700">
-                    <input type="checkbox" defaultChecked className="w-4 h-4" />
-                    <span className="text-sm text-gray-900 dark:text-white">Show performance graphs</span>
-                  </label>
-                </div>
-
-                <div>
-                  <label className="flex items-center space-x-3 cursor-pointer p-3 border border-gray-200 rounded-lg dark:border-gray-700">
-                    <input type="checkbox" defaultChecked className="w-4 h-4" />
-                    <span className="text-sm text-gray-900 dark:text-white">Show rest day recommendations</span>
-                  </label>
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm font-medium text-green-900 mb-2">✅ Theme Selected</p>
+                  <p className="text-sm text-green-700">
+                    {theme === 'light' ? '☀️ Light Mode' : '🌙 Dark Mode'} is now active
+                  </p>
                 </div>
               </div>
-
-              <button
-                onClick={() => alert('Preferences saved!')}
-                className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
-              >
-                Save Preferences
-              </button>
             </div>
           )}
         </div>
