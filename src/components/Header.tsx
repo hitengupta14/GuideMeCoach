@@ -3,12 +3,14 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTheme } from './ThemeProvider'
 
 export function Header() {
   const [user, setUser] = useState<any>(null)
   const [showMenu, setShowMenu] = useState(false)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
     // Check session via cookie
@@ -50,83 +52,111 @@ export function Header() {
   }
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50">
+    <header className="bg-white dark:bg-gray-900 shadow-sm dark:shadow-gray-800/50 sticky top-0 z-50 backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95 border-b border-gray-200 dark:border-gray-800">
       <nav className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-2 hover:opacity-80 transition">
-            <span className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent">
+            <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
               GuideMeCoach
             </span>
           </Link>
  
           <div className="flex items-center gap-6 text-sm font-medium">
-            {/* Public Navigation - Always visible */}
-            <Link 
-              href="/exercises" 
-              className="text-gray-700 hover:text-primary-600 transition"
-            >
-              Exercises
-            </Link>
-            {!user && (
-              <Link 
-                href="/body-map" 
-                className="text-gray-700 hover:text-primary-600 transition"
-              >
-                Body Map
-              </Link>
+            {/* Logged In - Show Full Navigation */}
+            {user ? (
+              <>
+                <Link 
+                  href="/dashboard" 
+                  className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  Dashboard
+                </Link>
+                <Link 
+                  href="/exercises" 
+                  className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  Exercises
+                </Link>
+                <Link 
+                  href="/planner" 
+                  className="hidden md:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  Planner
+                </Link>
+                <Link 
+                  href="/workouts" 
+                  className="hidden md:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  Workouts
+                </Link>
+                <Link 
+                  href="/progress" 
+                  className="hidden lg:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  Progress
+                </Link>
+              </>
+            ) : (
+              /* Logged Out - Minimal Clean Navigation */
+              <>
+                <Link 
+                  href="/exercises" 
+                  className="hidden sm:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  Exercises
+                </Link>
+              </>
             )}
-            <Link 
-              href="/planner" 
-              className="text-gray-700 hover:text-primary-600 transition"
+
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+              aria-label="Toggle theme"
             >
-              Planner
-            </Link>
-            {/* Discoverability links */}
-            <Link 
-              href="/recovery" 
-              className="hidden sm:inline text-gray-700 hover:text-primary-600 transition"
-            >
-              Recovery
-            </Link>
-            <Link 
-              href="/tools" 
-              className="hidden sm:inline text-gray-700 hover:text-primary-600 transition"
-            >
-              Tools
-            </Link>
+              {theme === 'dark' ? (
+                <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                </svg>
+              )}
+            </button>
 
             {/* User Section */}
             {user ? (
               <div className="relative">
                 <button
                   onClick={() => setShowMenu(!showMenu)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary-50 hover:bg-primary-100 transition"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-600 to-primary-700 text-white flex items-center justify-center font-bold text-sm">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 dark:from-indigo-500 dark:to-purple-500 text-white flex items-center justify-center font-bold text-sm">
                     {user.name?.charAt(0).toUpperCase() || 'U'}
                   </div>
-                  <span className="text-gray-700 hidden sm:inline max-w-[100px] truncate">{user.name?.split(' ')[0]}</span>
-                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  <span className="text-gray-700 dark:text-gray-300 hidden sm:inline max-w-[100px] truncate">{user.name?.split(' ')[0]}</span>
+                  <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
 
                 {showMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50">
                     {/* User Info Section */}
-                    <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-primary-50 to-transparent">
-                      <p className="font-bold text-gray-900">{user.name}</p>
-                      <p className="text-xs text-gray-600">{user.email}</p>
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-50 dark:from-indigo-900/30 to-transparent">
+                      <p className="font-bold text-gray-900 dark:text-white">{user.name}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">{user.email}</p>
                       {user.weight && (
-                        <p className="text-xs text-gray-600 mt-1">📊 Weight: {user.weight} kg</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">📊 Weight: {user.weight} kg</p>
                       )}
                     </div>
 
                     {/* Navigation Section */}
-                    <div className="py-2 border-b border-gray-200">
+                    <div className="py-2 border-b border-gray-200 dark:border-gray-700">
                       <Link 
                         href="/dashboard"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">📊</span>
@@ -134,7 +164,7 @@ export function Header() {
                       </Link>
                       <Link 
                         href="/progress"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">📈</span>
@@ -142,7 +172,7 @@ export function Header() {
                       </Link>
                       <Link 
                         href="/progress-v2"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">🎯</span>
@@ -150,7 +180,7 @@ export function Header() {
                       </Link>
                       <Link 
                         href="/workouts"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">💪</span>
@@ -158,7 +188,7 @@ export function Header() {
                       </Link>
                       <Link 
                         href="/achievements"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">🏆</span>
@@ -166,7 +196,7 @@ export function Header() {
                       </Link>
                       <Link 
                         href="/planner"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">🧠</span>
@@ -174,7 +204,7 @@ export function Header() {
                       </Link>
                       <Link 
                         href="/recovery"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">💚</span>
@@ -182,7 +212,7 @@ export function Header() {
                       </Link>
                       <Link 
                         href="/tools"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">🛠️</span>
@@ -190,7 +220,7 @@ export function Header() {
                       </Link>
                       <Link 
                         href="/chat"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">🤖</span>
@@ -198,7 +228,7 @@ export function Header() {
                       </Link>
                       <Link 
                         href="/favorites"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">❤️</span>
@@ -210,7 +240,7 @@ export function Header() {
                     <div className="py-2">
                       <Link 
                         href="/profile"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-primary-50 transition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <span className="text-lg">⚙️</span>
@@ -218,7 +248,7 @@ export function Header() {
                       </Link>
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-2 text-red-600 hover:bg-red-50 transition"
+                        className="w-full flex items-center gap-3 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
                       >
                         <span className="text-lg">🚪</span>
                         <span>Logout</span>
@@ -231,13 +261,13 @@ export function Header() {
               <>
                 <Link 
                   href="/auth/login" 
-                  className="px-4 py-2 text-gray-700 hover:text-primary-600 transition"
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
                   Log In
                 </Link>
                 <Link 
                   href="/auth/signup" 
-                  className="px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition font-medium"
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white transition font-medium shadow-lg shadow-indigo-500/50 dark:shadow-indigo-500/30"
                 >
                   Sign Up
                 </Link>
