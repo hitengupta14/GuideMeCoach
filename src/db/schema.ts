@@ -51,6 +51,12 @@ export const movementPatternEnum = pgEnum('movement_pattern', [
   'isolation'
 ])
 
+export const adminRoleEnum = pgEnum('admin_role', [
+  'super_admin',
+  'content_admin',
+  'support_admin'
+])
+
 // Main Exercises Table
 export const exercises = pgTable('exercises', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -181,6 +187,10 @@ export const users = pgTable('users', {
   
   lastLoginAt: timestamp('last_login_at'),
   
+  // Admin fields
+  isAdmin: boolean('is_admin').default(false),
+  adminRole: adminRoleEnum('admin_role'),
+  
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })
@@ -308,6 +318,47 @@ export const chatMessages = pgTable('chat_messages', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+// Admin Activity Logs
+export const adminActivityLogs = pgTable('admin_activity_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  adminId: uuid('admin_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  
+  action: text('action').notNull(), // e.g., 'user_edited', 'exercise_created', 'subscription_modified'
+  targetType: text('target_type'), // 'user', 'exercise', 'subscription', etc.
+  targetId: text('target_id'),
+  metadata: jsonb('metadata').$type<Record<string, any>>(), // Any extra data about the action
+  
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// System Metrics (for monitoring)
+export const systemMetrics = pgTable('system_metrics', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  
+  metricType: text('metric_type').notNull(), // 'ai_request', 'api_error', 'page_view', 'workout_logged'
+  metricName: text('metric_name').notNull(),
+  value: integer('value'),
+  metadata: jsonb('metadata').$type<Record<string, any>>(),
+  
+  recordedAt: timestamp('recorded_at').defaultNow(),
+})
+
+// AI Usage Tracking
+export const aiUsageLogs = pgTable('ai_usage_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  
+  feature: text('feature').notNull(), // 'planner', 'chat', 'recommendations', 'insights'
+  model: text('model').notNull(), // 'gpt-4', 'gpt-3.5-turbo'
+  tokensUsed: integer('tokens_used'),
+  estimatedCost: integer('estimated_cost'), // in cents
+  responseTime: integer('response_time'), // milliseconds
+  success: boolean('success').default(true),
+  errorMessage: text('error_message'),
+  
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
 // Export types
 export type Exercise = typeof exercises.$inferSelect
 export type NewExercise = typeof exercises.$inferInsert
@@ -319,3 +370,6 @@ export type WorkoutLog = typeof workoutLogs.$inferSelect
 export type AchievementBadge = typeof achievementBadges.$inferSelect
 export type ChatConversation = typeof chatConversations.$inferSelect
 export type ChatMessage = typeof chatMessages.$inferSelect
+export type AdminActivityLog = typeof adminActivityLogs.$inferSelect
+export type SystemMetric = typeof systemMetrics.$inferSelect
+export type AIUsageLog = typeof aiUsageLogs.$inferSelect

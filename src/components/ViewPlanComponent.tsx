@@ -46,25 +46,15 @@ interface PlanDetails {
   [key: string]: any
 }
 
-interface PlanHistory {
-  id: string
-  type: 'ai' | 'custom'
-  name: string
-  description: string
-  isSaved: boolean
-  createdAt: string
-  details: any
-}
-
 export default function ViewPlanComponent({ planId }: ViewPlanComponentProps) {
   const router = useRouter()
   const { aiPlanHistory, customPlanHistory, savedPlans } = usePlanHistory()
-  const [plan, setPlan] = useState<PlanHistory | null>(null)
+  const [plan, setPlan] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     // Find the plan from all three sources
-    let foundPlan: PlanHistory | undefined
+    let foundPlan: any | undefined
     
     foundPlan = aiPlanHistory.find(p => p.id === planId)
     if (!foundPlan) {
@@ -142,7 +132,7 @@ export default function ViewPlanComponent({ planId }: ViewPlanComponentProps) {
       {/* AI Plan Content */}
       {isAIPlan && plan.details.weeklyStructure && (
         <div className="space-y-6">
-          {plan.details.weeklyStructure.map((day, dayIdx) => (
+          {plan.details.weeklyStructure.map((day: any, dayIdx: number) => (
             <div key={dayIdx} className="bg-white rounded-lg shadow p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">
                 {day.day} - {day.focus}
@@ -151,7 +141,7 @@ export default function ViewPlanComponent({ planId }: ViewPlanComponentProps) {
                 <p className="text-sm text-gray-600 mb-4">⏱️ {day.totalDuration}</p>
               )}
               <div className="space-y-3">
-                {day.exercises.map((exercise, exIdx) => (
+                {day.exercises.map((exercise: any, exIdx: number) => (
                   <div key={exIdx} className="border-l-4 border-indigo-500 pl-4 py-2">
                     <div className="font-semibold text-gray-900">{exercise.name}</div>
                     <div className="text-sm text-gray-600 mt-1">
@@ -201,13 +191,13 @@ export default function ViewPlanComponent({ planId }: ViewPlanComponentProps) {
       {/* Custom Plan Content */}
       {!isAIPlan && plan.details.weeks && (
         <div className="space-y-6">
-          {plan.details.weeks.map((weekPlan) => (
+          {plan.details.weeks.map((weekPlan: any) => (
             <div key={weekPlan.week} className="bg-white rounded-lg shadow overflow-hidden">
               <div className="bg-indigo-600 text-white px-6 py-4">
                 <h3 className="text-xl font-bold">Week {weekPlan.week}</h3>
               </div>
               <div className="p-6 space-y-6">
-                {weekPlan.days.map((day, dayIdx) => (
+                {weekPlan.days.map((day: any, dayIdx: number) => (
                   <div key={dayIdx} className="border-b last:border-b-0 pb-6 last:pb-0">
                     <h4 className="text-lg font-bold text-gray-900 mb-3">
                       {day.day} - {day.focusMuscle}
@@ -216,7 +206,7 @@ export default function ViewPlanComponent({ planId }: ViewPlanComponentProps) {
                       {day.exercises.length === 0 ? (
                         <p className="text-gray-500 italic">No exercises scheduled</p>
                       ) : (
-                        day.exercises.map((exercise, exIdx) => (
+                        day.exercises.map((exercise: any, exIdx: number) => (
                           <div key={exIdx} className="bg-gray-50 p-3 rounded">
                             <div className="font-semibold text-gray-900">
                               {exercise.exerciseName}
