@@ -256,6 +256,18 @@ export function Header() {
 
                     {/* Settings & Logout Section */}
                     <div className="py-2">
+                      {user.isAdmin && (
+                        <>
+                          <Link 
+                            href="/admin"
+                            className="flex items-center gap-3 px-4 py-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition font-semibold border-b border-gray-200 dark:border-gray-700"
+                            onClick={() => setShowMenu(false)}
+                          >
+                            <span className="text-lg">🛡️</span>
+                            <span>Admin Panel</span>
+                          </Link>
+                        </>
+                      )}
                       <Link 
                         href="/profile"
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"

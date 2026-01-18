@@ -52,7 +52,23 @@ export default function ProgressInsightsComponent({ userId }: { userId: string }
       }
 
       const data = await response.json()
-      setInsights(data.insights)
+      const normalizedInsights =
+        typeof data.insights === 'string'
+          ? data.insights
+          : data.insights
+          ? [
+              data.insights.summary,
+              ...(data.insights.strengths || []).map((s: string) => `- Strength: ${s}`),
+              ...(data.insights.improvements || []).map((s: string) => `- Improvement: ${s}`),
+              ...(data.insights.recommendations || []).map((s: string) => `- Recommendation: ${s}`),
+              ...(data.insights.trends || []).map((s: string) => `- Trend: ${s}`),
+              ...(data.insights.plateauRisks || []).map((s: string) => `- Plateau Risk: ${s}`),
+            ]
+              .filter(Boolean)
+              .join('\n')
+          : ''
+
+      setInsights(normalizedInsights || null)
       setStats(data.stats)
       setPeriod(data.period)
 

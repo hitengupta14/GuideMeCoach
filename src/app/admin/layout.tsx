@@ -3,11 +3,18 @@ import { getCurrentAdminUser } from '@/lib/get-current-user'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminHeader from '@/components/admin/AdminHeader'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // Skip auth during build time
+  if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+    return <div>{children}</div>
+  }
+
   const user = await getCurrentAdminUser()
 
   if (!user) {

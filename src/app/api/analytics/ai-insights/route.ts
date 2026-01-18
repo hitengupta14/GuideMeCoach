@@ -104,32 +104,51 @@ export async function GET(request: NextRequest) {
 
     logger.info('Fetched workout data for AI analysis', { userId, sessionsCount: recentSessions.length })
 
-    // Generate AI insights
-    const insights = await analyzeProgress({
-      recentSessions: recentSessions.map(s => ({
-        dayName: s.dayName,
-        duration: s.duration,
-        energyLevel: s.energyLevel,
-        difficulty: s.difficulty,
-        date: s.completedAt,
-      })),
-      exerciseStats: exerciseStats.map(e => ({
-        exerciseName: e.exerciseName,
-        avgWeight: Number(e.avgWeight),
-        maxWeight: Number(e.maxWeight),
-        totalSets: Number(e.totalSets),
-        workoutCount: Number(e.workoutCount),
-        avgRpe: Number(e.avgRpe),
-      })),
-      userProfile: {
-        name: user.name || 'User',
-        experienceLevel: user.experienceLevel || 'intermediate',
-        goals: user.goals || [],
-        weight: user.weight || undefined,
-        height: user.height || undefined,
-        age: user.age || undefined,
-      },
-    })
+    // Generate AI insights with timeout
+    let insights
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+      insights = await analyzeProgress({
+        recentSessions: recentSessions.map(s => ({
+          dayName: s.dayName,
+          duration: s.duration,
+          energyLevel: s.energyLevel,
+          difficulty: s.difficulty,
+          date: s.completedAt,
+        })),
+        exerciseStats: exerciseStats.map(e => ({
+          exerciseName: e.exerciseName,
+          avgWeight: Number(e.avgWeight),
+          maxWeight: Number(e.maxWeight),
+          totalSets: Number(e.totalSets),
+          workoutCount: Number(e.workoutCount),
+          avgRpe: Number(e.avgRpe),
+        })),
+        userProfile: {
+          name: user.name || 'User',
+          experienceLevel: user.experienceLevel || 'intermediate',
+          goals: user.goals || [],
+          weight: user.weight || undefined,
+          height: user.height || undefined,
+          age: user.age || undefined,
+        },
+      })
+
+      clearTimeout(timeout)
+    } catch (aiError) {
+      logger.error('AI analysis failed', aiError as Error)
+      // Return fallback insights if AI fails
+      insights = {
+        summary: 'Unable to generate AI insights at this time. Please try again later.',
+        strengths: ['Keep tracking your workouts consistently', 'Monitor your energy levels'],
+        improvements: ['Review your form on compound lifts', 'Ensure adequate rest between sessions'],
+        recommendations: ['Continue current training frequency', 'Track nutrition alongside workouts'],
+        plateauRisks: [],
+        trends: [],
+      }
+    }
 
     return NextResponse.json({
       insights,

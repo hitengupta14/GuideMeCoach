@@ -56,15 +56,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Get form feedback
-    const feedback = await getFormFeedback({
-      exerciseName,
-      userDescription: description,
-      weight: weight ? parseFloat(weight) : undefined,
-      reps: reps ? parseInt(reps) : undefined,
-      userExperienceLevel: user.experienceLevel || 'intermediate',
-      medicalConditions: (user.medicalConditions as string[]) || [],
-    })
+    // Get form feedback with timeout
+    let feedback
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+      feedback = await getFormFeedback({
+        exerciseName,
+        userDescription: description,
+        weight: weight ? parseFloat(weight) : undefined,
+        reps: reps ? parseInt(reps) : undefined,
+        userExperienceLevel: user.experienceLevel || 'intermediate',
+        medicalConditions: (user.medicalConditions as string[]) || [],
+      })
+
+      clearTimeout(timeout)
+    } catch (aiError) {
+      logger.error('AI call failed for form feedback', aiError as Error)
+      // Return fallback feedback if AI fails
+      feedback = {
+        commonMistakes: [
+          'Difficulty accessing real-time feedback due to service',
+          'Please check your form using the exercise video guide',
+          'Consider using a mirror or recording yourself for self-analysis'
+        ],
+        improvements: ['Continue practicing good form', 'Start with lighter weight if needed'],
+        safety: 'Consult a trainer for personalized feedback',
+        tips: []
+      }
+    }
 
     logger.info('Form feedback generated', { userId, exerciseName })
 

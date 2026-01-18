@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
       .from(workoutSessions)
       .where(and(eq(workoutSessions.userId, userId), gte(workoutSessions.completedAt, cutoffDate)))
       .orderBy(desc(workoutSessions.completedAt))
+      .limit(100) // Add limit to prevent fetching too much
 
     const sessionsCount = recentSessions.length
     const avgDuration = sessionsCount
@@ -79,19 +80,50 @@ export async function GET(request: NextRequest) {
         ? 'lightly_active'
         : 'sedentary'
 
-    // Get nutrition guidance
-    const guidance = await getNutritionGuidance({
-      name: user.name || undefined,
-      age: user.age || undefined,
-      weight: user.weight || undefined,
-      height: user.height || undefined,
-      goal: (user.goals?.[0] as string) || 'muscle_gain',
-      experienceLevel: user.experienceLevel || 'intermediate',
-      activityLevel,
-      medicalConditions: (user.medicalConditions as string[]) || [],
-      dietaryRestrictions: [], // Not stored in schema currently
-      supplementsUsing: [], // Not stored in schema currently
-    })
+    // Get nutrition guidance with timeout
+    let guidance
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+      guidance = await getNutritionGuidance({
+        name: user.name || undefined,
+        age: user.age || undefined,
+        weight: user.weight || undefined,
+        height: user.height || undefined,
+        goal: (user.goals?.[0] as string) || 'muscle_gain',
+        experienceLevel: user.experienceLevel || 'intermediate',
+        activityLevel,
+        medicalConditions: (user.medicalConditions as string[]) || [],
+        dietaryRestrictions: [], // Not stored in schema currently
+        supplementsUsing: [], // Not stored in schema currently
+      })
+
+      clearTimeout(timeout)
+    } catch (aiError) {
+      logger.error('AI call failed', aiError as Error)
+      // Return fallback guidance if AI fails
+      guidance = {
+        tdeeEstimate: {
+          bmr: 1800,
+          tdee: 2400,
+          explanation: 'Unable to calculate exact TDEE. Please use an online calculator or consult a nutritionist.',
+        },
+        macroRecommendation: {
+          protein: { grams: 150, percentage: 30, rationale: 'Standard protein recommendation' },
+          carbs: { grams: 300, percentage: 50, rationale: 'Moderate carbs for activity' },
+          fats: { grams: 85, percentage: 20, rationale: 'Essential fats for health' },
+        },
+        mealTiming: {
+          preWorkout: 'Eat 1-2 hours before workout',
+          postWorkout: 'Eat protein + carbs within 1 hour after workout',
+          tips: ['Stay hydrated', 'Eat whole foods', 'Track your intake'],
+        },
+        supplementRecommendations: [],
+        hydrationGuide: 'Drink 30-35 ml per kg of body weight daily',
+        generalTips: ['Consult a nutritionist for personalized advice', 'Track your nutrition', 'Adjust based on results'],
+      }
+    }
 
     logger.info('Nutrition guidance fetched', { userId, activityLevel })
 

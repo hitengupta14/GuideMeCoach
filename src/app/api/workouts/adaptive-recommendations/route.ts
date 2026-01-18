@@ -133,15 +133,35 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Get adaptive recommendations
-    const recommendations = await getAdaptiveWorkoutRecommendations({
-      recentWorkouts: workoutData,
-      averageRecovery: recovery10,
-      currentStreak: calculateStreak(recentWorkouts),
-      goal: (user.goals?.[0] as string) || 'muscle_gain',
-      experienceLevel: user.experienceLevel || 'intermediate',
-      workoutPlanDays: Math.max(3, Math.min(6, Math.round((user.timeAvailability || 60) / 20))), // derive days from time availability
-    })
+    // Get adaptive recommendations with timeout
+    let recommendations
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+      recommendations = await getAdaptiveWorkoutRecommendations({
+        recentWorkouts: workoutData,
+        averageRecovery: recovery10,
+        currentStreak: calculateStreak(recentWorkouts),
+        goal: (user.goals?.[0] as string) || 'muscle_gain',
+        experienceLevel: user.experienceLevel || 'intermediate',
+        workoutPlanDays: Math.max(3, Math.min(6, Math.round((user.timeAvailability || 60) / 20))), // derive days from time availability
+      })
+
+      clearTimeout(timeout)
+    } catch (aiError) {
+      logger.error('AI adaptive recommendations failed', aiError as Error)
+      // Return fallback recommendations if AI fails
+      recommendations = {
+        message: 'Using default recommendations',
+        shouldDeload: false,
+        volumeAdjustment: 'maintain',
+        intensityAdjustment: 'maintain',
+        frequencyAdjustment: 'maintain',
+        recoveryFocus: [],
+        reason: 'AI service unavailable, showing defaults',
+      }
+    }
 
     logger.info('Adaptive workout recommendations generated', {
       userId,

@@ -93,6 +93,8 @@ export async function POST(request: NextRequest) {
           age: foundUser.age,
           experienceLevel: foundUser.experienceLevel,
           goals: foundUser.goals,
+          isAdmin: foundUser.isAdmin,
+          adminRole: foundUser.adminRole,
         },
       },
       { status: 200 }
