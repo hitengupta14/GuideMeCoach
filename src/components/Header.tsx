@@ -90,10 +90,28 @@ export function Header() {
                   Workouts
                 </Link>
                 <Link 
-                  href="/progress" 
+                  href="/ai-insights" 
                   className="hidden lg:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
-                  Progress
+                  Insights
+                </Link>
+                <Link 
+                  href="/nutrition" 
+                  className="hidden lg:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  Nutrition
+                </Link>
+                <Link 
+                  href="/form-feedback" 
+                  className="hidden lg:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  Form Coach
+                </Link>
+                <Link 
+                  href="/ai-features" 
+                  className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  AI Features
                 </Link>
               </>
             ) : (

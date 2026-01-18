@@ -132,6 +132,12 @@ export default function LoginForm() {
         <div className="flex items-center gap-4 my-6">
           <div className="flex-1 border-t border-gray-300"></div>
           <span className="text-gray-500 text-sm">or</span>
+          <a
+            href="/api/auth/google/start"
+            className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-900 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+          >
+            <span>Continue with Google</span>
+          </a>
           <div className="flex-1 border-t border-gray-300"></div>
         </div>
 

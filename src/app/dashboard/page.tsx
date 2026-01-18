@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import AdaptiveWorkoutsComponent from '@/components/AdaptiveWorkoutsComponent'
+import ExerciseRecommender from '@/components/ExerciseRecommender'
+import NutritionGuidanceComponent from '@/components/NutritionGuidanceComponent'
+import ProgressInsightsComponent from '@/components/ProgressInsightsComponent'
 
 interface User {
   id: string
@@ -13,6 +17,7 @@ interface User {
   age: number | null
   experienceLevel: string | null
   goals: string[] | null
+  availableEquipment?: string[] | null
 }
 
 export default function DashboardPage() {
@@ -122,7 +127,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Link href="/planner">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-gray-800">
               <div className="text-4xl mb-4">📋</div>
@@ -146,6 +151,38 @@ export default function DashboardPage() {
               <p className="text-gray-600 dark:text-gray-400">Record your workout and track progress</p>
             </div>
           </Link>
+        </div>
+
+        {/* AI Features Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">AI-Powered Features</h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 border border-gray-200 dark:border-gray-800">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">📊 Adaptive Workouts</h3>
+              <AdaptiveWorkoutsComponent userId={user.id} />
+            </div>
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 border border-gray-200 dark:border-gray-800">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">🍎 Nutrition Guidance</h3>
+              <NutritionGuidanceComponent userId={user.id} />
+            </div>
+          </div>
+        </div>
+
+        {/* Exercise & Progress Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Exercise & Progress</h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 border border-gray-200 dark:border-gray-800">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">💡 Exercise Recommendations</h3>
+              <ExerciseRecommender userId={user.id} lastExercises={[]} availableEquipment={user.availableEquipment || []} onSelectExercise={(name) => console.log('Selected:', name)} />
+            </div>
+          </div>
+        </div>
+
+        {/* Progress Insights */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-8 mb-8 border border-gray-200 dark:border-gray-800">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">📈 Progress & Insights</h2>
+          <ProgressInsightsComponent userId={user.id} />
         </div>
 
         {/* Profile Section */}

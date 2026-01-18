@@ -14,6 +14,9 @@ export default function SignupForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [verifying, setVerifying] = useState(false)
   const router = useRouter()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,9 +69,6 @@ export default function SignupForm() {
       }
 
       setSuccess(true)
-      setTimeout(() => {
-        router.push('/auth/login?registered=true&verify=true')
-      }, 2000)
     } catch (err) {
       setError('Network error. Please try again.')
       console.error(err)
@@ -80,12 +80,77 @@ export default function SignupForm() {
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md">
+        <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md w-full">
           <div className="text-6xl mb-4">✅</div>
           <h2 className="text-2xl font-bold text-green-600 mb-4">Account Created!</h2>
-          <p className="text-gray-600 mb-2">Check your email for verification link.</p>
-          <p className="text-sm text-gray-500 mb-4">(In development mode, check the console)</p>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="text-gray-600 mb-4">Verify your email with the OTP code.</p>
+
+          {!otpSent ? (
+            <button
+              onClick={async () => {
+                try {
+                  setLoading(true)
+                  const resp = await fetch('/api/auth/otp/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: formData.email }),
+                  })
+                  if (!resp.ok) {
+                    const data = await resp.json()
+                    setError(data.error || 'Failed to send OTP')
+                  } else {
+                    setOtpSent(true)
+                  }
+                } catch (e) {
+                  setError('Network error while sending OTP')
+                } finally {
+                  setLoading(false)
+                }
+              }}
+              className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+            >
+              Send OTP to Email
+            </button>
+          ) : (
+            <div className="space-y-3 text-left">
+              <label className="block text-sm font-medium text-gray-700">Enter OTP Code</label>
+              <input
+                type="text"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="6-digit code"
+              />
+              <button
+                onClick={async () => {
+                  try {
+                    setVerifying(true)
+                    const resp = await fetch('/api/auth/otp/verify', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ email: formData.email, otp: otpCode }),
+                    })
+                    const data = await resp.json()
+                    if (!resp.ok) {
+                      setError(data.error || 'Invalid OTP')
+                    } else {
+                      router.push('/dashboard')
+                    }
+                  } catch (e) {
+                    setError('Network error while verifying OTP')
+                  } finally {
+                    setVerifying(false)
+                  }
+                }}
+                className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+                disabled={verifying}
+              >
+                {verifying ? 'Verifying...' : 'Verify & Continue'}
+              </button>
+              <p className="text-sm text-gray-500">Code expires in 10 minutes.</p>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -185,6 +250,13 @@ export default function SignupForm() {
           <span className="text-gray-500 text-sm">or</span>
           <div className="flex-1 border-t border-gray-300"></div>
         </div>
+
+        <a
+          href="/api/auth/google/start"
+          className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-900 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+        >
+          <span>Continue with Google</span>
+        </a>
 
         <p className="text-center text-gray-600">
           Already have an account?{' '}
