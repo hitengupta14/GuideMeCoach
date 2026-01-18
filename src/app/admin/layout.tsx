@@ -1,8 +1,5 @@
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
-import { db } from '@/db'
-import { users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { getCurrentAdminUser } from '@/lib/get-current-user'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminHeader from '@/components/admin/AdminHeader'
 
@@ -11,21 +8,10 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Get user from session
-  const cookieStore = await cookies()
-  const userId = cookieStore.get('user_id')?.value
+  const user = await getCurrentAdminUser()
 
-  if (!userId) {
+  if (!user) {
     redirect('/auth/login?redirect=/admin')
-  }
-
-  // Check if user is admin
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-  })
-
-  if (!user || !user.isAdmin) {
-    redirect('/dashboard?error=unauthorized')
   }
 
   return (
