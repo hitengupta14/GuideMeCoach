@@ -2,6 +2,7 @@ import { db } from '@/db'
 import { exercises, exerciseMuscles, muscleGroups } from '@/db/schema'
 import { sql, desc, like, or, eq, and } from 'drizzle-orm'
 import ExerciseManagementTable from '@/components/admin/ExerciseManagementTable'
+import Link from 'next/link'
 
 interface SearchParams {
   search?: string
@@ -93,12 +94,12 @@ export default async function ExercisesPage({
             Manage exercises, update content, and control quality.
           </p>
         </div>
-        <button
-          onClick={() => window.location.href = '/admin/exercises/new'}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        <Link
+          href="/admin/exercises/new"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-block"
         >
           Add Exercise
-        </button>
+        </Link>
       </div>
 
       <ExerciseManagementTable
