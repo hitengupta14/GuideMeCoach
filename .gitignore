@@ -35,3 +35,10 @@ next-env.d.ts
 
 # Drizzle
 drizzle/
+
+# Mobile (Expo/React Native)
+mobile/.expo/
+mobile/.expo-shared/
+mobile/dist/
+mobile/web-build/
+mobile/.metro-health-check*
