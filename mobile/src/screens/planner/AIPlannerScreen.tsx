@@ -60,7 +60,7 @@ export default function AIPlannerScreen() {
 
   const generatePlanMutation = useMutation({
     mutationFn: async () => {
-      return apiClient.request('/api/planner/ai-generate', {
+      return apiClient.request('/planner/ai-generate', {
         method: 'POST',
         body: JSON.stringify({
           ...formData,
@@ -96,20 +96,26 @@ export default function AIPlannerScreen() {
     });
   };
 
-  const handleSavePlan = () => {
-    Alert.alert(
-      'Save Plan',
-      'Save this plan to your library?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Save',
-          onPress: () => {
+  const handleSavePlan = async () => {
+    Alert.alert('Save Plan', 'Save this plan to your library?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Save',
+        onPress: async () => {
+          try {
+            await apiClient.savePlan({
+              planData: generatedPlan,
+              name: 'AI Generated Plan',
+              description: 'Personalized plan generated on mobile',
+              durationWeeks: parseInt(formData.durationWeeks),
+            });
             Alert.alert('Success', 'Plan saved successfully!');
-          },
+          } catch (e) {
+            Alert.alert('Error', 'Failed to save plan');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   if (generatedPlan && !showForm) {

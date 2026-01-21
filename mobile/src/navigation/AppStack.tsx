@@ -15,6 +15,9 @@ import ExerciseDetailScreen from '../screens/exercises/ExerciseDetailScreen';
 import WorkoutLoggerScreen from '../screens/workouts/WorkoutLoggerScreen';
 import AIPlannerScreen from '../screens/planner/AIPlannerScreen';
 import ProgressScreen from '../screens/progress/ProgressScreen';
+import NutritionScreen from '../screens/nutrition/NutritionScreen';
+import ConversationsScreen from '../screens/chat/ConversationsScreen';
+import ChatScreen from '../screens/chat/ChatScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -158,6 +161,33 @@ function ProgressStack() {
   );
 }
 
+function NutritionStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="NutritionMain" component={NutritionScreen} />
+    </Stack.Navigator>
+  );
+}
+
+function ChatStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerTintColor: '#000',
+        headerTitleStyle: { fontWeight: '600' },
+      }}
+    >
+      <Stack.Screen name="Conversations" component={ConversationsScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
+    </Stack.Navigator>
+  );
+}
+
 export default function AppStack() {
   return (
     <Tab.Navigator
@@ -181,6 +211,10 @@ export default function AppStack() {
             iconName = focused ? 'video' : 'video-outline';
           } else if (route.name === 'Wearables') {
             iconName = focused ? 'heart-pulse' : 'heart-outline';
+          } else if (route.name === 'Nutrition') {
+            iconName = focused ? 'food-apple' : 'food-apple-outline';
+          } else if (route.name === 'Chat') {
+            iconName = focused ? 'message' : 'message-outline';
           }
 
           return (
@@ -222,6 +256,11 @@ export default function AppStack() {
         options={{ title: 'Planner' }}
       />
       <Tab.Screen
+        name="Nutrition"
+        component={NutritionStack}
+        options={{ title: 'Nutrition' }}
+      />
+      <Tab.Screen
         name="Video"
         component={VideoStack}
         options={{ title: 'Video' }}
@@ -230,6 +269,11 @@ export default function AppStack() {
         name="Wearables"
         component={WearablesStack}
         options={{ title: 'Health' }}
+      />
+      <Tab.Screen
+        name="Chat"
+        component={ChatStack}
+        options={{ title: 'Chat' }}
       />
     </Tab.Navigator>
   );

@@ -10,6 +10,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
+import { useAuthStore } from '../../store/auth';
 
 interface ProgressData {
   totalWorkouts: number;
@@ -27,6 +28,19 @@ export default function ProgressScreen() {
     queryKey: ['progress', timeRange],
     queryFn: () =>
       apiClient.request(`/analytics/progress?range=${timeRange}`),
+  });
+
+  const user = useAuthStore((s) => s.user);
+  const { data: badges } = useQuery({
+    queryKey: ['badges', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      // First, check and award any new badges
+      await apiClient.checkAndAwardBadges(user!.id);
+      // Then fetch badge list with earned flags
+      const res: any = await apiClient.getBadges(user!.id);
+      return Array.isArray(res) ? res : [];
+    },
   });
 
   const progress = (progressData as any) || {
@@ -159,37 +173,34 @@ export default function ProgressScreen() {
           </View>
         )}
 
-        {/* Achievements */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="trophy" size={20} color="#FFB800" />
-            <Text style={styles.sectionTitle}>Achievements</Text>
-          </View>
-          <View style={styles.achievementsGrid}>
-            {[
-              { icon: 'fire', label: 'Hot Streak', value: progress.streakDays >= 7 },
-              { icon: 'dumbbell', label: '100 Workouts', value: progress.totalWorkouts >= 100 },
-              { icon: 'medal', label: 'PR Master', value: progress.personalRecords.length >= 5 },
-              { icon: 'calendar-check', label: 'Consistent', value: progress.streakDays >= 30 },
-            ].map((achievement, idx) => (
-              <View key={idx} style={styles.achievementItem}>
-                <View
-                  style={[
-                    styles.achievementIcon,
-                    !achievement.value && styles.achievementIconLocked,
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name={achievement.value ? (achievement.icon as any) : 'lock'}
-                    size={24}
-                    color={achievement.value ? '#FFB800' : '#ccc'}
-                  />
+        {/* Achievements (Dynamic from API) */}
+        {badges && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="trophy" size={20} color="#FFB800" />
+              <Text style={styles.sectionTitle}>Achievements</Text>
+            </View>
+            <View style={styles.achievementsGrid}>
+              {badges.map((badge: any) => (
+                <View key={badge.id} style={styles.achievementItem}>
+                  <View
+                    style={[
+                      styles.achievementIcon,
+                      !badge.earned && styles.achievementIconLocked,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={badge.earned ? 'trophy' : 'lock'}
+                      size={24}
+                      color={badge.earned ? '#FFB800' : '#ccc'}
+                    />
+                  </View>
+                  <Text style={styles.achievementLabel}>{badge.name}</Text>
                 </View>
-                <Text style={styles.achievementLabel}>{achievement.label}</Text>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Stats Summary */}
         <View style={styles.section}>

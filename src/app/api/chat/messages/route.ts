@@ -10,9 +10,18 @@ import { generateChatResponse, isOpenAIConfigured } from '@/lib/ai'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
-// Helper to verify session and get userId
+// Helper to verify session and get userId - supports both Bearer token and session cookie
 async function verifySession(request: NextRequest): Promise<string | null> {
   try {
+    // Check Bearer token first
+    const authHeader = request.headers.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+      if (verified) return verified.payload.userId as string
+    }
+
+    // Fall back to session cookie
     const cookieStore = await cookies()
     const token = cookieStore.get('session')?.value
 

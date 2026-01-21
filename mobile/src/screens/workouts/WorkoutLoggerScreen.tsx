@@ -8,10 +8,12 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
+import { useAuthStore } from '../../store/auth';
 
 interface Set {
   reps: string;
@@ -21,6 +23,7 @@ interface Set {
 
 interface WorkoutExercise {
   id: string;
+  exerciseId?: string; // optional until user selects a real exercise
   exerciseName: string;
   sets: Set[];
   notes: string;
@@ -31,15 +34,30 @@ export default function WorkoutLoggerScreen() {
   const [workoutNotes, setWorkoutNotes] = useState('');
   const [startTime] = useState(new Date());
   const [isLoading, setIsLoading] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerForId, setPickerForId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+
+  const { data: exercisesList } = useQuery({
+    queryKey: ['exercises', search],
+    queryFn: async () => {
+      const params: any = { includeMuscles: true };
+      if (search) params.search = search;
+      const res: any = await apiClient.listExercises(params);
+      return res?.exercises || [];
+    },
+  });
 
   const handleAddExercise = () => {
     const newExercise: WorkoutExercise = {
       id: Date.now().toString(),
-      exerciseName: 'New Exercise',
+      exerciseName: 'Select an exercise',
       sets: [{ reps: '', weight: '', completed: false }],
       notes: '',
     };
     setTodaysWorkout([...todaysWorkout, newExercise]);
+    setPickerForId(null);
+    setPickerVisible(true);
   };
 
   const handleUpdateSet = (
@@ -102,29 +120,50 @@ export default function WorkoutLoggerScreen() {
 
     setIsLoading(true);
     try {
-      const workoutData = {
-        date: new Date().toISOString(),
-        duration: Math.round((new Date().getTime() - startTime.getTime()) / 60000),
-        exercises: todaysWorkout.map((ex) => ({
-          name: ex.exerciseName,
-          sets: ex.sets,
-          notes: ex.notes,
-        })),
-        notes: workoutNotes,
-      };
+      const user = useAuthStore.getState().user;
+      if (!user?.id) {
+        Alert.alert('Login Required', 'Please log in to save workouts.');
+        return;
+      }
 
-      // TODO: Replace with actual API call
-      console.log('Saving workout:', workoutData);
+      const duration = Math.round((new Date().getTime() - startTime.getTime()) / 60000);
+      const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
-      Alert.alert('Success', 'Workout saved successfully!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            setTodaysWorkout([]);
-            setWorkoutNotes('');
-          },
+      // Start a workout session
+      const session: any = await apiClient.startWorkoutSession(user.id, dayName);
+      const sessionId = session?.id || session?.data?.id;
+
+      // If we have a session, log each exercise with a real exerciseId
+      if (sessionId) {
+        for (const ex of todaysWorkout) {
+          if (!ex.exerciseId) continue; // skip placeholder entries
+
+          const completedSets = ex.sets.filter((s) => s.completed);
+          const completedReps = completedSets.reduce((sum, s) => sum + (parseInt(s.reps || '0', 10) || 0), 0);
+          const lastWeight = completedSets.length > 0
+            ? parseFloat(completedSets[completedSets.length - 1].weight || '0') || 0
+            : 0;
+
+          await apiClient.logExercise({
+            userId: user.id,
+            sessionId,
+            exerciseId: ex.exerciseId,
+            completedSets: completedSets.length,
+            completedReps,
+            weight: lastWeight,
+            duration,
+            notes: ex.notes,
+          });
+        }
+      }
+
+      Alert.alert('Success', 'Workout saved successfully!', [{
+        text: 'OK',
+        onPress: () => {
+          setTodaysWorkout([]);
+          setWorkoutNotes('');
         },
-      ]);
+      }]);
     } catch (error) {
       Alert.alert('Error', 'Failed to save workout');
     } finally {
@@ -140,6 +179,53 @@ export default function WorkoutLoggerScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Exercise Picker Modal */}
+      <Modal visible={pickerVisible} animationType="slide">
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Choose Exercise</Text>
+          <TouchableOpacity onPress={() => setPickerVisible(false)}>
+            <MaterialCommunityIcons name="close" size={24} color="#999" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.searchRow}>
+          <MaterialCommunityIcons name="magnify" size={20} color="#999" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search exercises"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+        <ScrollView style={{ flex: 1 }}>
+          {(exercisesList || []).map((ex: any) => (
+            <TouchableOpacity
+              key={ex.id}
+              style={styles.exercisePickRow}
+              onPress={() => {
+                // Assign the picked exercise to the last placeholder
+                setTodaysWorkout((prev) => {
+                  const next = [...prev];
+                  for (let i = next.length - 1; i >= 0; i--) {
+                    if (!next[i].exerciseId) {
+                      next[i] = {
+                        ...next[i],
+                        exerciseId: ex.id,
+                        exerciseName: ex.name,
+                      };
+                      break;
+                    }
+                  }
+                  return next;
+                });
+                setPickerVisible(false);
+              }}
+            >
+              <Text style={styles.exercisePickName}>{ex.name}</Text>
+              <Text style={styles.exercisePickMeta}>{ex.category} • {ex.difficulty}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </Modal>
       {/* Header Stats */}
       <View style={styles.statsHeader}>
         <View style={styles.statItem}>
@@ -386,6 +472,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
     flex: 1,
+  },
+  exerciseChangeHint: {
+    fontSize: 12,
+    color: '#007AFF',
+    marginTop: 2,
   },
   setRow: {
     flexDirection: 'row',
