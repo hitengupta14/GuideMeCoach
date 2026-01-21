@@ -7,13 +7,13 @@ const LOCAL_IP = '192.168.29.189';
 export const API_BASE_URL = __DEV__
   ? Platform.select({
       // iOS Simulator needs your computer's local IP
-      ios: `http://${LOCAL_IP}:3000/api/v1`,
+      ios: `http://${LOCAL_IP}:3000/api`,
       // Android Emulator uses special IP to reach host machine
-      android: 'http://10.0.2.2:3000/api/v1',
+      android: 'http://10.0.2.2:3000/api',
       // Fallback for other platforms
-      default: 'http://localhost:3000/api/v1',
+      default: 'http://localhost:3000/api',
     })
-  : 'https://your-production-api.com/api/v1'; // TODO: Replace with production URL
+  : 'https://your-production-api.com/api'; // TODO: Replace with production URL
 
 export const config = {
   apiUrl: API_BASE_URL,

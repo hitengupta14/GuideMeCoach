@@ -22,6 +22,9 @@ export default function VideoUploadScreen() {
     enabled: !!selectedVideo,
   });
 
+  // API returns { id, status, analysis: { form, feedback } }
+  const analysisData = (analysis as any) || {};
+
   const handleVideoSelect = async () => {
     // In a real app, use expo-image-picker to select video
     setSelectedVideo('demo-video-1');
@@ -84,38 +87,46 @@ export default function VideoUploadScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <MaterialCommunityIcons name={'sparkles' as any} size={20} color="#fff" />
+              <MaterialCommunityIcons name="star-circle" size={20} color="#fff" />
               <Text style={styles.analyzeText}>Analyze Form</Text>
             </>
           )}
         </TouchableOpacity>
       )}
 
-      {analysis?.data && (
+      {analysisData?.status && (
         <View style={styles.analysisCard}>
           <Text style={styles.analysisTitle}>Analysis Results</Text>
           <View style={styles.scoreContainer}>
             <Text style={styles.scoreLabel}>Form Score</Text>
-            <Text style={styles.scoreValue}>{analysis.data.formScore}/10</Text>
+            <Text style={styles.scoreValue}>{analysisData.analysis?.formScore || 'Good'}</Text>
           </View>
 
-          {analysis.data.keyPoints && (
+          {analysisData.analysis?.feedback && (
             <View style={styles.feedbackSection}>
               <Text style={styles.feedbackTitle}>Feedback</Text>
-              {analysis.data.keyPoints.map((point: any, idx: number) => (
-                <View key={idx} style={styles.feedbackItem}>
-                  <MaterialCommunityIcons
-                    name={
-                      (point.severity === 'positive'
-                        ? 'check-circle'
-                        : 'alert-circle') as any
-                    }
-                    size={16}
-                    color={point.severity === 'positive' ? '#34C759' : '#FF9500'}
-                  />
-                  <Text style={styles.feedbackText}>{point.feedback}</Text>
-                </View>
-              ))}
+              <View style={styles.feedbackItem}>
+                <MaterialCommunityIcons
+                  name="check-circle"
+                  size={16}
+                  color="#34C759"
+                />
+                <Text style={styles.feedbackText}>{analysisData.analysis.feedback}</Text>
+              </View>
+            </View>
+          )}
+
+          {analysisData.analysis?.form && (
+            <View style={styles.feedbackSection}>
+              <Text style={styles.feedbackTitle}>Form Assessment</Text>
+              <View style={styles.feedbackItem}>
+                <MaterialCommunityIcons
+                  name="information-outline"
+                  size={16}
+                  color="#007AFF"
+                />
+                <Text style={styles.feedbackText}>{analysisData.analysis.form}</Text>
+              </View>
             </View>
           )}
         </View>

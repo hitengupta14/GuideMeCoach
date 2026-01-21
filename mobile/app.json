@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "guidemecoach-mobile",
+    "slug": "guidemecoach-mobile",
+    "version": "1.0.0",
+    "scheme": "guidemecoach",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "android": {
+      "package": "com.anonymous.guidemecoachmobile"
+    },
+    "ios": {
+      "bundleIdentifier": "com.anonymous.guidemecoachmobile"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}

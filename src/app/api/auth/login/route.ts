@@ -32,12 +32,16 @@ export async function POST(request: NextRequest) {
     const validated = loginSchema.parse(body)
     const { email, password } = validated
 
+    console.log('🔍 Login attempt:', { email, passwordLength: password.length })
+
     // Find user
     const user = await db
       .select()
       .from(users)
       .where(eq(users.email, email.toLowerCase()))
       .limit(1)
+
+    console.log('🔍 User found:', user.length > 0 ? 'Yes' : 'No')
 
     if (user.length === 0) {
       logger.warn('Login attempt with non-existent email', { email: email.substring(0, 5) + '***' })
@@ -49,8 +53,16 @@ export async function POST(request: NextRequest) {
 
     const foundUser = user[0]
 
+    console.log('🔍 User details:', { 
+      id: foundUser.id, 
+      email: foundUser.email,
+      hasPasswordHash: !!foundUser.passwordHash,
+      passwordHashPreview: foundUser.passwordHash?.substring(0, 20)
+    })
+
     // Verify password
     if (!foundUser.passwordHash) {
+      console.log('❌ User has no password hash')
       logger.error('User has no password hash', new Error('Missing password hash'), { userId: foundUser.id })
       return NextResponse.json(
         { error: 'User authentication not configured' },
@@ -59,6 +71,8 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordValid = await verifyPassword(password, foundUser.passwordHash)
+    console.log('🔍 Password valid:', passwordValid)
+    
     if (!passwordValid) {
       logger.warn('Invalid password attempt', { email: email.substring(0, 5) + '***' })
       return NextResponse.json(
@@ -83,18 +97,22 @@ export async function POST(request: NextRequest) {
     // Create response
     const response = NextResponse.json(
       {
+        success: true,
         message: 'Login successful',
-        user: {
-          id: foundUser.id,
-          email: foundUser.email,
-          name: foundUser.name,
-          height: foundUser.height,
-          weight: foundUser.weight,
-          age: foundUser.age,
-          experienceLevel: foundUser.experienceLevel,
-          goals: foundUser.goals,
-          isAdmin: foundUser.isAdmin,
-          adminRole: foundUser.adminRole,
+        data: {
+          token,
+          user: {
+            id: foundUser.id,
+            email: foundUser.email,
+            name: foundUser.name,
+            height: foundUser.height,
+            weight: foundUser.weight,
+            age: foundUser.age,
+            experienceLevel: foundUser.experienceLevel,
+            goals: foundUser.goals,
+            isAdmin: foundUser.isAdmin,
+            adminRole: foundUser.adminRole,
+          },
         },
       },
       { status: 200 }

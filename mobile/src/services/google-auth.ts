@@ -1,17 +1,27 @@
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import { apiClient } from './api';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Google OAuth credentials (replace with your actual credentials from Google Cloud Console)
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '841852620652-1q0pb0bbvh2aj9fqv5l5qj1dql58miqh.apps.googleusercontent.com';
-const GOOGLE_CLIENT_ID_IOS = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS || '841852620652-1q0pb0bbvh2aj9fqv5l5qj1dql58miqh.apps.googleusercontent.com';
+// Google OAuth credentials
+const GOOGLE_WEB_CLIENT_ID = '79067976017-jdrll6f7honug0lpi5bv9vv2m6n3kn3e.apps.googleusercontent.com';
 
-export function useGoogleAuth() {
+// @ts-ignore - expo-auth-session internal type issue
+export function useGoogleAuth(): any {
+  // In development with Expo Go, use proxy. Otherwise use scheme.
+  const redirectUri = makeRedirectUri({
+    useProxy: true,
+  });
+
+  console.log('🔵 Google Auth Redirect URI:', redirectUri);
+
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: GOOGLE_CLIENT_ID,
-    iosClientId: GOOGLE_CLIENT_ID_IOS,
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    iosClientId: GOOGLE_WEB_CLIENT_ID,
+    androidClientId: GOOGLE_WEB_CLIENT_ID,
+    redirectUri,
     scopes: ['profile', 'email'],
   });
 
@@ -21,25 +31,34 @@ export function useGoogleAuth() {
 export async function handleGoogleSignIn(idToken: string) {
   try {
     console.log('🔵 Google Sign-In: Sending token to backend');
+    console.log('🔵 ID Token preview:', idToken?.substring(0, 50) + '...');
     
     const response: any = await apiClient.request('/auth/google', {
       method: 'POST',
       body: JSON.stringify({ idToken }),
     });
 
-    console.log('✅ Google Sign-In Success:', response);
+    console.log('✅ Google Sign-In Backend Response:', response);
     
     // Backend returns { success: true, data: { token, user } }
-    const { token, user } = response.data || response;
+    const tokenData = response?.data?.token || response?.token;
+    const userData = response?.data?.user || response?.user;
 
-    if (token && user) {
-      apiClient.setToken(token);
-      return { token, user };
+    if (tokenData && userData) {
+      apiClient.setToken(tokenData);
+      console.log('✅ Google Sign-In Success: Token saved');
+      return { token: tokenData, user: userData };
     } else {
+      console.error('❌ Invalid response structure:', response);
       throw new Error('Invalid response from Google authentication');
     }
   } catch (error: any) {
-    console.error('❌ Google Sign-In Error:', error.message);
+    console.error('❌ Google Sign-In Error:', error);
+    console.error('❌ Error Details:', {
+      message: error.message,
+      status: error.status,
+      response: error.response,
+    });
     throw error;
   }
 }

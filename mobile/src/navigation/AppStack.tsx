@@ -6,10 +6,15 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import DashboardScreen from '../screens/home/DashboardScreen';
+import ProfileScreen from '../screens/home/ProfileScreen';
 import VideoUploadScreen from '../screens/video/VideoUploadScreen';
 import WearablesScreen from '../screens/wearables/WearablesScreen';
 import SubscriptionScreen from '../screens/subscription/SubscriptionScreen';
-import ProfileScreen from '../screens/home/ProfileScreen';
+import ExercisesListScreen from '../screens/exercises/ExercisesListScreen';
+import ExerciseDetailScreen from '../screens/exercises/ExerciseDetailScreen';
+import WorkoutLoggerScreen from '../screens/workouts/WorkoutLoggerScreen';
+import AIPlannerScreen from '../screens/planner/AIPlannerScreen';
+import ProgressScreen from '../screens/progress/ProgressScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -65,6 +70,94 @@ function WearablesStack() {
   );
 }
 
+function ExercisesStack() {
+  const [selectedExercise, setSelectedExercise] = React.useState<any>(null);
+
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerTintColor: '#000',
+        headerTitleStyle: { fontWeight: '600' },
+      }}
+    >
+      {!selectedExercise ? (
+        <Stack.Screen
+          name="ExercisesList"
+          options={{ title: 'Exercises' }}
+        >
+          {() => (
+            <ExercisesListScreen
+              onSelectExercise={(ex) => setSelectedExercise(ex)}
+            />
+          )}
+        </Stack.Screen>
+      ) : (
+        <Stack.Screen
+          name="ExerciseDetail"
+          options={{ title: selectedExercise.name }}
+        >
+          {() => (
+            <ExerciseDetailScreen
+              exerciseId={selectedExercise.id}
+              exerciseName={selectedExercise.name}
+              onBack={() => setSelectedExercise(null)}
+            />
+          )}
+        </Stack.Screen>
+      )}
+    </Stack.Navigator>
+  );
+}
+
+function WorkoutsStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerTintColor: '#000',
+        headerTitleStyle: { fontWeight: '600' },
+      }}
+    >
+      <Stack.Screen
+        name="WorkoutLogger"
+        component={WorkoutLoggerScreen}
+        options={{ title: 'Workout Logger' }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function PlannerStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen
+        name="AIPlannerMain"
+        component={AIPlannerScreen}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function ProgressStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen
+        name="ProgressMain"
+        component={ProgressScreen}
+      />
+    </Stack.Navigator>
+  );
+}
+
 export default function AppStack() {
   return (
     <Tab.Navigator
@@ -76,14 +169,18 @@ export default function AppStack() {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Exercises') {
+            iconName = focused ? 'dumbbell' : 'dumbbell';
+          } else if (route.name === 'Workouts') {
+            iconName = focused ? 'fire' : 'fire-outline';
+          } else if (route.name === 'Planner') {
+            iconName = focused ? 'robot' : 'robot-outline';
+          } else if (route.name === 'Progress') {
+            iconName = focused ? 'chart-line' : 'chart-line';
           } else if (route.name === 'Video') {
             iconName = focused ? 'video' : 'video-outline';
           } else if (route.name === 'Wearables') {
             iconName = focused ? 'heart-pulse' : 'heart-outline';
-          } else if (route.name === 'Subscription') {
-            iconName = focused ? 'crown' : 'crown-outline';
-          } else if (route.name === 'Settings') {
-            iconName = focused ? 'cog' : 'cog-outline';
           }
 
           return (
@@ -96,12 +193,33 @@ export default function AppStack() {
         },
         tabBarActiveTintColor: '#007AFF',
         tabBarInactiveTintColor: '#999',
+        tabBarLabelStyle: { fontSize: 10, marginTop: -8 },
       })}
     >
       <Tab.Screen
         name="Home"
         component={HomeStack}
         options={{ title: 'Home' }}
+      />
+      <Tab.Screen
+        name="Exercises"
+        component={ExercisesStack}
+        options={{ title: 'Exercises' }}
+      />
+      <Tab.Screen
+        name="Workouts"
+        component={WorkoutsStack}
+        options={{ title: 'Workouts' }}
+      />
+      <Tab.Screen
+        name="Progress"
+        component={ProgressStack}
+        options={{ title: 'Progress' }}
+      />
+      <Tab.Screen
+        name="Planner"
+        component={PlannerStack}
+        options={{ title: 'Planner' }}
       />
       <Tab.Screen
         name="Video"
@@ -112,11 +230,6 @@ export default function AppStack() {
         name="Wearables"
         component={WearablesStack}
         options={{ title: 'Health' }}
-      />
-      <Tab.Screen
-        name="Subscription"
-        component={SubscriptionScreen}
-        options={{ title: 'Pro' }}
       />
     </Tab.Navigator>
   );

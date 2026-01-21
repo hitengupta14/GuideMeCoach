@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import bcrypt from 'bcrypt'
 
 /**
  * Hash a password using PBKDF2
@@ -16,10 +17,26 @@ export async function hashPassword(password: string): Promise<string> {
 
 /**
  * Verify a password against its hash
+ * Supports both bcrypt and PBKDF2 formats
  */
 export async function verifyPassword(password: string, passwordHash: string): Promise<boolean> {
+  // Check if it's a bcrypt hash (starts with $2a$, $2b$, or $2y$)
+  if (passwordHash.startsWith('$2a$') || passwordHash.startsWith('$2b$') || passwordHash.startsWith('$2y$')) {
+    try {
+      return await bcrypt.compare(password, passwordHash)
+    } catch (error) {
+      console.error('Bcrypt verification error:', error)
+      return false
+    }
+  }
+  
+  // Otherwise, assume it's PBKDF2 format (salt:hash)
   return new Promise((resolve, reject) => {
     const [salt, hash] = passwordHash.split(':')
+    if (!salt || !hash) {
+      resolve(false)
+      return
+    }
     crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derived) => {
       if (err) reject(err)
       resolve(hash === derived.toString('hex'))

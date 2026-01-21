@@ -72,15 +72,11 @@ export const apiClient = {
 
   // Helper to set auth token in headers
   setToken(token: string) {
-    config.headers = {
-      ...config.headers,
-      Authorization: `Bearer ${token}`,
-    };
+    (config.headers as any).Authorization = `Bearer ${token}`;
   },
 
   clearToken() {
-    const { Authorization, ...rest } = config.headers as any;
-    config.headers = rest;
+    delete (config.headers as any).Authorization;
   },
 
   // Video endpoints (mock for now)

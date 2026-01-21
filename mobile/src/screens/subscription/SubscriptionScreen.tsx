@@ -17,6 +17,9 @@ export default function SubscriptionScreen() {
     queryFn: () => apiClient.getSubscriptionStatus(),
   });
 
+  // API returns { plan: string, status: string }
+  const subData = (subscription as any) || {};
+
   const plans = [
     {
       name: 'Basic',
@@ -57,15 +60,14 @@ export default function SubscriptionScreen() {
         <Text style={styles.subtitle}>Unlock advanced features</Text>
       </View>
 
-      {subscription?.data?.status === 'active' && (
+      {subData?.plan && (
         <View style={styles.currentPlan}>
           <Text style={styles.currentPlanLabel}>Current Plan</Text>
           <Text style={styles.currentPlanName}>
-            {subscription.data.planName}
+            {subData.plan || 'Free'}
           </Text>
-          <Text style={styles.currentPlanExpiry}>
-            Renews on{' '}
-            {new Date(subscription.data.currentPeriodEnd).toLocaleDateString()}
+          <Text style={styles.currentPlanDetails}>
+            Status: {subData.status || 'Active'}
           </Text>
         </View>
       )}
@@ -95,7 +97,7 @@ export default function SubscriptionScreen() {
             <TouchableOpacity
               style={[
                 styles.selectButton,
-                subscription?.data?.plan === plan.name.toLowerCase() &&
+                subData.plan?.toLowerCase() === plan.name.toLowerCase() &&
                   styles.selectButtonActive,
               ]}
               onPress={() => handleUpgrade(plan.name)}
@@ -103,11 +105,11 @@ export default function SubscriptionScreen() {
               <Text
                 style={[
                   styles.selectButtonText,
-                  subscription?.data?.plan === plan.name.toLowerCase() &&
+                  subData.plan?.toLowerCase() === plan.name.toLowerCase() &&
                     styles.selectButtonTextActive,
                 ]}
               >
-                {subscription?.data?.plan === plan.name.toLowerCase()
+                {subData.plan?.toLowerCase() === plan.name.toLowerCase()
                   ? 'Current Plan'
                   : 'Select'}
               </Text>
@@ -245,6 +247,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+  },
+  currentPlanDetails: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
   },
   infoText: {
     marginLeft: 8,

@@ -27,26 +27,25 @@ export const useAuthStore = create<AuthState>((set) => ({
       const response: any = await apiClient.login(email, password);
 
       // Backend returns { success: true, data: { token, user } }
-      const { token, user } = response.data || response;
+      const tokenData = response?.data?.token || response?.token;
+      const userData = response?.data?.user || response?.user;
 
-      if (token && user) {
-        apiClient.setToken(token);
+      if (tokenData && userData) {
+        apiClient.setToken(tokenData);
         set({
-          token: token,
-          user: user,
+          token: tokenData,
+          user: userData,
           isLoading: false,
         });
       } else {
-        set({
-          error: 'Login failed',
-          isLoading: false,
-        });
+        throw new Error('Invalid response structure from server');
       }
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Login failed',
         isLoading: false,
       });
+      throw error;
     }
   },
 
@@ -56,26 +55,25 @@ export const useAuthStore = create<AuthState>((set) => ({
       const response: any = await apiClient.signup(email, password, name || '');
 
       // Backend returns { success: true, data: { token, user } }
-      const { token, user } = response.data || response;
+      const tokenData = response?.data?.token || response?.token;
+      const userData = response?.data?.user || response?.user;
 
-      if (token && user) {
-        apiClient.setToken(token);
+      if (tokenData && userData) {
+        apiClient.setToken(tokenData);
         set({
-          token: token,
-          user: user,
+          token: tokenData,
+          user: userData,
           isLoading: false,
         });
       } else {
-        set({
-          error: 'Signup failed',
-          isLoading: false,
-        });
+        throw new Error('Invalid response structure from server');
       }
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Signup failed',
         isLoading: false,
       });
+      throw error;
     }
   },
 

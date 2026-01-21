@@ -20,6 +20,9 @@ export default function WearablesScreen() {
     queryFn: () => apiClient.getWearableData(7),
   });
 
+  // API returns { steps: [], heartRate: [], sleep: [] }
+  const healthData = (wearableData as any) || {};
+
   const handleConnectDevice = async (provider: string) => {
     try {
       const response = await apiClient.connectWearable(provider);
@@ -92,44 +95,42 @@ export default function WearablesScreen() {
           style={styles.loader}
         />
       ) : (
-        wearableData?.data && (
+        healthData && (
           <>
-            {wearableData.data.steps && wearableData.data.steps.length > 0 && (
+            {healthData?.steps && Array.isArray(healthData.steps) && healthData.steps.length > 0 && (
               <View style={styles.metricsCard}>
                 <Text style={styles.metricTitle}>Steps</Text>
                 <Text style={styles.metricValue}>
-                  {Math.floor(wearableData.data.steps[0]?.steps || 0)}
+                  {typeof healthData.steps[0] === 'number' ? healthData.steps[0] : healthData.steps[0]?.steps || 0}
                 </Text>
                 <Text style={styles.metricLabel}>
-                  Goal: {wearableData.data.steps[0]?.goal}
+                  Goal: {typeof healthData.steps[0] === 'object' ? (healthData.steps[0]?.goal || '10,000') : '10,000'}
                 </Text>
               </View>
             )}
 
-            {wearableData.data.heartRate &&
-              wearableData.data.heartRate.length > 0 && (
+            {healthData?.heartRate && Array.isArray(healthData.heartRate) && healthData.heartRate.length > 0 && (
                 <View style={styles.metricsCard}>
                   <Text style={styles.metricTitle}>Heart Rate</Text>
                   <Text style={styles.metricValue}>
-                    {Math.floor(wearableData.data.heartRate[0]?.average || 0)}
+                    {typeof healthData.heartRate[0] === 'number' ? healthData.heartRate[0] : healthData.heartRate[0]?.average || 0}
                     {' bpm'}
                   </Text>
                   <Text style={styles.metricLabel}>
-                    Resting: {Math.floor(wearableData.data.heartRate[0]?.resting || 0)} bpm
+                    Resting: {typeof healthData.heartRate[0] === 'object' ? (healthData.heartRate[0]?.resting || 'N/A') : 'N/A'} bpm
                   </Text>
                 </View>
               )}
 
-            {wearableData.data.sleep &&
-              wearableData.data.sleep.length > 0 && (
+            {healthData?.sleep && Array.isArray(healthData.sleep) && healthData.sleep.length > 0 && (
                 <View style={styles.metricsCard}>
                   <Text style={styles.metricTitle}>Sleep</Text>
                   <Text style={styles.metricValue}>
-                    {(wearableData.data.sleep[0]?.duration / 60).toFixed(1)}
+                    {typeof healthData.sleep[0] === 'number' ? healthData.sleep[0].toFixed(1) : (typeof healthData.sleep[0] === 'object' ? (healthData.sleep[0]?.duration / 60 || 0).toFixed(1) : '0')}
                     {' hours'}
                   </Text>
                   <Text style={styles.metricLabel}>
-                    Quality: {Math.floor(wearableData.data.sleep[0]?.quality || 0)}%
+                    Quality: {typeof healthData.sleep[0] === 'object' ? (healthData.sleep[0]?.quality || 'N/A') : 'N/A'}%
                   </Text>
                 </View>
               )}
@@ -237,6 +238,11 @@ const styles = StyleSheet.create({
   metricLabel: {
     fontSize: 12,
     color: '#999',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
   },
   loader: {
     marginVertical: 40,
