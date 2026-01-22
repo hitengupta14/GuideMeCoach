@@ -5,18 +5,32 @@ import { jwtVerify } from 'jose'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
+async function getUserId(req: Request): Promise<string | null> {
+  try {
+    const authHeader = req.headers.get('authorization')
+    const bearer = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : null
+
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get('session')?.value
+    const tokenToVerify = bearer || sessionToken
+
+    if (!tokenToVerify) return null
+
+    const verified = await jwtVerify(tokenToVerify, JWT_SECRET).catch(() => null)
+    if (!verified) return null
+    return verified.payload.userId as string
+  } catch {
+    return null
+  }
+}
+
 export async function POST(req: Request) {
   try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
-
-    if (!token) {
+    const userId = await getUserId(req)
+    if (!userId) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
-    if (!verified) {
-      return Response.json({ error: 'Invalid token' }, { status: 401 })
     }
 
     const { workoutFocus = 'upper_body', type = 'warmup', duration = 10 } = await req.json()

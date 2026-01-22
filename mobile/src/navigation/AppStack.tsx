@@ -18,6 +18,19 @@ import ProgressScreen from '../screens/progress/ProgressScreen';
 import NutritionScreen from '../screens/nutrition/NutritionScreen';
 import ConversationsScreen from '../screens/chat/ConversationsScreen';
 import ChatScreen from '../screens/chat/ChatScreen';
+import MoreMenuScreen from '../screens/more/MoreMenuScreen';
+import BodyMapScreen from '../screens/more/BodyMapScreen';
+import MuscleExercisesScreen from '../screens/more/MuscleExercisesScreen';
+import FavoritesScreen from '../screens/more/FavoritesScreen';
+import AchievementsScreen from '../screens/more/AchievementsScreen';
+import AiInsightsScreen from '../screens/more/AiInsightsScreen';
+import RecoveryScreen from '../screens/more/RecoveryScreen';
+import FormFeedbackScreen from '../screens/more/FormFeedbackScreen';
+import SettingsScreen from '../screens/more/SettingsScreen';
+import ToolsScreen from '../screens/more/ToolsScreen';
+import PlansScreen from '../screens/more/PlansScreen';
+import AIHubScreen from '../screens/more/AIHubScreen';
+import ProgressV2Screen from '../screens/more/ProgressV2Screen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -188,6 +201,32 @@ function ChatStack() {
   );
 }
 
+function MoreStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerTintColor: '#000',
+        headerTitleStyle: { fontWeight: '600' },
+      }}
+    >
+      <Stack.Screen name="MoreMenu" component={MoreMenuScreen} options={{ title: 'More' }} />
+      <Stack.Screen name="BodyMap" component={BodyMapScreen} options={{ title: 'Body Map' }} />
+      <Stack.Screen name="MuscleExercises" component={MuscleExercisesScreen} options={{ title: 'Muscle Exercises' }} />
+      <Stack.Screen name="Favorites" component={FavoritesScreen} options={{ title: 'Favorites' }} />
+      <Stack.Screen name="Achievements" component={AchievementsScreen} options={{ title: 'Achievements' }} />
+      <Stack.Screen name="AiInsights" component={AiInsightsScreen} options={{ title: 'AI Insights' }} />
+      <Stack.Screen name="Recovery" component={RecoveryScreen} options={{ title: 'Recovery' }} />
+      <Stack.Screen name="FormFeedback" component={FormFeedbackScreen} options={{ title: 'Form Feedback' }} />
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+      <Stack.Screen name="Tools" component={ToolsScreen} options={{ title: 'Tools' }} />
+      <Stack.Screen name="Plans" component={PlansScreen} options={{ title: 'My Plans' }} />
+      <Stack.Screen name="AIHub" component={AIHubScreen} options={{ title: 'AI Hub' }} />
+      <Stack.Screen name="ProgressV2" component={ProgressV2Screen} options={{ title: 'Progress V2' }} />
+    </Stack.Navigator>
+  );
+}
+
 export default function AppStack() {
   return (
     <Tab.Navigator
@@ -202,7 +241,7 @@ export default function AppStack() {
           } else if (route.name === 'Exercises') {
             iconName = focused ? 'dumbbell' : 'dumbbell';
           } else if (route.name === 'Workouts') {
-            iconName = focused ? 'fire' : 'fire-outline';
+            iconName = 'fire';
           } else if (route.name === 'Planner') {
             iconName = focused ? 'robot' : 'robot-outline';
           } else if (route.name === 'Progress') {
@@ -215,6 +254,8 @@ export default function AppStack() {
             iconName = focused ? 'food-apple' : 'food-apple-outline';
           } else if (route.name === 'Chat') {
             iconName = focused ? 'message' : 'message-outline';
+          } else if (route.name === 'More') {
+            iconName = focused ? 'dots-horizontal' : 'dots-horizontal';
           }
 
           return (
@@ -274,6 +315,11 @@ export default function AppStack() {
         name="Chat"
         component={ChatStack}
         options={{ title: 'Chat' }}
+      />
+      <Tab.Screen
+        name="More"
+        component={MoreStack}
+        options={{ title: 'More' }}
       />
     </Tab.Navigator>
   );

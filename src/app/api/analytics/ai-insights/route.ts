@@ -9,15 +9,21 @@ import { analyzeProgress } from '@/lib/ai'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
-// Helper to verify session
-async function verifySession(request: NextRequest): Promise<string | null> {
+// Helper to get user from cookie or Authorization header
+async function getUserId(request: NextRequest): Promise<string | null> {
   try {
+    const authHeader = request.headers.get('authorization')
+    const bearer = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : null
+
     const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
+    const sessionToken = cookieStore.get('session')?.value
+    const tokenToVerify = bearer || sessionToken
 
-    if (!token) return null
+    if (!tokenToVerify) return null
 
-    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    const verified = await jwtVerify(tokenToVerify, JWT_SECRET).catch(() => null)
     if (!verified) return null
 
     return verified.payload.userId as string
@@ -29,7 +35,7 @@ async function verifySession(request: NextRequest): Promise<string | null> {
 export async function GET(request: NextRequest) {
   try {
     // Verify session
-    const userId = await verifySession(request)
+    const userId = await getUserId(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

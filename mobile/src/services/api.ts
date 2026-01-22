@@ -168,10 +168,46 @@ export const apiClient = {
   async getProgress(range: 'week' | 'month' | 'year' = 'month') {
     return this.request(`/analytics/progress?range=${range}`, { method: 'GET' });
   },
+  
+  async getAiInsights(weeks: number = 4) {
+    return this.request(`/analytics/ai-insights?weeks=${weeks}`, { method: 'GET' });
+  },
+  
+  async getPlateauAnalysis(weeks: number = 8, minSessions: number = 5) {
+    return this.request(`/analytics/plateau?weeks=${weeks}&minSessions=${minSessions}`, { method: 'GET' });
+  },
 
   // ===== Nutrition =====
   async getNutritionGuidance() {
     return this.request('/users/nutrition-guidance', { method: 'GET' });
+  },
+  
+  // ===== Muscles / Body Map =====
+  async listMuscleGroups() {
+    return this.request('/muscles', { method: 'GET' });
+  },
+  
+  async getMuscleExercises(muscleId: string) {
+    return this.request(`/muscles/${muscleId}/exercises`, { method: 'GET' });
+  },
+  
+  // ===== Favorites =====
+  async listFavorites(userId: string) {
+    return this.request(`/users/${userId}/favorites`, { method: 'GET' });
+  },
+  
+  async addFavorite(userId: string, exerciseId: string) {
+    return this.request(`/users/${userId}/favorites`, {
+      method: 'POST',
+      body: JSON.stringify({ exerciseId }),
+    });
+  },
+  
+  async removeFavorite(userId: string, exerciseId: string) {
+    return this.request(`/users/${userId}/favorites`, {
+      method: 'DELETE',
+      body: JSON.stringify({ exerciseId }),
+    });
   },
 
   async updateUserProfile(updates: Record<string, any>) {
@@ -191,6 +227,62 @@ export const apiClient = {
   // ===== Chat (Cookie-based session) =====
   async listConversations() {
     return this.request('/chat/conversations', { method: 'GET' });
+  },
+  
+  // ===== Recovery =====
+  async getRecoveryScore() {
+    return this.request('/recovery/score', { method: 'GET' });
+  },
+  
+  async getRestDays() {
+    return this.request('/recovery/rest-days', { method: 'GET' });
+  },
+  
+  async submitSoreness(areas: Record<string, number>, notes?: string) {
+    return this.request('/recovery/soreness', {
+      method: 'POST',
+      body: JSON.stringify({ areas, notes }),
+    });
+  },
+  
+  async generateWarmup(payload: { workoutFocus: string; type: 'warmup' | 'cooldown'; duration?: number }) {
+    return this.request('/recovery/warmup-cooldown', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  
+  // ===== Form Feedback =====
+  async getFormFeedback(payload: { exerciseName: string; description: string; weight?: string; reps?: string }) {
+    return this.request('/exercises/form-feedback', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  
+  // ===== Engagement / Progress V2 =====
+  async getAchievementsEngagement() {
+    return this.request('/engagement/achievements', { method: 'GET' });
+  },
+  
+  async getProfileCompletion() {
+    return this.request('/engagement/profile-completion', { method: 'GET' });
+  },
+  
+  async updateProfileCompletion(body: Record<string, any>) {
+    return this.request('/engagement/profile-completion', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+  
+  async getEngagementCalendar(month: number, year: number) {
+    return this.request(`/engagement/calendar?month=${month}&year=${year}`, { method: 'GET' });
+  },
+  
+  // ===== Settings =====
+  async changePassword(currentPassword: string, newPassword: string) {
+    return this.request('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
   },
 
   async createConversation(payload: { topic: string; title: string; firstMessage?: string }) {

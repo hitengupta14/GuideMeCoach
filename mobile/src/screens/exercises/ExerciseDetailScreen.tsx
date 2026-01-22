@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,9 @@ import {
   Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
+import { useAuthStore } from '../../store/auth';
 
 interface ExerciseDetailScreenProps {
   exerciseId: string;
@@ -45,11 +46,53 @@ export default function ExerciseDetailScreen({
   onBack,
 }: ExerciseDetailScreenProps) {
   const [isFavorite, setIsFavorite] = useState(false);
+  const { user } = useAuthStore();
+  const qc = useQueryClient();
 
   const { data: exerciseDetail, isLoading } = useQuery({
     queryKey: ['exerciseDetail', exerciseId],
     queryFn: () => apiClient.request(`/exercises/${exerciseId}`),
   });
+
+  const { data: favoriteList } = useQuery({
+    queryKey: ['favorites', user?.id],
+    enabled: !!user?.id,
+    queryFn: () => apiClient.listFavorites(user!.id),
+  });
+
+  useEffect(() => {
+    if (!favoriteList || !Array.isArray(favoriteList)) return;
+    const found = favoriteList.some((f: any) => f.exerciseId === exerciseId);
+    setIsFavorite(found);
+  }, [favoriteList, exerciseId]);
+
+  const addFav = useMutation({
+    mutationFn: () => apiClient.addFavorite(user!.id, exerciseId),
+    onSuccess: () => {
+      qc.invalidateQueries(['favorites', user?.id]);
+      setIsFavorite(true);
+    },
+  });
+
+  const removeFav = useMutation({
+    mutationFn: () => apiClient.removeFavorite(user!.id, exerciseId),
+    onSuccess: () => {
+      qc.invalidateQueries(['favorites', user?.id]);
+      setIsFavorite(false);
+    },
+  });
+
+  const toggleFavorite = () => {
+    if (!user?.id) {
+      Alert.alert('Login required', 'Please log in to save favorites.');
+      return;
+    }
+    if (isFavorite) {
+      removeFav.mutate();
+    } else {
+      addFav.mutate();
+    }
+  };
 
   const exercise = (exerciseDetail as any)?.exercise || {};
   const muscles = ((exerciseDetail as any)?.muscles || []) as MuscleGroup[];
@@ -90,7 +133,7 @@ export default function ExerciseDetailScreen({
         <Text style={styles.headerTitle} numberOfLines={1}>
           {exercise.name}
         </Text>
-        <TouchableOpacity onPress={() => setIsFavorite(!isFavorite)}>
+        <TouchableOpacity onPress={toggleFavorite}>
           <MaterialCommunityIcons
             name={isFavorite ? 'heart' : 'heart-outline'}
             size={24}
