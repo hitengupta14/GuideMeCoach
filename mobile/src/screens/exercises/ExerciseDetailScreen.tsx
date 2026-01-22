@@ -12,6 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
+// import { useThemeStore } from '../../store/theme' from '../../store/auth';
 
 interface ExerciseDetailScreenProps {
   exerciseId: string;

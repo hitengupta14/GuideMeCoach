@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useThemeStore } from '../../store/theme';
+import { lightColors, darkColors } from '../../theme/colors';
 import {
   View,
   Text,

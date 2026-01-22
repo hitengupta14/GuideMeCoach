@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-nativ
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
+// import { useThemeStore } from '../../store/theme'
 
 export default function AchievementsScreen() {
   const { user } = useAuthStore();

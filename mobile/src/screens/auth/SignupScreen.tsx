@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/auth';
+// import { useThemeStore } from '../../store/theme' from '../../store/auth';
 import { useGoogleAuth } from '../../services/google-auth';
 
 export default function SignupScreen({ navigation }: any) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,12 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/api';
-import { useAuthStore } from '../../store/auth';
+} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "../../services/api";
+import { useAuthStore } from "../../store/auth";
+// import { useThemeStore } from '../../store/theme' from '../../store/auth';
 
 interface ProgressData {
   totalWorkouts: number;
@@ -22,17 +23,18 @@ interface ProgressData {
 }
 
 export default function ProgressScreen() {
-  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
+  const [timeRange, setTimeRange] = useState<"week" | "month" | "year">(
+    "month"
+  );
 
   const { data: progressData, isLoading } = useQuery({
-    queryKey: ['progress', timeRange],
-    queryFn: () =>
-      apiClient.request(`/analytics/progress?range=${timeRange}`),
+    queryKey: ["progress", timeRange],
+    queryFn: () => apiClient.request(`/analytics/progress?range=${timeRange}`),
   });
 
   const user = useAuthStore((s) => s.user);
   const { data: badges } = useQuery({
-    queryKey: ['badges', user?.id],
+    queryKey: ["badges", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
       // First, check and award any new badges
@@ -73,7 +75,7 @@ export default function ProgressScreen() {
 
       {/* Time Range Selector */}
       <View style={styles.timeRangeSelector}>
-        {(['week', 'month', 'year'] as const).map((range) => (
+        {(["week", "month", "year"] as const).map((range) => (
           <TouchableOpacity
             key={range}
             style={[
@@ -99,14 +101,23 @@ export default function ProgressScreen() {
         <View style={styles.metricsGrid}>
           <View style={styles.metricCard}>
             <View style={styles.metricIconContainer}>
-              <MaterialCommunityIcons name="dumbbell" size={24} color="#007AFF" />
+              <MaterialCommunityIcons
+                name="dumbbell"
+                size={24}
+                color="#007AFF"
+              />
             </View>
             <Text style={styles.metricValue}>{progress.totalWorkouts}</Text>
             <Text style={styles.metricLabel}>Workouts</Text>
           </View>
 
           <View style={styles.metricCard}>
-            <View style={[styles.metricIconContainer, { backgroundColor: '#34C75920' }]}>
+            <View
+              style={[
+                styles.metricIconContainer,
+                { backgroundColor: "#34C75920" },
+              ]}
+            >
               <MaterialCommunityIcons name="fire" size={24} color="#34C759" />
             </View>
             <Text style={styles.metricValue}>{progress.streakDays}</Text>
@@ -114,18 +125,32 @@ export default function ProgressScreen() {
           </View>
 
           <View style={styles.metricCard}>
-            <View style={[styles.metricIconContainer, { backgroundColor: '#FF950020' }]}>
+            <View
+              style={[
+                styles.metricIconContainer,
+                { backgroundColor: "#FF950020" },
+              ]}
+            >
               <MaterialCommunityIcons name="weight" size={24} color="#FF9500" />
             </View>
-            <Text style={styles.metricValue}>{Math.round(progress.totalWeightLifted / 1000)}K</Text>
+            <Text style={styles.metricValue}>
+              {Math.round(progress.totalWeightLifted / 1000)}K
+            </Text>
             <Text style={styles.metricLabel}>Total Weight</Text>
           </View>
 
           <View style={styles.metricCard}>
-            <View style={[styles.metricIconContainer, { backgroundColor: '#FF3B3020' }]}>
+            <View
+              style={[
+                styles.metricIconContainer,
+                { backgroundColor: "#FF3B3020" },
+              ]}
+            >
               <MaterialCommunityIcons name="repeat" size={24} color="#FF3B30" />
             </View>
-            <Text style={styles.metricValue}>{progress.totalSetsCompleted}</Text>
+            <Text style={styles.metricValue}>
+              {progress.totalSetsCompleted}
+            </Text>
             <Text style={styles.metricLabel}>Sets</Text>
           </View>
         </View>
@@ -190,9 +215,9 @@ export default function ProgressScreen() {
                     ]}
                   >
                     <MaterialCommunityIcons
-                      name={badge.earned ? 'trophy' : 'lock'}
+                      name={badge.earned ? "trophy" : "lock"}
                       size={24}
-                      color={badge.earned ? '#FFB800' : '#ccc'}
+                      color={badge.earned ? "#FFB800" : "#ccc"}
                     />
                   </View>
                   <Text style={styles.achievementLabel}>{badge.name}</Text>
@@ -230,37 +255,37 @@ export default function ProgressScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
+    fontWeight: "600",
+    color: "#000",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   timeRangeSelector: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    backgroundColor: "#fff",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
     gap: 8,
   },
   timeRangeButton: {
@@ -268,162 +293,162 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 6,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
   },
   timeRangeButtonActive: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
   },
   timeRangeText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
-    textAlign: 'center',
+    fontWeight: "600",
+    color: "#666",
+    textAlign: "center",
   },
   timeRangeTextActive: {
-    color: '#fff',
+    color: "#fff",
   },
   scrollContent: {
     flex: 1,
     padding: 16,
   },
   metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   metricCard: {
-    width: '48%',
-    backgroundColor: '#fff',
+    width: "48%",
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 12,
   },
   metricIconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#007AFF20',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#007AFF20",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
   },
   metricValue: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#000',
+    fontWeight: "700",
+    color: "#000",
   },
   metricLabel: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 4,
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
+    fontWeight: "600",
+    color: "#000",
     marginLeft: 8,
   },
   weeklyChartContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-around",
     height: 120,
   },
   dayBar: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
-    height: '100%',
-    justifyContent: 'flex-end',
+    height: "100%",
+    justifyContent: "flex-end",
   },
   barFill: {
-    width: '60%',
-    backgroundColor: '#007AFF',
+    width: "60%",
+    backgroundColor: "#007AFF",
     borderRadius: 4,
     marginBottom: 8,
   },
   dayLabel: {
     fontSize: 12,
-    color: '#999',
-    fontWeight: '600',
+    color: "#999",
+    fontWeight: "600",
   },
   prCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   exerciseName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
+    fontWeight: "600",
+    color: "#000",
   },
   prDate: {
     fontSize: 12,
-    color: '#999',
+    color: "#999",
     marginTop: 2,
   },
   prWeight: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#FF9500',
+    fontWeight: "700",
+    color: "#FF9500",
   },
   achievementsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   achievementItem: {
-    width: '48%',
-    alignItems: 'center',
+    width: "48%",
+    alignItems: "center",
     marginBottom: 12,
   },
   achievementIcon: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#FFB80020',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#FFB80020",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
   },
   achievementIconLocked: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
   },
   achievementLabel: {
     fontSize: 12,
-    color: '#333',
-    textAlign: 'center',
-    fontWeight: '500',
+    color: "#333",
+    textAlign: "center",
+    fontWeight: "500",
   },
   statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   statLabel: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   statValue: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
+    fontWeight: "600",
+    color: "#000",
   },
 });

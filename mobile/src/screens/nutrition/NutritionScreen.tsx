@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
+// import { useThemeStore } from '../../store/theme' from '../../store/auth';
 import { LoadingView, ErrorView } from '../../components/State';
 
 export default function NutritionScreen() {

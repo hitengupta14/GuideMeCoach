@@ -8,59 +8,150 @@ import {
   Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../../store/auth';
+import { useThemeStore } from '../../store/theme';
+import { Avatar } from '../../components/Avatar';
+import { Card, CardBody } from '../../components/Card';
+import { Button } from '../../components/Button';
+import { spacing, typography, shadows } from '../../theme/spacing';
+import { lightColors, darkColors } from '../../theme/colors';
 
 export default function ProfileScreen() {
   const store = useAuthStore();
+  const { theme } = useThemeStore();
   const user = store?.user || { name: 'User' };
   const logout = store?.logout || (() => {});
+  const isDark = theme === 'dark';
+  const colors = isDark ? darkColors : lightColors;
+
+  const menuItems = [
+    { icon: 'heart', label: 'Favorites', subtitle: 'Your saved workouts', color: colors.error },
+    { icon: 'history', label: 'History', subtitle: 'Workout history', color: colors.primary },
+    { icon: 'cog', label: 'Settings', subtitle: 'App preferences', color: colors.warning },
+    { icon: 'shield-check', label: 'Privacy', subtitle: 'Privacy & security', color: colors.success },
+  ];
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {user?.name?.charAt(0).toUpperCase()}
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header with Gradient */}
+      <LinearGradient
+        colors={[colors.primary, colors.primaryDark]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.headerContent}>
+          <Avatar
+            initials={user?.name?.charAt(0).toUpperCase()}
+            size="xl"
+            backgroundColor={colors.secondary}
+            isDark={isDark}
+          />
+          <Text style={[typography.heading1, { color: colors.textInverse, marginTop: spacing.lg }]}>
+            {user?.name || 'User'}
+          </Text>
+          <Text style={[typography.body3, { color: `${colors.textInverse}99`, marginTop: spacing.xs }]}>
+            {user?.email}
           </Text>
         </View>
-        <Text style={styles.name}>{user?.name}</Text>
-        <Text style={styles.email}>{user?.email}</Text>
-      </View>
+      </LinearGradient>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.item}>
-          <MaterialCommunityIcons name="email" size={20} color="#007AFF" />
-          <View style={styles.itemContent}>
-            <Text style={styles.itemLabel}>Email</Text>
-            <Text style={styles.itemValue}>{user?.email}</Text>
-          </View>
+      {/* Stats Section */}
+      <View style={[styles.section, { paddingHorizontal: spacing.lg }]}>
+        <View style={styles.statsRow}>
+          <Card variant="flat" isDark={isDark} style={styles.statCard}>
+            <CardBody>
+              <Text style={[typography.heading2, { color: colors.primary, textAlign: 'center' }]}>
+                42
+              </Text>
+              <Text style={[typography.caption1, { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs }]}>
+                Workouts
+              </Text>
+            </CardBody>
+          </Card>
+          <Card variant="flat" isDark={isDark} style={styles.statCard}>
+            <CardBody>
+              <Text style={[typography.heading2, { color: colors.success, textAlign: 'center' }]}>
+                156
+              </Text>
+              <Text style={[typography.caption1, { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs }]}>
+                Hours
+              </Text>
+            </CardBody>
+          </Card>
+          <Card variant="flat" isDark={isDark} style={styles.statCard}>
+            <CardBody>
+              <Text style={[typography.heading2, { color: colors.secondary, textAlign: 'center' }]}>
+                24
+              </Text>
+              <Text style={[typography.caption1, { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs }]}>
+                Streak Days
+              </Text>
+            </CardBody>
+          </Card>
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Preferences</Text>
-        <View style={styles.item}>
-          <MaterialCommunityIcons name="bell" size={20} color="#007AFF" />
-          <View style={styles.itemContent}>
-            <Text style={styles.itemLabel}>Notifications</Text>
-            <Text style={styles.itemValue}>Enabled</Text>
-          </View>
-        </View>
+      {/* Menu Items */}
+      <View style={[styles.section, { paddingHorizontal: spacing.lg }]}>
+        <Text style={[typography.heading3, { color: colors.text, marginBottom: spacing.lg }]}>
+          Account & Settings
+        </Text>
+        {menuItems.map((item, idx) => (
+          <Card key={idx} variant="elevated" isDark={isDark} style={styles.menuCard}>
+            <TouchableOpacity activeOpacity={0.7}>
+              <CardBody>
+                <View style={styles.menuContent}>
+                  <View style={[styles.menuIcon, { backgroundColor: `${item.color}15` }]}>
+                    <MaterialCommunityIcons
+                      name={item.icon as any}
+                      size={24}
+                      color={item.color}
+                    />
+                  </View>
+                  <View style={styles.menuText}>
+                    <Text style={[typography.label1, { color: colors.text }]}>
+                      {item.label}
+                    </Text>
+                    <Text style={[typography.caption1, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                      {item.subtitle}
+                    </Text>
+                  </View>
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </View>
+              </CardBody>
+            </TouchableOpacity>
+          </Card>
+        ))}
       </View>
 
-      <TouchableOpacity
-        style={styles.logoutButton}
-        onPress={() => {
-          Alert.alert('Sign Out', 'Are you sure?', [
-            { text: 'Cancel', onPress: () => {} },
-            { text: 'Yes', onPress: logout },
-          ]);
-        }}
-      >
-        <MaterialCommunityIcons name="logout" size={20} color="#FF3B30" />
-        <Text style={styles.logoutText}>Sign Out</Text>
-      </TouchableOpacity>
+      {/* Sign Out Button */}
+      <View style={[styles.section, { paddingHorizontal: spacing.lg, marginBottom: spacing['3xl'] }]}>
+        <Button
+          label="Sign Out"
+          onPress={() => {
+            Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+              { text: 'Cancel', onPress: () => {} },
+              {
+                text: 'Sign Out',
+                onPress: logout,
+                style: 'destructive',
+              },
+            ]);
+          }}
+          variant="danger"
+          fullWidth
+          isDark={isDark}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -68,88 +159,43 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
-  header: {
+  headerGradient: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing['2xl'],
+    paddingBottom: spacing['2xl'],
+  },
+  headerContent: {
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    marginBottom: 16,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatarText: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  name: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: 14,
-    color: '#666',
   },
   section: {
-    backgroundColor: '#fff',
-    marginBottom: 8,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.lg,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginTop: 16,
-    marginBottom: 12,
-  },
-  item: {
+  statsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    gap: spacing.md,
   },
-  itemContent: {
-    marginLeft: 12,
+  statCard: {
     flex: 1,
+    paddingVertical: spacing.lg,
   },
-  itemLabel: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 2,
+  menuCard: {
+    marginBottom: spacing.md,
+    overflow: 'hidden',
   },
-  itemValue: {
-    fontSize: 16,
-    color: '#000',
-    fontWeight: '500',
-  },
-  logoutButton: {
+  menuContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FF3B30',
+    gap: spacing.md,
   },
-  logoutText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FF3B30',
+  menuIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuText: {
+    flex: 1,
   },
 });

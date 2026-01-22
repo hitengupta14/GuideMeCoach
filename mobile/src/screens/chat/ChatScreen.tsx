@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useThemeStore } from '../../store/theme';
+import { lightColors, darkColors } from '../../theme/colors';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@tanstack/react-query';

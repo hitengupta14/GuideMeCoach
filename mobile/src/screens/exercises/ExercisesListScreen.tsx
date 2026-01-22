@@ -10,12 +10,17 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { LoadingView, ErrorView, EmptyView } from '../../components/State';
 import { Image } from 'expo-image';
 import { ListSkeleton } from '../../components/SkeletonLoader';
 import { useThemeStore } from '../../store/theme';
+import { Card, CardBody } from '../../components/Card';
+import { Badge } from '../../components/UI';
+import { spacing, borderRadius, typography, shadows } from '../../theme/spacing';
+import { lightColors, darkColors } from '../../theme/colors';
 
 interface Exercise {
   id: string;
@@ -39,7 +44,8 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
   const [rawSearch, setRawSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
-  const { colors } = useThemeStore();
+  const { theme, colors } = useThemeStore();
+  const isDark = theme === 'dark';
 
   // Debounce the search input to reduce query churn
   useEffect(() => {
@@ -83,168 +89,195 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
   const difficulties = ['beginner', 'intermediate', 'advanced'];
 
   const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner':
-        return '#34C759';
-      case 'intermediate':
-        return '#FF9500';
-      case 'advanced':
-        return '#FF3B30';
-      default:
-        return '#999';
-    }
+    const colorMap = {
+      beginner: colors.success,
+      intermediate: colors.warning,
+      advanced: colors.error,
+    };
+    return colorMap[difficulty as keyof typeof colorMap] || colors.primary;
   };
 
   const renderExerciseItem = ({ item }: { item: Exercise }) => (
-    <TouchableOpacity
-      style={[styles.exerciseCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-      onPress={() => onSelectExercise(item)}
-    >
-      <View style={styles.exerciseContent}>
-        {item.thumbnailUrl && (
-          <Image
-            source={{ uri: item.thumbnailUrl }}
-            style={styles.thumbnail}
-            contentFit="cover"
-            transition={200}
-            placeholder={PLACEHOLDER_BLURHASH}
-          />
-        )}
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={2}>
-            {item.name}
-          </Text>
-          <View style={styles.exerciseMeta}>
-            <View
-              style={[
-                styles.difficultyBadge,
-                { backgroundColor: getDifficultyColor(item.difficulty) },
-              ]}
-            >
-              <Text style={styles.difficultyText}>{item.difficulty}</Text>
-            </View>
-            {item.category && (
-              <Text style={[styles.category, { color: colors.textSecondary }]}>{item.category}</Text>
+    <Card variant="elevated" isDark={isDark} style={styles.exerciseCard}>
+      <TouchableOpacity
+        onPress={() => onSelectExercise(item)}
+        activeOpacity={0.7}
+      >
+        <CardBody>
+          <View style={styles.exerciseContent}>
+            {item.thumbnailUrl && (
+              <Image
+                source={{ uri: item.thumbnailUrl }}
+                style={styles.thumbnail}
+                contentFit="cover"
+                transition={200}
+                placeholder={PLACEHOLDER_BLURHASH}
+              />
             )}
+            <View style={styles.exerciseInfo}>
+              <Text
+                style={[typography.heading3, { color: colors.text }]}
+                numberOfLines={2}
+              >
+                {item.name}
+              </Text>
+              <View style={[styles.exerciseMeta, { marginTop: spacing.sm }]}>
+                <Badge
+                  label={item.difficulty.charAt(0).toUpperCase() + item.difficulty.slice(1)}
+                  variant={
+                    item.difficulty === 'beginner'
+                      ? 'success'
+                      : item.difficulty === 'intermediate'
+                        ? 'warning'
+                        : 'error'
+                  }
+                  isDark={isDark}
+                />
+                {item.category && (
+                  <Text
+                    style={[
+                      typography.caption1,
+                      { color: colors.textSecondary, marginLeft: spacing.md },
+                    ]}
+                  >
+                    {item.category}
+                  </Text>
+                )}
+              </View>
+              {item.equipment && item.equipment.length > 0 && (
+                <Text
+                  style={[
+                    typography.caption2,
+                    { color: colors.textTertiary, marginTop: spacing.sm },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {item.equipment.join(', ')}
+                </Text>
+              )}
+            </View>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={24}
+              color={colors.primary}
+            />
           </View>
-          {item.equipment && item.equipment.length > 0 && (
-            <Text style={[styles.equipment, { color: colors.textSecondary }]} numberOfLines={1}>
-              {item.equipment.join(', ')}
-            </Text>
-          )}
-        </View>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={24}
-          color={colors.primary}
-        />
-      </View>
-    </TouchableOpacity>
+        </CardBody>
+      </TouchableOpacity>
+    </Card>
   );
-
-  if (error) {
-    return <ErrorView message="Failed to load exercises" />;
-  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <LinearGradient
+        colors={[colors.primary, colors.primaryDark]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <Text style={[typography.heading2, { color: colors.textInverse, marginBottom: spacing.sm }]}>
+          Exercises
+        </Text>
+        <Text style={[typography.body3, { color: `${colors.textInverse}99` }]}>
+          {exercises.length} exercises available
+        </Text>
+      </LinearGradient>
+
       {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }] }>
-        <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Search exercises..."
-          value={rawSearch}
-          onChangeText={setRawSearch}
-          placeholderTextColor={colors.textSecondary}
-        />
-        {searchQuery ? (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <MaterialCommunityIcons name="close" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        ) : null}
+      <View style={[styles.searchWrapper, { paddingHorizontal: spacing.lg }]}>
+        <View
+          style={[
+            styles.searchContainer,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, typography.body2, { color: colors.text, flex: 1 }]}
+            placeholder="Search exercises..."
+            value={rawSearch}
+            onChangeText={setRawSearch}
+            placeholderTextColor={colors.textTertiary}
+          />
+          {rawSearch ? (
+            <TouchableOpacity onPress={() => setRawSearch('')}>
+              <MaterialCommunityIcons name="close-circle" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
       {/* Filters */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.filtersContainer}
-        contentContainerStyle={styles.filtersContent}
+        contentContainerStyle={[styles.filtersContainer, { paddingHorizontal: spacing.lg }]}
       >
-        {/* Category Filter */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterRow}
-          contentContainerStyle={styles.filterRowContent}
-        >
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={cat}
+        {/* Category Filters */}
+        {categories.map((cat) => (
+          <TouchableOpacity
+            key={cat}
+            style={[
+              styles.filterChip,
+              {
+                backgroundColor: selectedCategory === cat ? colors.primary : colors.surfaceSecondary,
+              },
+            ]}
+            onPress={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+          >
+            <Text
               style={[
-                styles.filterChip,
-                selectedCategory === cat && styles.filterChipActive,
+                typography.label2,
+                {
+                  color: selectedCategory === cat ? colors.textInverse : colors.text,
+                  fontWeight: '600',
+                },
               ]}
-              onPress={() =>
-                setSelectedCategory(selectedCategory === cat ? null : cat)
-              }
             >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  selectedCategory === cat && styles.filterChipTextActive,
-                ]}
-              >
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Difficulty Filter */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterRow}
-          contentContainerStyle={styles.filterRowContent}
-        >
-          {difficulties.map((diff) => (
-            <TouchableOpacity
-              key={diff}
-              style={[
-                styles.filterChip,
-                selectedDifficulty === diff && styles.filterChipActive,
-              ]}
-              onPress={() =>
-                setSelectedDifficulty(
-                  selectedDifficulty === diff ? null : diff
-                )
-              }
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  selectedDifficulty === diff && styles.filterChipTextActive,
-                ]}
-              >
-                {diff.charAt(0).toUpperCase() + diff.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+              {cat}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
 
-      {/* Results Count */}
-      <View style={styles.resultsInfo}>
-        <Text style={[styles.resultsCount, { color: colors.textSecondary }]}>
-          {isLoading ? 'Loading...' : `${exercises.length} exercises`}
-        </Text>
-      </View>
+      {/* Difficulty Filters */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.filtersContainer, { paddingHorizontal: spacing.lg }]}
+      >
+        {difficulties.map((diff) => (
+          <TouchableOpacity
+            key={diff}
+            style={[
+              styles.filterChip,
+              {
+                backgroundColor: selectedDifficulty === diff ? colors.secondary : colors.surfaceSecondary,
+              },
+            ]}
+            onPress={() =>
+              setSelectedDifficulty(selectedDifficulty === diff ? null : diff)
+            }
+          >
+            <Text
+              style={[
+                typography.label2,
+                {
+                  color: selectedDifficulty === diff ? colors.textInverse : colors.text,
+                  fontWeight: '600',
+                },
+              ]}
+            >
+              {diff.charAt(0).toUpperCase() + diff.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
       {/* Exercises List */}
       {isLoading && exercises.length === 0 ? (
-        <View style={{ paddingHorizontal: 16 }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
           <ListSkeleton count={8} />
         </View>
       ) : exercises.length === 0 ? (
@@ -254,7 +287,7 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
           data={exercises}
           renderItem={renderExerciseItem}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingHorizontal: spacing.lg }]}
           scrollEnabled={true}
           initialNumToRender={12}
           maxToRenderPerBatch={12}
@@ -283,132 +316,67 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing['2xl'],
+    paddingBottom: spacing.lg,
+  },
+  searchWrapper: {
+    paddingVertical: spacing.md,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    minHeight: 48,
+    ...shadows.md,
   },
   searchInput: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    fontSize: 16,
-    color: '#000',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   filtersContainer: {
-    backgroundColor: '#fff',
-    marginBottom: 12,
-  },
-  filtersContent: {
-    paddingHorizontal: 16,
-  },
-  filterRow: {
-    marginVertical: 8,
-  },
-  filterRowContent: {
-    paddingRight: 16,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
   },
   filterChip: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  filterChipActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  filterChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333',
-  },
-  filterChipTextActive: {
-    color: '#fff',
-  },
-  resultsInfo: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  resultsCount: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    marginRight: spacing.sm,
+    ...shadows.sm,
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
+    paddingVertical: spacing.lg,
+    gap: spacing.lg,
   },
   exerciseCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 12,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   exerciseContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    gap: spacing.md,
   },
   thumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 12,
+    width: 72,
+    height: 72,
+    borderRadius: borderRadius.lg,
     backgroundColor: '#f0f0f0',
   },
-  exerciseName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 6,
+  exerciseInfo: {
+    flex: 1,
   },
   exerciseMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
-  },
-  difficultyBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  difficultyText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#fff',
-    textTransform: 'capitalize',
-  },
-  category: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-  equipment: {
-    fontSize: 12,
-    color: '#999',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    gap: spacing.sm,
   },
   footerLoader: {
-    paddingVertical: 20,
+    paddingVertical: spacing['2xl'],
     alignItems: 'center',
   },
 });
