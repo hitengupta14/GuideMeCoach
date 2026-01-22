@@ -69,7 +69,7 @@ export default function ChatScreen() {
           onChangeText={setMessage}
         />
         <TouchableOpacity style={styles.sendBtn} onPress={() => sendMutation.mutate()} disabled={!message}>
-          {sendMutation.isLoading ? (
+          {sendMutation.isPending ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <MaterialCommunityIcons name="send" size={20} color="#fff" />

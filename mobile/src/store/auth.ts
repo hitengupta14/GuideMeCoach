@@ -1,18 +1,28 @@
 import { create } from 'zustand';
 import { apiClient } from '../services/api';
 import { handleGoogleSignIn } from '../services/google-auth';
+import {
+  saveSession,
+  clearSession,
+  loadSessionWithBiometrics,
+  setBiometricsEnabled,
+  isBiometricsEnabled,
+} from '../services/secure-auth';
 
 export interface AuthState {
   user: any | null;
   token: string | null;
   isLoading: boolean;
   error: string | null;
+  biometricsEnabled: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name?: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => void;
   setToken: (token: string) => void;
   clearError: () => void;
+  bootstrap: () => Promise<void>;
+  setBiometrics: (enabled: boolean) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -20,6 +30,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   isLoading: false,
   error: null,
+  biometricsEnabled: false,
 
   login: async (email: string, password: string) => {
     try {
@@ -32,10 +43,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (tokenData && userData) {
         apiClient.setToken(tokenData);
+        await saveSession(tokenData, userData);
+        await setBiometricsEnabled(true);
         set({
           token: tokenData,
           user: userData,
           isLoading: false,
+          biometricsEnabled: true,
         });
       } else {
         throw new Error('Invalid response structure from server');
@@ -60,10 +74,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (tokenData && userData) {
         apiClient.setToken(tokenData);
+        await saveSession(tokenData, userData);
+        await setBiometricsEnabled(true);
         set({
           token: tokenData,
           user: userData,
           isLoading: false,
+          biometricsEnabled: true,
         });
       } else {
         throw new Error('Invalid response structure from server');
@@ -79,10 +96,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     apiClient.clearToken();
+    clearSession();
     set({
       user: null,
       token: null,
       error: null,
+      biometricsEnabled: false,
     });
   },
 
@@ -99,10 +118,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       set({ isLoading: true, error: null });
       const { token, user } = await handleGoogleSignIn(idToken);
+      await saveSession(token, user);
+      await setBiometricsEnabled(true);
       set({
         token: token,
         user: user,
         isLoading: false,
+        biometricsEnabled: true,
       });
     } catch (error) {
       set({
@@ -110,5 +132,20 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
       });
     }
+  },
+
+  bootstrap: async () => {
+    const enabled = await isBiometricsEnabled();
+    set({ biometricsEnabled: enabled });
+    const { token, user } = await loadSessionWithBiometrics();
+    if (token && user) {
+      apiClient.setToken(token);
+      set({ token, user });
+    }
+  },
+
+  setBiometrics: async (enabled: boolean) => {
+    await setBiometricsEnabled(enabled);
+    set({ biometricsEnabled: enabled });
   },
 }));

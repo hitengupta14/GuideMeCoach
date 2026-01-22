@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,12 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
+import { LoadingView, ErrorView, EmptyView } from '../../components/State';
+import { Image } from 'expo-image';
+import { ListSkeleton } from '../../components/SkeletonLoader';
+import { useThemeStore } from '../../store/theme';
 
 interface Exercise {
   id: string;
@@ -27,31 +31,53 @@ interface ExercisesListScreenProps {
   onSelectExercise: (exercise: Exercise) => void;
 }
 
+const PAGE_SIZE = 20;
+const PLACEHOLDER_BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
+
 export default function ExercisesListScreen({ onSelectExercise }: ExercisesListScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [rawSearch, setRawSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
+  const { colors } = useThemeStore();
 
-  const { data: exercisesData, isLoading, error } = useQuery({
-    queryKey: ['exercises', selectedCategory, selectedDifficulty],
-    queryFn: async () => {
+  // Debounce the search input to reduce query churn
+  useEffect(() => {
+    const id = setTimeout(() => setSearchQuery(rawSearch.trim()), 300);
+    return () => clearTimeout(id);
+  }, [rawSearch]);
+
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['exercises', selectedCategory, selectedDifficulty, searchQuery],
+    queryFn: async ({ pageParam = 0 }) => {
       const params = new URLSearchParams();
       if (selectedCategory) params.append('category', selectedCategory);
       if (selectedDifficulty) params.append('difficulty', selectedDifficulty);
+      if (searchQuery) params.append('search', searchQuery);
       params.append('includeMuscles', 'true');
+      params.append('limit', String(PAGE_SIZE));
+      params.append('offset', String(pageParam));
 
-      return apiClient.request(`/exercises?${params.toString()}`);
+      const response: any = await apiClient.request(`/exercises?${params.toString()}`);
+      return {
+        exercises: response?.exercises || [],
+        nextOffset: response?.exercises?.length === PAGE_SIZE ? pageParam + PAGE_SIZE : null,
+      };
     },
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
+    initialPageParam: 0,
   });
 
-  const exercises = (exercisesData as any)?.exercises || [];
-
-  // Filter exercises based on search query
-  const filteredExercises = useMemo(() => {
-    return exercises.filter((ex: Exercise) =>
-      ex.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [exercises, searchQuery]);
+  const exercises = useMemo(() => {
+    return data?.pages.flatMap((page) => page.exercises) || [];
+  }, [data]);
 
   const categories = ['Strength', 'Cardio', 'Flexibility', 'Mobility', 'Core'];
   const difficulties = ['beginner', 'intermediate', 'advanced'];
@@ -71,12 +97,21 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
 
   const renderExerciseItem = ({ item }: { item: Exercise }) => (
     <TouchableOpacity
-      style={styles.exerciseCard}
+      style={[styles.exerciseCard, { backgroundColor: colors.card, borderColor: colors.border }]}
       onPress={() => onSelectExercise(item)}
     >
       <View style={styles.exerciseContent}>
+        {item.thumbnailUrl && (
+          <Image
+            source={{ uri: item.thumbnailUrl }}
+            style={styles.thumbnail}
+            contentFit="cover"
+            transition={200}
+            placeholder={PLACEHOLDER_BLURHASH}
+          />
+        )}
         <View style={{ flex: 1 }}>
-          <Text style={styles.exerciseName} numberOfLines={2}>
+          <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={2}>
             {item.name}
           </Text>
           <View style={styles.exerciseMeta}>
@@ -89,11 +124,11 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
               <Text style={styles.difficultyText}>{item.difficulty}</Text>
             </View>
             {item.category && (
-              <Text style={styles.category}>{item.category}</Text>
+              <Text style={[styles.category, { color: colors.textSecondary }]}>{item.category}</Text>
             )}
           </View>
           {item.equipment && item.equipment.length > 0 && (
-            <Text style={styles.equipment} numberOfLines={1}>
+            <Text style={[styles.equipment, { color: colors.textSecondary }]} numberOfLines={1}>
               {item.equipment.join(', ')}
             </Text>
           )}
@@ -101,43 +136,31 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
         <MaterialCommunityIcons
           name="chevron-right"
           size={24}
-          color="#007AFF"
+          color={colors.primary}
         />
       </View>
     </TouchableOpacity>
   );
 
   if (error) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.errorContainer}>
-          <MaterialCommunityIcons
-            name="alert-circle"
-            size={48}
-            color="#FF3B30"
-          />
-          <Text style={styles.errorText}>Failed to load exercises</Text>
-          <Text style={styles.errorSubtext}>Please try again later</Text>
-        </View>
-      </View>
-    );
+    return <ErrorView message="Failed to load exercises" />;
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <MaterialCommunityIcons name="magnify" size={20} color="#999" />
+      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }] }>
+        <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.text }]}
           placeholder="Search exercises..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor="#ccc"
+          value={rawSearch}
+          onChangeText={setRawSearch}
+          placeholderTextColor={colors.textSecondary}
         />
         {searchQuery ? (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <MaterialCommunityIcons name="close" size={20} color="#999" />
+            <MaterialCommunityIcons name="close" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -214,33 +237,43 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
 
       {/* Results Count */}
       <View style={styles.resultsInfo}>
-        <Text style={styles.resultsCount}>
-          {isLoading ? 'Loading...' : `${filteredExercises.length} exercises`}
+        <Text style={[styles.resultsCount, { color: colors.textSecondary }]}>
+          {isLoading ? 'Loading...' : `${exercises.length} exercises`}
         </Text>
       </View>
 
       {/* Exercises List */}
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+      {isLoading && exercises.length === 0 ? (
+        <View style={{ paddingHorizontal: 16 }}>
+          <ListSkeleton count={8} />
         </View>
-      ) : filteredExercises.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons
-            name="dumbbell"
-            size={48}
-            color="#ccc"
-          />
-          <Text style={styles.emptyText}>No exercises found</Text>
-          <Text style={styles.emptySubtext}>Try different filters or search terms</Text>
-        </View>
+      ) : exercises.length === 0 ? (
+        <EmptyView title="No exercises found" subtitle="Try different filters or search terms" />
       ) : (
         <FlatList
-          data={filteredExercises}
+          data={exercises}
           renderItem={renderExerciseItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           scrollEnabled={true}
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          updateCellsBatchingPeriod={50}
+          windowSize={10}
+          removeClippedSubviews
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              fetchNextPage();
+            }
+          }}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : null
+          }
         />
       )}
     </View>
@@ -330,6 +363,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
   },
+  thumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#f0f0f0',
+  },
   exerciseName: {
     fontSize: 16,
     fontWeight: '600',
@@ -367,36 +407,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  footerLoader: {
+    paddingVertical: 20,
     alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 12,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 4,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 12,
-  },
-  errorSubtext: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 4,
   },
 });

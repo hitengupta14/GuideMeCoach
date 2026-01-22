@@ -15,7 +15,21 @@
       "bundleIdentifier": "com.anonymous.guidemecoachmobile"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-notifications",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow GuideMeCoach to capture form videos and photos."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow GuideMeCoach to upload workout photos."
+        }
+      ],
+      "expo-av"
     ]
   }
 }

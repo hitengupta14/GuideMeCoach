@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 // @ts-ignore - packages installed correctly
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useThemeStore } from '../store/theme';
 
 import DashboardScreen from '../screens/home/DashboardScreen';
 import ProfileScreen from '../screens/home/ProfileScreen';
@@ -228,6 +229,7 @@ function MoreStack() {
 }
 
 export default function AppStack() {
+  const { colors } = useThemeStore();
   return (
     <Tab.Navigator
       id="TabNavigator"
@@ -266,9 +268,10 @@ export default function AppStack() {
             />
           );
         },
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#999',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: { fontSize: 10, marginTop: -8 },
+        tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.border },
       })}
     >
       <Tab.Screen
