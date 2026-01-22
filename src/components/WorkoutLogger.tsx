@@ -40,6 +40,9 @@ export default function WorkoutLogger({ userId, planExercises }: WorkoutLoggerPr
     }))
   )
 
+  const [suggestions, setSuggestions] = useState<any | null>(null)
+  const [suggestLoading, setSuggestLoading] = useState(false)
+
   useEffect(() => {
     // Start a new session
     const startSession = async () => {
@@ -122,6 +125,35 @@ export default function WorkoutLogger({ userId, planExercises }: WorkoutLoggerPr
       alert('Workout completed! Great job!')
     } catch (error) {
       console.error('Error finishing workout:', error)
+    }
+  }
+
+  const getLastExercises = (): string[] => {
+    const start = Math.max(0, currentExerciseIndex - 2)
+    return planExercises.slice(start, currentExerciseIndex + 1).map((e) => e.exerciseName)
+  }
+
+  const fetchNextSuggestions = async () => {
+    try {
+      setSuggestLoading(true)
+      setSuggestions(null)
+      const response = await fetch('/api/exercises/recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          lastExercises: getLastExercises(),
+          sessionId,
+        }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setSuggestions(data)
+      }
+    } catch (err) {
+      console.error('Failed to fetch suggestions', err)
+    } finally {
+      setSuggestLoading(false)
     }
   }
 
@@ -235,6 +267,54 @@ export default function WorkoutLogger({ userId, planExercises }: WorkoutLoggerPr
             placeholder="Any observations about this exercise..."
             rows={3}
           />
+        </div>
+
+        {/* Smart Suggestions */}
+        <div className="space-y-3">
+          <button
+            onClick={fetchNextSuggestions}
+            className="w-full bg-blue-50 text-blue-700 border border-blue-200 py-2 rounded-lg font-medium hover:bg-blue-100 transition-colors"
+          >
+            {suggestLoading ? 'Fetching suggestions…' : '💡 What should I do next?'}
+          </button>
+
+          {suggestions && (
+            <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+              {suggestions.nextSuggestions?.length > 0 && (
+                <div className="mb-3">
+                  <h4 className="font-bold text-gray-900 mb-2">Next Suggestions</h4>
+                  <ul className="space-y-2 text-sm">
+                    {suggestions.nextSuggestions.map((s: any, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-indigo-600">→</span>
+                        <div>
+                          <p className="font-medium text-gray-900">{s.exerciseName}</p>
+                          <p className="text-gray-700 text-xs">{s.reason}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {suggestions.alternativeExercises?.length > 0 && (
+                <div>
+                  <h4 className="font-bold text-gray-900 mb-2">Equipment-based Alternatives</h4>
+                  <ul className="space-y-2 text-sm">
+                    {suggestions.alternativeExercises.map((a: any, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-indigo-600">↔</span>
+                        <div>
+                          <p className="font-medium text-gray-900">{a.exerciseName}</p>
+                          <p className="text-gray-700 text-xs">Swap for: {a.swapFor} — {a.reason}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <button
