@@ -64,10 +64,10 @@ export const workoutSessionSchema = z.object({
 
 // Exercise Filter Schema
 export const exerciseFilterSchema = z.object({
-  category: z.enum(['strength', 'mobility', 'rehab', 'cardio']).nullable().optional(),
-  difficulty: z.enum(['beginner', 'intermediate', 'advanced']).nullable().optional(),
+  category: z.string().transform(val => val?.toLowerCase()).pipe(z.enum(['strength', 'mobility', 'rehab', 'cardio', 'core', 'flexibility', 'balance'])).nullable().optional(),
+  difficulty: z.string().transform(val => val?.toLowerCase()).pipe(z.enum(['beginner', 'intermediate', 'advanced'])).nullable().optional(),
   equipment: z.string().nullable().optional(),
-  location: z.enum(['home', 'gym', 'both']).nullable().optional(),
+  location: z.string().transform(val => val?.toLowerCase()).pipe(z.enum(['home', 'gym', 'both'])).nullable().optional(),
   search: z.string().max(100).nullable().optional(),
   includeMuscles: z.boolean().nullable().optional(),
 })

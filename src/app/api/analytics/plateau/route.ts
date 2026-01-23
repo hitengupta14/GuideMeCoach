@@ -8,12 +8,20 @@ import { logger } from '@/lib/logger'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
-async function verifySession(request: NextRequest): Promise<string | null> {
+async function getUserId(request: NextRequest): Promise<string | null> {
   try {
+    const authHeader = request.headers.get('authorization')
+    const bearer = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : null
+
     const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
-    if (!token) return null
-    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    const sessionToken = cookieStore.get('session')?.value
+    const tokenToVerify = bearer || sessionToken
+
+    if (!tokenToVerify) return null
+
+    const verified = await jwtVerify(tokenToVerify, JWT_SECRET).catch(() => null)
     if (!verified) return null
     return verified.payload.userId as string
   } catch {
@@ -31,7 +39,7 @@ function parseCompletedReps(reps: string | null): number[] {
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await verifySession(request)
+    const userId = await getUserId(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
