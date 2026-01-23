@@ -5,8 +5,7 @@ import { db } from '@/db'
 import { chatMessages, chatConversations, users } from '@/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-import { generateStreamingChatResponse, isOpenAIConfigured } from '@/lib/ai'
-
+import { generateStreamingChatResponse, isOpenAIConfigured } from '@/lib/ai'import { chatRateLimiter } from '@/lib/rate-limit'
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
 // Helper to verify session - supports both Bearer token and session cookie
@@ -37,6 +36,21 @@ async function verifySession(request: NextRequest): Promise<string | null> {
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting for chat messages
+    const rateLimitResult = chatRateLimiter(request)
+    if (!rateLimitResult.allowed) {
+      return new Response(
+        JSON.stringify({ error: 'Too many messages. Please slow down.' }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': String(rateLimitResult.retryAfter),
+          },
+        }
+      )
+    }
+
     // Verify session
     const userId = await verifySession(request)
     if (!userId) {

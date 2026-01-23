@@ -10,6 +10,7 @@ import { navigationRef } from '@/navigation/navigationRef';
 import { addNotificationResponseListener, registerForPushNotificationsAsync } from '@/services/push-notifications';
 import { useThemeStore } from '@/store/theme';
 import { StatusBar } from 'react-native';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default function App() {
   const { token, user, bootstrap } = useAuthStore();
@@ -70,18 +71,20 @@ export default function App() {
   } as const;
 
   return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{
-        persister: queryPersister,
-        maxAge: 1000 * 60 * 60 * 24, // 24h
-      }}
-    >
-      <NetworkStatusBanner />
-      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
-      <NavigationContainer linking={linking} ref={navigationRef} theme={navTheme as any}>
-        {token ? <AppStack /> : <AuthStack />}
-      </NavigationContainer>
-    </PersistQueryClientProvider>
+    <ErrorBoundary>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister: queryPersister,
+          maxAge: 1000 * 60 * 60 * 24, // 24h
+        }}
+      >
+        <NetworkStatusBanner />
+        <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
+        <NavigationContainer linking={linking} ref={navigationRef} theme={navTheme as any}>
+          {token ? <AppStack /> : <AuthStack />}
+        </NavigationContainer>
+      </PersistQueryClientProvider>
+    </ErrorBoundary>
   );
 }

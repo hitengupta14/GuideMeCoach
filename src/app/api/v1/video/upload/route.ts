@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { db } from '@/db';
 import { jwtVerify } from 'jose';
+import { validateFileBuffer, generateSecureFilename } from '@/lib/file-validation';
+import { logger } from '@/lib/logger';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
 
@@ -34,22 +36,52 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file type
-    if (!file.type.startsWith('video/')) {
+    // Enhanced file validation
+    const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB (reduced from 500MB for cost control)
+    
+    // Validate file size
+    if (file.size > MAX_VIDEO_SIZE) {
+      logger.warn('Video upload rejected: file too large', { 
+        userId, 
+        size: file.size,
+        maxSize: MAX_VIDEO_SIZE 
+      });
       return NextResponse.json(
-        { success: false, error: 'File must be a video' },
+        { success: false, error: 'File too large (max 100MB)' },
+        { status: 413 }
+      );
+    }
+
+    // Validate MIME type
+    const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
+    if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+      logger.warn('Video upload rejected: invalid type', { 
+        userId, 
+        type: file.type 
+      });
+      return NextResponse.json(
+        { success: false, error: 'Invalid video format. Allowed: MP4, MOV, WebM' },
         { status: 400 }
       );
     }
 
-    // Validate file size (max 500MB)
-    const MAX_FILE_SIZE = 500 * 1024 * 1024;
-    if (file.size > MAX_FILE_SIZE) {
+    // Validate file content (magic number check)
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const contentValidation = await validateFileBuffer(buffer, 'video');
+    
+    if (!contentValidation.valid) {
+      logger.warn('Video upload rejected: content validation failed', { 
+        userId,
+        error: contentValidation.error 
+      });
       return NextResponse.json(
-        { success: false, error: 'File too large (max 500MB)' },
-        { status: 413 }
+        { success: false, error: contentValidation.error },
+        { status: 400 }
       );
     }
+
+    // Generate secure filename
+    const secureFilename = generateSecureFilename(file.name);
 
     const videoId = randomUUID();
     
