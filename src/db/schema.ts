@@ -365,7 +365,18 @@ export const pushTokens = pgTable('push_tokens', {
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
   token: text('token').notNull().unique(),
   platform: text('platform').notNull(), // 'ios' | 'android'
-  metadata: jsonb('metadata').$type<Record<string, any>>(),
+  metadata: jsonb('metadata').$type<{
+    deviceUUID?: string
+    modelName?: string
+    osName?: string
+    osVersion?: string
+    deviceType?: string
+    deviceYearClass?: number
+    brand?: string
+    appVersion?: string
+  }>(),
+  disabled: boolean('disabled').default(false),
+  lastActiveAt: timestamp('last_active_at').defaultNow(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })

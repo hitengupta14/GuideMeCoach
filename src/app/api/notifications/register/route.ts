@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
 import { db } from '@/db'
 import { pushTokens } from '@/db/schema'
-import { sql } from 'drizzle-orm'
+import { sql, eq } from 'drizzle-orm'
 
 export async function POST(request: Request) {
   try {
@@ -16,13 +16,13 @@ export async function POST(request: Request) {
       )
     }
 
-    // Persist or update token per device
+    // Persist or update token per device, re-enable if previously disabled
     await db
       .insert(pushTokens)
-      .values({ token, platform, userId, metadata })
+      .values({ token, platform, userId, metadata, disabled: false, lastActiveAt: new Date() })
       .onConflictDoUpdate({
         target: pushTokens.token,
-        set: { platform, userId, metadata, updatedAt: sql`now()` },
+        set: { platform, userId, metadata, disabled: false, lastActiveAt: sql`now()`, updatedAt: sql`now()` },
       })
 
     logger.info('Push token registered', { tokenPreview: `${String(token).slice(0, 10)}...`, platform, userId })

@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getOrGenerateDeviceUUID } from './device-id';
 import { apiClient } from './api';
 
 Notifications.setNotificationHandler({
@@ -48,7 +49,9 @@ export async function registerForPushNotificationsAsync(userId?: string) {
   const tokenData = await Notifications.getExpoPushTokenAsync();
   const token = tokenData.data;
 
+  const deviceUUID = await getOrGenerateDeviceUUID();
   const metadata = {
+    deviceUUID,
     modelName: Device.modelName,
     osName: Device.osName,
     osVersion: Device.osVersion,
