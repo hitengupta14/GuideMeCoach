@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useThemeStore } from '../../store/theme';
+import { lightColors, darkColors } from '../../theme/colors';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -69,7 +71,7 @@ export default function ChatScreen() {
           onChangeText={setMessage}
         />
         <TouchableOpacity style={styles.sendBtn} onPress={() => sendMutation.mutate()} disabled={!message}>
-          {sendMutation.isLoading ? (
+          {sendMutation.isPending ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <MaterialCommunityIcons name="send" size={20} color="#fff" />

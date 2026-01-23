@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, muscleGroups } from '@/db/schema'
-import { eq, ilike, and, sql } from 'drizzle-orm'
+import { eq, ilike, and } from 'drizzle-orm'
 import { exerciseFilterSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 import { apiRateLimiter } from '@/lib/rate-limit'
@@ -32,6 +32,15 @@ export async function GET(request: Request) {
       search: searchParams.get('search'),
       includeMuscles: searchParams.get('includeMuscles') === 'true',
     })
+
+    // Pagination params (defaults: page=1, limit=20)
+    const pageParam = Number(searchParams.get('page') || '1')
+    const limitParam = Number(searchParams.get('limit') || '20')
+    const offsetParam = Number(searchParams.get('offset') || '0')
+    const limit = Number.isFinite(limitParam) && limitParam > 0 && limitParam <= 100 ? limitParam : 20
+    // If legacy offset is provided, map it to page
+    const pageFromOffset = Number.isFinite(offsetParam) && offsetParam >= 0 ? (Math.floor(offsetParam / limit) + 1) : null
+    const page = pageFromOffset ?? (Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1)
 
     const conditions = []
     
@@ -89,11 +98,20 @@ export async function GET(request: Request) {
       )
     }
 
-    logger.info('Exercises fetched', { count: enrichedResults.length, filters })
+    // Apply pagination after all filters (including equipment and optional muscle enrichment)
+    const total = enrichedResults.length
+    const start = (page - 1) * limit
+    const end = start + limit
+    const items = enrichedResults.slice(start, end)
+
+    logger.info('Exercises fetched', { total, page, limit, filters })
     
     return NextResponse.json({ 
-      exercises: enrichedResults,
-      count: enrichedResults.length 
+      items,
+      exercises: items, // Backward compat for mobile clients
+      total,
+      page,
+      limit,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {

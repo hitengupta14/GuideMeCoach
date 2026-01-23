@@ -1,21 +1,23 @@
 import React, { useEffect, useState } from 'react';
+import { useThemeStore } from '../../store/theme';
+import { lightColors, darkColors } from '../../theme/colors';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
+import { LoadingView, ErrorView, EmptyView } from '../../components/State';
 
 export default function WearablesScreen() {
   const [connectedDevices, setConnectedDevices] = useState<string[]>([]);
 
-  const { data: wearableData, isLoading } = useQuery({
+  const { data: wearableData, isLoading, error } = useQuery({
     queryKey: ['wearableData'],
     queryFn: () => apiClient.getWearableData(7),
   });
@@ -40,6 +42,14 @@ export default function WearablesScreen() {
     { name: 'Fitbit', id: 'fitbit', icon: 'heart-pulse' },
     { name: 'Google Fit', id: 'google-fit', icon: 'google' },
   ];
+
+  if (isLoading) {
+    return <LoadingView message="Loading health data" />;
+  }
+
+  if (error) {
+    return <ErrorView message="Failed to load health data" />;
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -88,14 +98,7 @@ export default function WearablesScreen() {
         ))}
       </View>
 
-      {isLoading ? (
-        <ActivityIndicator
-          size="large"
-          color="#007AFF"
-          style={styles.loader}
-        />
-      ) : (
-        healthData && (
+      {healthData && (
           <>
             {healthData?.steps && Array.isArray(healthData.steps) && healthData.steps.length > 0 && (
               <View style={styles.metricsCard}>
@@ -135,7 +138,10 @@ export default function WearablesScreen() {
                 </View>
               )}
           </>
-        )
+        )}
+
+      {!healthData?.steps && !healthData?.heartRate && !healthData?.sleep && (
+        <EmptyView title="No wearable data yet" subtitle="Connect a device to start syncing" />
       )}
     </ScrollView>
   );
@@ -243,8 +249,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     marginTop: 4,
-  },
-  loader: {
-    marginVertical: 40,
   },
 });

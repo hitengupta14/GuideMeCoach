@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 // Your computer's local IP address
-const LOCAL_IP = '192.168.29.189';
+const LOCAL_IP = '192.168.29.154';
 
 // API configuration based on environment
 export const API_BASE_URL = __DEV__
@@ -17,7 +17,7 @@ export const API_BASE_URL = __DEV__
 
 export const config = {
   apiUrl: API_BASE_URL,
-  timeout: 10000, // 10 second timeout
+  timeout: 30000, // 30 second timeout for mobile networks
   headers: {
     'Content-Type': 'application/json',
   },

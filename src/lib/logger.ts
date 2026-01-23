@@ -63,15 +63,55 @@ class Logger {
   }
 
   private sendToSentry(message: string, error?: any, context?: LogContext) {
-    // TODO: Implement Sentry integration
-    // if (process.env.SENTRY_DSN) {
-    //   Sentry.captureException(error, { tags: { message }, contexts: { custom: context } })
-    // }
+    // Sentry integration for production error tracking
+    if (process.env.SENTRY_DSN) {
+      try {
+        // Lazy load Sentry only if DSN is configured
+        const Sentry = require('@sentry/nextjs')
+        
+        if (error) {
+          Sentry.captureException(error, {
+            tags: { message },
+            contexts: { custom: context },
+            level: 'error',
+          })
+        } else {
+          Sentry.captureMessage(message, {
+            tags: context,
+            level: 'error',
+          })
+        }
+      } catch (sentryError) {
+        console.error('Failed to send to Sentry:', sentryError)
+      }
+    }
   }
 
   private sendToMonitoring(level: LogLevel, message: string, context?: LogContext) {
-    // TODO: Implement monitoring service integration
-    // Could send to Datadog, New Relic, CloudWatch, etc.
+    // Send to monitoring service (Datadog, New Relic, CloudWatch, etc.)
+    if (process.env.DATADOG_API_KEY) {
+      try {
+        // Example: Datadog logs API
+        // This would be replaced with actual Datadog client
+        fetch('https://http-intake.logs.datadoghq.com/v1/input', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'DD-API-KEY': process.env.DATADOG_API_KEY,
+          },
+          body: JSON.stringify({
+            message,
+            level,
+            service: 'guidemecoach',
+            ddsource: 'nodejs',
+            ddtags: context ? Object.entries(context).map(([k, v]) => `${k}:${v}`).join(',') : '',
+            timestamp: new Date().toISOString(),
+          }),
+        }).catch(err => console.error('Failed to send to monitoring:', err))
+      } catch (error) {
+        console.error('Failed to send to monitoring service:', error)
+      }
+    }
   }
 }
 

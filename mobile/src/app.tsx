@@ -1,20 +1,105 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useAuthStore } from '@/store/auth';
 import AuthStack from '@/navigation/AuthStack';
 import AppStack from '@/navigation/AppStack';
-
-const queryClient = new QueryClient();
+import { queryClient, queryPersister } from '@/lib/queryClient';
+import { NetworkStatusBanner } from '@/components/NetworkStatusBanner';
+import { navigationRef } from '@/navigation/navigationRef';
+import { addNotificationResponseListener, registerForPushNotificationsAsync } from '@/services/push-notifications';
+import { useThemeStore } from '@/store/theme';
+import { StatusBar, AppState } from 'react-native';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default function App() {
-  const { token } = useAuthStore();
+  const { token, user, bootstrap } = useAuthStore();
+  const { theme, colors } = useThemeStore();
+
+  useEffect(() => {
+    bootstrap();
+  }, [bootstrap]);
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    const init = async () => {
+      if (token) {
+        await registerForPushNotificationsAsync(user?.id);
+      }
+      unsubscribe = addNotificationResponseListener((response) => {
+        const data: any = response.notification.request.content.data || {};
+        const screen = data?.screen;
+        if (screen) {
+          navigationRef.isReady() && navigationRef.navigate(screen as never, data.params as never);
+        }
+      });
+    };
+    init();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [token]);
+
+  // App state listeners: pause/resume queries and lightweight refresh on foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') {
+        // Persist pending mutations (already handled by PersistQueryClientProvider)
+      } else if (state === 'active') {
+        // On resume, refetch key lists for freshness
+        queryClient.invalidateQueries({ queryKey: ['exercises'] });
+        queryClient.invalidateQueries({ queryKey: ['workouts'] });
+        queryClient.invalidateQueries({ queryKey: ['achievements'] });
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  const linking = {
+    prefixes: ['guidemecoach://'],
+    config: {
+      screens: {
+        Home: 'home',
+        Exercises: 'exercises',
+        Workouts: 'workouts',
+        Planner: 'planner',
+        Progress: 'progress',
+        Nutrition: 'nutrition',
+        Video: 'video',
+        Wearables: 'wearables',
+        Chat: 'chat',
+        More: 'more',
+      },
+    },
+  } as const;
+
+  const navTheme = {
+    dark: theme === 'dark',
+    colors: {
+      primary: colors.primary,
+      background: colors.background,
+      card: colors.card,
+      text: colors.text,
+      border: colors.border,
+      notification: colors.primary,
+    },
+  } as const;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <NavigationContainer>
-        {token ? <AppStack /> : <AuthStack />}
-      </NavigationContainer>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister: queryPersister,
+          maxAge: 1000 * 60 * 60 * 24, // 24h
+        }}
+      >
+        <NetworkStatusBanner />
+        <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
+        <NavigationContainer linking={linking} ref={navigationRef} theme={navTheme as any}>
+          {token ? <AppStack /> : <AuthStack />}
+        </NavigationContainer>
+      </PersistQueryClientProvider>
+    </ErrorBoundary>
   );
 }

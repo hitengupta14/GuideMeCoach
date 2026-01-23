@@ -1,7 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useThemeStore } from '../../store/theme';
+import { lightColors, darkColors } from '../../theme/colors';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
+import { LoadingView, ErrorView, EmptyView } from '../../components/State';
 
 export default function MuscleExercisesScreen({ route }: any) {
   const { muscleId, muscleName } = route.params;
@@ -18,19 +21,15 @@ export default function MuscleExercisesScreen({ route }: any) {
   }, [data]);
 
   if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
+    return <LoadingView message="Loading exercises" />;
   }
 
   if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.error}>Failed to load exercises</Text>
-      </View>
-    );
+    return <ErrorView message="Failed to load exercises" />;
+  }
+
+  if (!exercises.length) {
+    return <EmptyView title="No exercises found" />;
   }
 
   return (
@@ -82,6 +81,4 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: '#1F6FEB', fontWeight: '700', fontSize: 12, textTransform: 'capitalize' },
   meta: { color: '#666', fontSize: 12 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  error: { color: '#d00' },
 });

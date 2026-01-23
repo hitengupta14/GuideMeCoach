@@ -9,13 +9,20 @@ export const apiClient = {
     console.log(`🔵 API ${options?.method || 'GET'}: ${url}`);
 
     try {
+      // Add timeout to request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+
       const response = await fetch(url, {
         ...options,
+        signal: controller.signal,
         headers: {
           ...config.headers,
           ...options?.headers,
         },
       });
+
+      clearTimeout(timeoutId);
 
       let data: any = null;
       try {

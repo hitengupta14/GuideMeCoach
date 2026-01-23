@@ -81,6 +81,34 @@ export const apiRateLimiter = createRateLimiter(
 )
 
 /**
+ * AI endpoint rate limiter (strict limits to prevent cost explosion)
+ * These endpoints make expensive OpenAI API calls
+ */
+export const aiRateLimiter = createRateLimiter(
+  60 * 60 * 1000, // 1 hour
+  20, // 20 AI requests per hour per user
+  (request) => {
+    // Rate limit per user ID if authenticated, otherwise per IP
+    const authHeader = request.headers.get('authorization')
+    const userId = authHeader ? authHeader.split(' ')[1] : null
+    return userId || getClientIp(request)
+  }
+)
+
+/**
+ * Chatbot rate limiter (moderate limits for conversational AI)
+ */
+export const chatRateLimiter = createRateLimiter(
+  60 * 1000, // 1 minute
+  10, // 10 messages per minute
+  (request) => {
+    const authHeader = request.headers.get('authorization')
+    const userId = authHeader ? authHeader.split(' ')[1] : null
+    return userId || getClientIp(request)
+  }
+)
+
+/**
  * Get client IP address from request
  */
 function getClientIp(request: Request): string {

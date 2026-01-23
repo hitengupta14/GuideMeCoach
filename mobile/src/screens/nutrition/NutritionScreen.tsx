@@ -4,6 +4,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
+// import { useThemeStore } from '../../store/theme' from '../../store/auth';
+import { LoadingView, ErrorView } from '../../components/State';
 
 export default function NutritionScreen() {
   const user = useAuthStore((s) => s.user);
@@ -45,29 +47,11 @@ export default function NutritionScreen() {
   });
 
   if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-        </View>
-      </View>
-    );
+    return <LoadingView message="Loading nutrition guidance" />;
   }
 
   if (error) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <MaterialCommunityIcons name="food-apple" size={28} color="#FF3B30" />
-          <Text style={styles.headerTitle}>Nutrition Guidance</Text>
-          <View style={{ width: 28 }} />
-        </View>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Error</Text>
-          <Text style={styles.errorText}>Failed to fetch guidance.</Text>
-        </View>
-      </View>
-    );
+    return <ErrorView message="Failed to fetch guidance" />;
   }
 
   const guidance: any = data || {};
@@ -206,8 +190,6 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 16, fontWeight: '700', color: '#000' },
   noteText: { fontSize: 13, color: '#666', marginTop: 6 },
   tipText: { fontSize: 13, color: '#333', marginTop: 4 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { fontSize: 14, color: '#FF3B30' },
   prefButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#007AFF', marginHorizontal: 16, marginTop: 16, padding: 12, borderRadius: 8 },
   prefButtonText: { marginLeft: 8, color: '#fff', fontWeight: '600' },
   preferenceInput: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 8, padding: 12, minHeight: 60, marginBottom: 12, fontSize: 14 },

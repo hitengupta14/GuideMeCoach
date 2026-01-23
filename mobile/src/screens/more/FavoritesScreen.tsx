@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
+// import { useThemeStore } from '../../store/theme' from '../../store/auth';
 
 export default function FavoritesScreen() {
   const { user } = useAuthStore();

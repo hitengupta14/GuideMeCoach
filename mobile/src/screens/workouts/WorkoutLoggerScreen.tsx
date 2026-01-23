@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,18 @@ import {
   Modal,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
+import NetInfo from '@react-native-community/netinfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { enqueueWorkout, getQueue, onReconnectFlush } from '../../lib/workoutQueue';
+import { WorkoutTimer } from '../../components/WorkoutTimer';
+import { useThemeStore } from '../../store/theme';
+import { SkeletonLoader } from '../../components/SkeletonLoader';
+import { useMediaCapture } from '@/hooks/useMediaCapture';
+import { enqueueUpload, getUploadQueue, onReconnectFlushUploads, QueuedUpload } from '../../lib/uploadQueue';
 
 interface Set {
   reps: string;
@@ -30,15 +39,55 @@ interface WorkoutExercise {
 }
 
 export default function WorkoutLoggerScreen() {
+  const { colors } = useThemeStore();
   const [todaysWorkout, setTodaysWorkout] = useState<WorkoutExercise[]>([]);
   const [workoutNotes, setWorkoutNotes] = useState('');
   const [startTime] = useState(new Date());
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerForId, setPickerForId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [showTimer, setShowTimer] = useState(false);
+  const [currentExercise, setCurrentExercise] = useState<string | null>(null);
+  const [mediaByExercise, setMediaByExercise] = useState<Record<string, Array<{ id: string; uri: string; type: 'photo' | 'video'; status: 'queued' | 'uploading' | 'done' | 'failed'; progress: number }>>>({});
+  const [pendingUploads, setPendingUploads] = useState(0);
+  const [pickerModalExerciseId, setPickerModalExerciseId] = useState<string | null>(null);
 
-  const { data: exercisesList } = useQuery({
+  const currentIdsRef = useRef<{ exerciseId: string | null; mediaId: string | null }>({ exerciseId: null, mediaId: null });
+  const mediaCapture = useMediaCapture({
+    onProgress: (p) => {
+      const { exerciseId, mediaId } = currentIdsRef.current;
+      if (!exerciseId || !mediaId) return;
+      setMediaByExercise((prev) => ({
+        ...prev,
+        [exerciseId]: (prev[exerciseId] || []).map((m) => (m.id === mediaId ? { ...m, progress: p } : m)),
+      }));
+    },
+  });
+
+  // Restore media from storage on mount
+  useEffect(() => {
+    const loadMedia = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('gm-exercise-media-v1');
+        if (saved) setMediaByExercise(JSON.parse(saved));
+      } catch (e) {
+        console.log('Failed to load saved media:', e);
+      }
+    };
+    loadMedia();
+  }, []);
+
+  // Persist media to storage whenever it changes
+  useEffect(() => {
+    try {
+      AsyncStorage.setItem('gm-exercise-media-v1', JSON.stringify(mediaByExercise));
+    } catch (e) {
+      console.log('Failed to persist media:', e);
+    }
+  }, [mediaByExercise]);
+  const { data: exercisesList, isLoading: isExercisesLoading } = useQuery({
     queryKey: ['exercises', search],
     queryFn: async () => {
       const params: any = { includeMuscles: true };
@@ -59,6 +108,37 @@ export default function WorkoutLoggerScreen() {
     setPickerForId(null);
     setPickerVisible(true);
   };
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+    let unsubscribeUploads: (() => void) | null = null;
+
+    const bootstrap = async () => {
+      const queue = await getQueue();
+      setPendingCount(queue.length);
+      const uploadQueue = await getUploadQueue();
+      setPendingUploads(uploadQueue.length);
+      unsubscribe = await onReconnectFlush((synced, remaining) => {
+        setPendingCount(remaining);
+        if (synced > 0) {
+          Alert.alert('Synced workouts', `${synced} offline workout(s) synced.`);
+        }
+      });
+      unsubscribeUploads = await onReconnectFlushUploads((synced, remaining) => {
+        setPendingUploads(remaining);
+        if (synced > 0) {
+          Alert.alert('Synced uploads', `${synced} media upload(s) synced.`);
+        }
+      });
+    };
+
+    bootstrap();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      if (unsubscribeUploads) unsubscribeUploads();
+    };
+  }, []);
 
   const handleUpdateSet = (
     exerciseId: string,
@@ -110,6 +190,84 @@ export default function WorkoutLoggerScreen() {
 
   const handleRemoveExercise = (exerciseId: string) => {
     setTodaysWorkout(todaysWorkout.filter((ex) => ex.id !== exerciseId));
+    setMediaByExercise((prev) => {
+      const next = { ...prev };
+      delete next[exerciseId];
+      return next;
+    });
+  };
+
+  const addMediaForExercise = async (exerciseId: string, source: 'camera-photo' | 'camera-video' | 'library-photo' | 'library-video') => {
+    let asset: any;
+    try {
+      if (source === 'camera-photo') asset = await mediaCapture.takePhoto();
+      else if (source === 'camera-video') asset = await mediaCapture.takeVideo();
+      else if (source === 'library-photo') asset = await mediaCapture.pickPhoto();
+      else if (source === 'library-video') asset = await mediaCapture.pickVideo();
+
+      if (!asset) return;
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const type = source.includes('video') ? 'video' : 'photo';
+
+      setMediaByExercise((prev) => ({
+        ...prev,
+        [exerciseId]: [...(prev[exerciseId] || []), { id, uri: asset.uri, type, status: 'queued', progress: 0 }],
+      }));
+
+      const net = await NetInfo.fetch();
+      const online = Boolean(net.isConnected && net.isInternetReachable !== false);
+      if (!online) {
+        await enqueueUpload({ id, uri: asset.uri, type, exerciseId } as QueuedUpload);
+        setPendingUploads((c) => c + 1);
+        return;
+      }
+
+      setMediaByExercise((prev) => ({
+        ...prev,
+        [exerciseId]: (prev[exerciseId] || []).map((m) => (m.id === id ? { ...m, status: 'uploading' } : m)),
+      }));
+
+      currentIdsRef.current = { exerciseId, mediaId: id };
+      await mediaCapture.upload({ uri: asset.uri }, type, exerciseId);
+
+      setMediaByExercise((prev) => ({
+        ...prev,
+        [exerciseId]: (prev[exerciseId] || []).map((m) => (m.id === id ? { ...m, status: 'done', progress: 1 } : m)),
+      }));
+    } catch (err) {
+      setMediaByExercise((prev) => ({
+        ...prev,
+        [exerciseId]: (prev[exerciseId] || []).map((m) => (m.status === 'uploading' ? { ...m, status: 'failed' } : m)),
+      }));
+      Alert.alert('Upload failed', 'Could not upload media. Will retry when online.');
+    }
+    setPickerModalExerciseId(null);
+  };
+
+  const retryFailedUpload = async (exerciseId: string, mediaId: string) => {
+    const mediaItem = mediaByExercise[exerciseId]?.find((m) => m.id === mediaId);
+    if (!mediaItem) return;
+
+    try {
+      setMediaByExercise((prev) => ({
+        ...prev,
+        [exerciseId]: (prev[exerciseId] || []).map((m) => (m.id === mediaId ? { ...m, status: 'uploading', progress: 0 } : m)),
+      }));
+
+      currentIdsRef.current = { exerciseId, mediaId };
+      await mediaCapture.upload({ uri: mediaItem.uri }, mediaItem.type as any, exerciseId);
+
+      setMediaByExercise((prev) => ({
+        ...prev,
+        [exerciseId]: (prev[exerciseId] || []).map((m) => (m.id === mediaId ? { ...m, status: 'done', progress: 1 } : m)),
+      }));
+    } catch (err) {
+      setMediaByExercise((prev) => ({
+        ...prev,
+        [exerciseId]: (prev[exerciseId] || []).map((m) => (m.id === mediaId ? { ...m, status: 'failed' } : m)),
+      }));
+      Alert.alert('Retry failed', 'Could not upload media. Will try again.');
+    }
   };
 
   const handleSaveWorkout = async () => {
@@ -128,6 +286,31 @@ export default function WorkoutLoggerScreen() {
 
       const duration = Math.round((new Date().getTime() - startTime.getTime()) / 60000);
       const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+
+      const payload = {
+        id: Date.now().toString(),
+        userId: user.id,
+        dayName,
+        startTime: startTime.getTime(),
+        duration,
+        exercises: todaysWorkout
+          .filter((ex) => ex.exerciseId)
+          .map((ex) => ({
+            exerciseId: ex.exerciseId as string,
+            notes: ex.notes,
+            sets: ex.sets,
+          })),
+      };
+
+      const net = await NetInfo.fetch();
+      const online = Boolean(net.isConnected && net.isInternetReachable !== false);
+
+      if (!online) {
+        await enqueueWorkout(payload as any);
+        setPendingCount((c) => c + 1);
+        Alert.alert('Saved offline', 'Workout will sync automatically when back online.');
+        return;
+      }
 
       // Start a workout session
       const session: any = await apiClient.startWorkoutSession(user.id, dayName);
@@ -178,26 +361,79 @@ export default function WorkoutLoggerScreen() {
   const totalSets = todaysWorkout.reduce((acc, ex) => acc + ex.sets.length, 0);
 
   return (
-    <View style={styles.container}>
-      {/* Exercise Picker Modal */}
-      <Modal visible={pickerVisible} animationType="slide">
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Choose Exercise</Text>
-          <TouchableOpacity onPress={() => setPickerVisible(false)}>
-            <MaterialCommunityIcons name="close" size={24} color="#999" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {pendingCount > 0 && (
+        <View style={styles.syncBanner}>
+          <MaterialCommunityIcons name="cloud-sync" size={18} color="#fff" />
+          <Text style={styles.syncText}>{pendingCount} workout(s) pending sync</Text>
+        </View>
+      )}
+      {pendingUploads > 0 && (
+        <View style={[styles.syncBanner, { backgroundColor: '#8E8E93' }]}>
+          <MaterialCommunityIcons name="cloud-upload" size={18} color="#fff" />
+          <Text style={styles.syncText}>{pendingUploads} media upload(s) pending</Text>
+        </View>
+      )}
+      
+      {/* Media Picker Modal */}
+      <Modal visible={pickerModalExerciseId !== null} animationType="slide">
+        <View style={[styles.modalHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Add Media</Text>
+          <TouchableOpacity onPress={() => setPickerModalExerciseId(null)}>
+            <MaterialCommunityIcons name="close" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
-        <View style={styles.searchRow}>
-          <MaterialCommunityIcons name="magnify" size={20} color="#999" />
+        <ScrollView style={[{ flex: 1 }, { backgroundColor: colors.background }]}>
+          <View style={{ padding: 16 }}>
+            <TouchableOpacity onPress={() => addMediaForExercise(pickerModalExerciseId!, 'camera-photo')} style={[styles.mediaPickerOption, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <MaterialCommunityIcons name="camera" size={32} color={colors.primary} />
+              <Text style={[styles.mediaPickerText, { color: colors.text }]}>Take Photo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => addMediaForExercise(pickerModalExerciseId!, 'camera-video')} style={[styles.mediaPickerOption, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <MaterialCommunityIcons name="video" size={32} color={colors.primary} />
+              <Text style={[styles.mediaPickerText, { color: colors.text }]}>Record Video</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => addMediaForExercise(pickerModalExerciseId!, 'library-photo')} style={[styles.mediaPickerOption, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <MaterialCommunityIcons name="image" size={32} color={colors.primary} />
+              <Text style={[styles.mediaPickerText, { color: colors.text }]}>Photo from Library</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => addMediaForExercise(pickerModalExerciseId!, 'library-video')} style={[styles.mediaPickerOption, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <MaterialCommunityIcons name="video-box" size={32} color={colors.primary} />
+              <Text style={[styles.mediaPickerText, { color: colors.text }]}>Video from Library</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </Modal>
+      {/* Exercise Picker Modal */}
+      <Modal visible={pickerVisible} animationType="slide">
+        <View style={[styles.modalHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }] }>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Choose Exercise</Text>
+          <TouchableOpacity onPress={() => setPickerVisible(false)}>
+            <MaterialCommunityIcons name="close" size={24} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.searchRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search exercises"
             value={search}
             onChangeText={setSearch}
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
         <ScrollView style={{ flex: 1 }}>
-          {(exercisesList || []).map((ex: any) => (
+          {isExercisesLoading ? (
+            <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <View key={i} style={styles.exercisePickRow}>
+                  <SkeletonLoader width="60%" height={16} />
+                  <SkeletonLoader width={80} height={12} />
+                </View>
+              ))}
+            </View>
+          ) : (
+          (exercisesList || []).map((ex: any) => (
             <TouchableOpacity
               key={ex.id}
               style={styles.exercisePickRow}
@@ -220,10 +456,10 @@ export default function WorkoutLoggerScreen() {
                 setPickerVisible(false);
               }}
             >
-              <Text style={styles.exercisePickName}>{ex.name}</Text>
-              <Text style={styles.exercisePickMeta}>{ex.category} • {ex.difficulty}</Text>
+              <Text style={[styles.exercisePickName, { color: colors.text }]}>{ex.name}</Text>
+              <Text style={[styles.exercisePickMeta, { color: colors.textSecondary }]}>{ex.category} • {ex.difficulty}</Text>
             </TouchableOpacity>
-          ))}
+          )))}
         </ScrollView>
       </Modal>
       {/* Header Stats */}
@@ -249,25 +485,35 @@ export default function WorkoutLoggerScreen() {
         {todaysWorkout.length === 0 ? (
           <View style={styles.emptyState}>
             <MaterialCommunityIcons name="dumbbell" size={48} color="#ccc" />
-            <Text style={styles.emptyText}>No exercises added yet</Text>
-            <Text style={styles.emptySubtext}>
+            <Text style={[styles.emptyText, { color: colors.text } ]}>No exercises added yet</Text>
+            <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
               Add exercises to start logging your workout
             </Text>
           </View>
         ) : (
           todaysWorkout.map((exercise, exIdx) => (
-            <View key={exercise.id} style={styles.exerciseCard}>
+            <View key={exercise.id} style={[styles.exerciseCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.exerciseHeader}>
-                <Text style={styles.exerciseName} numberOfLines={2}>
+                <Text style={[styles.exerciseName, { color: colors.text }]} numberOfLines={2}>
                   {exercise.exerciseName}
                 </Text>
+                <TouchableOpacity
+                  style={styles.timerBadge}
+                  onPress={() => {
+                    setCurrentExercise(exercise.exerciseName);
+                    setShowTimer(true);
+                  }}
+                >
+                  <MaterialCommunityIcons name="timer" size={16} color={colors.primary} />
+                  <Text style={[styles.timerBadgeText, { color: colors.primary }]}>Rest Timer</Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleRemoveExercise(exercise.id)}
                 >
                   <MaterialCommunityIcons
                     name="close"
                     size={20}
-                    color="#999"
+                    color={colors.textSecondary}
                   />
                 </TouchableOpacity>
               </View>
@@ -329,7 +575,7 @@ export default function WorkoutLoggerScreen() {
                     </View>
                   </View>
 
-                  <Text style={styles.setNumber}>Set {setIdx + 1}</Text>
+                  <Text style={[styles.setNumber, { color: colors.textSecondary }]}>Set {setIdx + 1}</Text>
                 </View>
               ))}
 
@@ -342,9 +588,44 @@ export default function WorkoutLoggerScreen() {
                 <Text style={styles.addSetText}>Add Set</Text>
               </TouchableOpacity>
 
+              {/* Media Attachments */}
+              <View style={{ marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <MaterialCommunityIcons name="paperclip" size={16} color={colors.textSecondary} />
+                  <Text style={{ marginLeft: 6, color: colors.textSecondary, fontWeight: '600' }}>Attachments</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  {(mediaByExercise[exercise.id] || []).map((m) => (
+                    <TouchableOpacity key={m.id} onLongPress={() => m.status === 'failed' && retryFailedUpload(exercise.id, m.id)} style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                      {m.type === 'photo' ? (
+                        <Image source={{ uri: m.uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                      ) : (
+                        <MaterialCommunityIcons name="video" size={20} color={colors.textSecondary} />
+                      )}
+                      {m.status === 'uploading' && (
+                        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, backgroundColor: colors.border }}>
+                          <View style={{ width: `${Math.round(m.progress * 100)}%`, height: 3, backgroundColor: colors.primary }} />
+                        </View>
+                      )}
+                      {m.status === 'done' && (
+                        <MaterialCommunityIcons name="check-circle" size={18} color={colors.success} style={{ position: 'absolute', top: 4, right: 4 }} />
+                      )}
+                      {m.status === 'failed' && (
+                        <View style={{ position: 'absolute', width: '100%', height: '100%', backgroundColor: 'rgba(255, 0, 0, 0.3)', alignItems: 'center', justifyContent: 'center' }}>
+                          <MaterialCommunityIcons name="restart" size={20} color={colors.error} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity onPress={() => setPickerModalExerciseId(exercise.id)} style={{ width: 64, height: 64, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9f9f9' }}>
+                    <MaterialCommunityIcons name="plus" size={24} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               {/* Notes */}
               <TextInput
-                style={styles.notesInput}
+                style={[styles.notesInput, { backgroundColor: '#f9f9f9', borderColor: colors.border, color: colors.text }]}
                 placeholder="Notes for this exercise..."
                 multiline
                 value={exercise.notes}
@@ -361,18 +642,32 @@ export default function WorkoutLoggerScreen() {
         )}
 
         {/* Workout Notes */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Workout Notes</Text>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Workout Notes</Text>
           <TextInput
-            style={styles.workoutNotesInput}
+            style={[styles.workoutNotesInput, { borderColor: colors.border, color: colors.text }]}
             placeholder="How did you feel? Any PRs or achievements?"
             multiline
             numberOfLines={4}
             value={workoutNotes}
             onChangeText={setWorkoutNotes}
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
       </ScrollView>
+
+      {showTimer && (
+        <View style={styles.timerContainer}>
+          <WorkoutTimer
+            exerciseName={currentExercise || 'Current Set'}
+            restSeconds={60}
+            onComplete={() => setShowTimer(false)}
+          />
+          <TouchableOpacity style={styles.closeTimer} onPress={() => setShowTimer(false)}>
+            <MaterialCommunityIcons name="close" size={22} color="#999" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Footer Buttons */}
       <View style={styles.footer}>
@@ -411,6 +706,55 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#fff',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#fafafa',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#000',
+  },
+  exercisePickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+  },
+  exercisePickName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000',
+  },
+  exercisePickMeta: {
+    fontSize: 12,
+    color: '#666',
+  },
   statsHeader: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -418,6 +762,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+  },
+  syncBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#007AFF',
+  },
+  syncText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontWeight: '600',
   },
   statItem: {
     flex: 1,
@@ -466,6 +822,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F0FE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  timerBadgeText: {
+    color: '#1F6FEB',
+    fontWeight: '700',
+    fontSize: 12,
+    marginLeft: 4,
   },
   exerciseName: {
     fontSize: 16,
@@ -626,5 +997,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  timerContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 8,
+    paddingBottom: 16,
+  },
+  closeTimer: {
+    alignSelf: 'center',
+    marginTop: -10,
+  },
+  mediaPickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  mediaPickerText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
   },
 });

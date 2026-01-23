@@ -6,6 +6,7 @@ import { users, workoutSessions, workoutLogs, exercises } from '@/db/schema'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { analyzeProgress } from '@/lib/ai'
+import { aiRateLimiter } from '@/lib/rate-limit'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
@@ -34,6 +35,18 @@ async function getUserId(request: NextRequest): Promise<string | null> {
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting for AI insights
+    const rateLimitResult = aiRateLimiter(request)
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many AI insight requests. Please try again later.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': rateLimitResult.retryAfter?.toString() || '3600' }
+        }
+      )
+    }
+
     // Verify session
     const userId = await getUserId(request)
     if (!userId) {

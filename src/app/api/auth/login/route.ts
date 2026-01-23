@@ -52,7 +52,18 @@ export async function POST(request: NextRequest) {
     }
 
     const foundUser = user[0]
-
+    // Check if email is verified
+    if (!foundUser.emailVerified) {
+      logger.warn('Login attempt with unverified email', { userId: foundUser.id })
+      return NextResponse.json(
+        {
+          error: 'Please verify your email before logging in',
+          code: 'EMAIL_NOT_VERIFIED',
+          email: foundUser.email,
+        },
+        { status: 403 }
+      )
+    }
     console.log('🔍 User details:', { 
       id: foundUser.id, 
       email: foundUser.email,

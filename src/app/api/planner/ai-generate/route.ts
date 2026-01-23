@@ -6,7 +6,7 @@ import { users, workoutPlans } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { generateWorkoutPlan, isOpenAIConfigured } from '@/lib/ai'
-import { apiRateLimiter } from '@/lib/rate-limit'
+import { aiRateLimiter } from '@/lib/rate-limit'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
@@ -38,14 +38,14 @@ async function verifySession(request: NextRequest): Promise<string | null> {
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting
-    const rateLimitResult = apiRateLimiter(request)
+    // Rate limiting - stricter for AI endpoints
+    const rateLimitResult = aiRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
-        { error: 'Too many requests. Please try again later.' },
+        { error: 'Too many AI workout generation requests. Please try again later.' },
         { 
           status: 429,
-          headers: { 'Retry-After': rateLimitResult.retryAfter?.toString() || '60' }
+          headers: { 'Retry-After': rateLimitResult.retryAfter?.toString() || '3600' }
         }
       )
     }
