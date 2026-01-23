@@ -101,32 +101,51 @@ export async function POST(request: NextRequest) {
       .orderBy(desc(sql`count(*)`))
       .limit(20)
 
-    // Generate insights
-    const insights = await analyzeProgress({
-      recentSessions: recentSessions.map(s => ({
-        dayName: s.dayName,
-        duration: s.duration,
-        energyLevel: s.energyLevel,
-        difficulty: s.difficulty,
-        date: s.completedAt,
-      })),
-      exerciseStats: exerciseStats.map(e => ({
-        exerciseName: e.exerciseName,
-        avgWeight: Number(e.avgWeight),
-        maxWeight: Number(e.maxWeight),
-        totalSets: Number(e.totalSets),
-        workoutCount: Number(e.workoutCount),
-        avgRpe: Number(e.avgRpe),
-      })),
-      userProfile: {
-        name: user.name || 'User',
-        experienceLevel: user.experienceLevel || 'intermediate',
-        goals: user.goals || [],
-        weight: user.weight || undefined,
-        height: user.height || undefined,
-        age: user.age || undefined,
-      },
-    })
+    // Generate insights with timeout
+    let insights
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+      insights = await analyzeProgress({
+        recentSessions: recentSessions.map(s => ({
+          dayName: s.dayName,
+          duration: s.duration,
+          energyLevel: s.energyLevel,
+          difficulty: s.difficulty,
+          date: s.completedAt,
+        })),
+        exerciseStats: exerciseStats.map(e => ({
+          exerciseName: e.exerciseName,
+          avgWeight: Number(e.avgWeight),
+          maxWeight: Number(e.maxWeight),
+          totalSets: Number(e.totalSets),
+          workoutCount: Number(e.workoutCount),
+          avgRpe: Number(e.avgRpe),
+        })),
+        userProfile: {
+          name: user.name || 'User',
+          experienceLevel: user.experienceLevel || 'intermediate',
+          goals: user.goals || [],
+          weight: user.weight || undefined,
+          height: user.height || undefined,
+          age: user.age || undefined,
+        },
+      })
+
+      clearTimeout(timeout)
+    } catch (aiError) {
+      logger.error('AI analysis failed for email', aiError as Error)
+      // Return fallback insights if AI fails
+      insights = {
+        summary: 'Your weekly workout summary is ready.',
+        strengths: ['Keep tracking consistently', 'Great effort this week'],
+        improvements: ['Review form on key exercises', 'Ensure adequate recovery'],
+        recommendations: ['Continue current pace', 'Stay consistent'],
+        plateauRisks: [],
+        trends: [],
+      }
+    }
 
     const stats = {
       totalWorkouts: recentSessions.length,

@@ -40,6 +40,8 @@ export async function GET() {
         experienceLevel: users.experienceLevel,
         goals: users.goals,
         emailVerified: users.emailVerified,
+        isAdmin: users.isAdmin,
+        adminRole: users.adminRole,
       })
       .from(users)
       .where(eq(users.id, userId))

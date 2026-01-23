@@ -3,8 +3,30 @@ import { jwtVerify } from 'jose'
 import { db } from '@/db'
 import { workoutPlans, users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { cookies } from 'next/headers'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key')
+
+async function getUserId(request: NextRequest): Promise<string | null> {
+  try {
+    const authHeader = request.headers.get('authorization')
+    const bearer = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : null
+
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get('session')?.value
+    const tokenToVerify = bearer || sessionToken
+
+    if (!tokenToVerify) return null
+
+    const verified = await jwtVerify(tokenToVerify, JWT_SECRET).catch(() => null)
+    if (!verified) return null
+    return verified.payload.userId as string
+  } catch {
+    return null
+  }
+}
 
 /**
  * GET /api/planner/plans
@@ -12,16 +34,13 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secr
  */
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get('session')?.value
-    if (!token) {
+    const userId = await getUserId(request)
+    if (!userId) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
       )
     }
-
-    const decoded = await jwtVerify(token, JWT_SECRET)
-    const userId = decoded.payload.userId as string
 
     const plans = await db.query.workoutPlans.findMany({
       where: eq(workoutPlans.userId, userId),
@@ -46,16 +65,13 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get('session')?.value
-    if (!token) {
+    const userId = await getUserId(request)
+    if (!userId) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
       )
     }
-
-    const decoded = await jwtVerify(token, JWT_SECRET)
-    const userId = decoded.payload.userId as string
 
     const { planData, name, description, durationWeeks } = await request.json()
 

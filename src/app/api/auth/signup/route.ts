@@ -90,12 +90,16 @@ export async function POST(request: NextRequest) {
     // Create response
     const response = NextResponse.json(
       {
+        success: true,
         message: 'Account created successfully. Please check your email to verify your account.',
-        user: {
-          id: newUser[0].id,
-          email: newUser[0].email,
-          name: newUser[0].name,
-          emailVerified: false,
+        data: {
+          token,
+          user: {
+            id: newUser[0].id,
+            email: newUser[0].email,
+            name: newUser[0].name,
+            emailVerified: false,
+          },
         },
       },
       { status: 201 }

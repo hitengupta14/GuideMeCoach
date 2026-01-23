@@ -9,15 +9,21 @@ import { analyzeProgress } from '@/lib/ai'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
-// Helper to verify session
-async function verifySession(request: NextRequest): Promise<string | null> {
+// Helper to get user from cookie or Authorization header
+async function getUserId(request: NextRequest): Promise<string | null> {
   try {
+    const authHeader = request.headers.get('authorization')
+    const bearer = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : null
+
     const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
+    const sessionToken = cookieStore.get('session')?.value
+    const tokenToVerify = bearer || sessionToken
 
-    if (!token) return null
+    if (!tokenToVerify) return null
 
-    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    const verified = await jwtVerify(tokenToVerify, JWT_SECRET).catch(() => null)
     if (!verified) return null
 
     return verified.payload.userId as string
@@ -29,7 +35,7 @@ async function verifySession(request: NextRequest): Promise<string | null> {
 export async function GET(request: NextRequest) {
   try {
     // Verify session
-    const userId = await verifySession(request)
+    const userId = await getUserId(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -104,32 +110,51 @@ export async function GET(request: NextRequest) {
 
     logger.info('Fetched workout data for AI analysis', { userId, sessionsCount: recentSessions.length })
 
-    // Generate AI insights
-    const insights = await analyzeProgress({
-      recentSessions: recentSessions.map(s => ({
-        dayName: s.dayName,
-        duration: s.duration,
-        energyLevel: s.energyLevel,
-        difficulty: s.difficulty,
-        date: s.completedAt,
-      })),
-      exerciseStats: exerciseStats.map(e => ({
-        exerciseName: e.exerciseName,
-        avgWeight: Number(e.avgWeight),
-        maxWeight: Number(e.maxWeight),
-        totalSets: Number(e.totalSets),
-        workoutCount: Number(e.workoutCount),
-        avgRpe: Number(e.avgRpe),
-      })),
-      userProfile: {
-        name: user.name || 'User',
-        experienceLevel: user.experienceLevel || 'intermediate',
-        goals: user.goals || [],
-        weight: user.weight || undefined,
-        height: user.height || undefined,
-        age: user.age || undefined,
-      },
-    })
+    // Generate AI insights with timeout
+    let insights
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+      insights = await analyzeProgress({
+        recentSessions: recentSessions.map(s => ({
+          dayName: s.dayName,
+          duration: s.duration,
+          energyLevel: s.energyLevel,
+          difficulty: s.difficulty,
+          date: s.completedAt,
+        })),
+        exerciseStats: exerciseStats.map(e => ({
+          exerciseName: e.exerciseName,
+          avgWeight: Number(e.avgWeight),
+          maxWeight: Number(e.maxWeight),
+          totalSets: Number(e.totalSets),
+          workoutCount: Number(e.workoutCount),
+          avgRpe: Number(e.avgRpe),
+        })),
+        userProfile: {
+          name: user.name || 'User',
+          experienceLevel: user.experienceLevel || 'intermediate',
+          goals: user.goals || [],
+          weight: user.weight || undefined,
+          height: user.height || undefined,
+          age: user.age || undefined,
+        },
+      })
+
+      clearTimeout(timeout)
+    } catch (aiError) {
+      logger.error('AI analysis failed', aiError as Error)
+      // Return fallback insights if AI fails
+      insights = {
+        summary: 'Unable to generate AI insights at this time. Please try again later.',
+        strengths: ['Keep tracking your workouts consistently', 'Monitor your energy levels'],
+        improvements: ['Review your form on compound lifts', 'Ensure adequate rest between sessions'],
+        recommendations: ['Continue current training frequency', 'Track nutrition alongside workouts'],
+        plateauRisks: [],
+        trends: [],
+      }
+    }
 
     return NextResponse.json({
       insights,

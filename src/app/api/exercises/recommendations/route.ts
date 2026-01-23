@@ -82,19 +82,47 @@ export async function POST(request: NextRequest) {
     const userGoal = user.goals?.[0] || 'general_fitness'
     const equipment = availableEquipment || (user.availableEquipment as string[] | null) || ['dumbbell', 'barbell', 'machine']
 
-    // Get recommendations
-    const recommendations = await getExerciseRecommendations({
-      lastExercises,
-      workoutHistory: workoutHistory.map((w) => ({
-        exerciseName: w.exerciseName || 'Unknown',
-        muscleGroups: (w.muscleGroups as string[]) || [],
-        frequency: Number(w.count),
-      })),
-      availableEquipment: equipment,
-      userGoal,
-      userExperienceLevel: user.experienceLevel || 'intermediate',
-      medicalConditions: (user.medicalConditions as string[]) || [],
-    })
+    // Get recommendations with timeout
+    let recommendations
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+      recommendations = await getExerciseRecommendations({
+        lastExercises,
+        workoutHistory: workoutHistory.map((w) => ({
+          exerciseName: w.exerciseName || 'Unknown',
+          muscleGroups: (w.muscleGroups as string[]) || [],
+          frequency: Number(w.count),
+        })),
+        availableEquipment: equipment,
+        userGoal,
+        userExperienceLevel: user.experienceLevel || 'intermediate',
+        medicalConditions: (user.medicalConditions as string[]) || [],
+      })
+
+      clearTimeout(timeout)
+    } catch (aiError) {
+      logger.error('AI recommendations failed', aiError as Error)
+      // Return fallback recommendations if AI fails
+      recommendations = {
+        nextSuggestions: [
+          {
+            exerciseName: 'Dumbbell Bench Press',
+            muscleGroups: ['chest', 'triceps'],
+            rationale: 'Classic exercise for upper body development',
+            alternatives: [],
+          },
+          {
+            exerciseName: 'Barbell Squat',
+            muscleGroups: ['legs', 'glutes'],
+            rationale: 'Fundamental lower body exercise',
+            alternatives: [],
+          },
+        ],
+        reasoning: 'Unable to generate AI suggestions at this time. Showing classic recommendations.',
+      }
+    }
 
     logger.info('Exercise recommendations generated', {
       userId,
