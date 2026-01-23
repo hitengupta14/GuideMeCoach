@@ -95,6 +95,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
+    try {
+      const { user } = useAuthStore.getState();
+      // Fire-and-forget unregister of push token
+      import('../services/push-notifications').then(({ unregisterPushTokenAsync }) => {
+        unregisterPushTokenAsync(user?.id).catch(() => {});
+      });
+    } catch {}
     apiClient.clearToken();
     clearSession();
     set({

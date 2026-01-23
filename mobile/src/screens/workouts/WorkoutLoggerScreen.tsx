@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ import { enqueueWorkout, getQueue, onReconnectFlush } from '../../lib/workoutQue
 import { WorkoutTimer } from '../../components/WorkoutTimer';
 import { useThemeStore } from '../../store/theme';
 import { SkeletonLoader } from '../../components/SkeletonLoader';
-import { capturePhoto, captureVideo, pickImageFromLibrary, pickVideoFromLibrary, uploadMedia } from '../../services/camera';
+import { useMediaCapture } from '@/hooks/useMediaCapture';
 import { enqueueUpload, getUploadQueue, onReconnectFlushUploads, QueuedUpload } from '../../lib/uploadQueue';
 
 interface Set {
@@ -53,6 +53,18 @@ export default function WorkoutLoggerScreen() {
   const [mediaByExercise, setMediaByExercise] = useState<Record<string, Array<{ id: string; uri: string; type: 'photo' | 'video'; status: 'queued' | 'uploading' | 'done' | 'failed'; progress: number }>>>({});
   const [pendingUploads, setPendingUploads] = useState(0);
   const [pickerModalExerciseId, setPickerModalExerciseId] = useState<string | null>(null);
+
+  const currentIdsRef = useRef<{ exerciseId: string | null; mediaId: string | null }>({ exerciseId: null, mediaId: null });
+  const mediaCapture = useMediaCapture({
+    onProgress: (p) => {
+      const { exerciseId, mediaId } = currentIdsRef.current;
+      if (!exerciseId || !mediaId) return;
+      setMediaByExercise((prev) => ({
+        ...prev,
+        [exerciseId]: (prev[exerciseId] || []).map((m) => (m.id === mediaId ? { ...m, progress: p } : m)),
+      }));
+    },
+  });
 
   // Restore media from storage on mount
   useEffect(() => {
@@ -186,12 +198,12 @@ export default function WorkoutLoggerScreen() {
   };
 
   const addMediaForExercise = async (exerciseId: string, source: 'camera-photo' | 'camera-video' | 'library-photo' | 'library-video') => {
-    let asset;
+    let asset: any;
     try {
-      if (source === 'camera-photo') asset = await capturePhoto();
-      else if (source === 'camera-video') asset = await captureVideo();
-      else if (source === 'library-photo') asset = await pickImageFromLibrary();
-      else if (source === 'library-video') asset = await pickVideoFromLibrary();
+      if (source === 'camera-photo') asset = await mediaCapture.takePhoto();
+      else if (source === 'camera-video') asset = await mediaCapture.takeVideo();
+      else if (source === 'library-photo') asset = await mediaCapture.pickPhoto();
+      else if (source === 'library-video') asset = await mediaCapture.pickVideo();
 
       if (!asset) return;
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -215,12 +227,8 @@ export default function WorkoutLoggerScreen() {
         [exerciseId]: (prev[exerciseId] || []).map((m) => (m.id === id ? { ...m, status: 'uploading' } : m)),
       }));
 
-      await uploadMedia(asset.uri, type, exerciseId, (progress) => {
-        setMediaByExercise((prev) => ({
-          ...prev,
-          [exerciseId]: (prev[exerciseId] || []).map((m) => (m.id === id ? { ...m, progress } : m)),
-        }));
-      });
+      currentIdsRef.current = { exerciseId, mediaId: id };
+      await mediaCapture.upload({ uri: asset.uri }, type, exerciseId);
 
       setMediaByExercise((prev) => ({
         ...prev,
@@ -237,8 +245,8 @@ export default function WorkoutLoggerScreen() {
   };
 
   const retryFailedUpload = async (exerciseId: string, mediaId: string) => {
-    const media = mediaByExercise[exerciseId]?.find((m) => m.id === mediaId);
-    if (!media) return;
+    const mediaItem = mediaByExercise[exerciseId]?.find((m) => m.id === mediaId);
+    if (!mediaItem) return;
 
     try {
       setMediaByExercise((prev) => ({
@@ -246,12 +254,8 @@ export default function WorkoutLoggerScreen() {
         [exerciseId]: (prev[exerciseId] || []).map((m) => (m.id === mediaId ? { ...m, status: 'uploading', progress: 0 } : m)),
       }));
 
-      await uploadMedia(media.uri, media.type, exerciseId, (progress) => {
-        setMediaByExercise((prev) => ({
-          ...prev,
-          [exerciseId]: (prev[exerciseId] || []).map((m) => (m.id === mediaId ? { ...m, progress } : m)),
-        }));
-      });
+      currentIdsRef.current = { exerciseId, mediaId };
+      await mediaCapture.upload({ uri: mediaItem.uri }, mediaItem.type as any, exerciseId);
 
       setMediaByExercise((prev) => ({
         ...prev,

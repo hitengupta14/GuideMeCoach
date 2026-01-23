@@ -9,7 +9,7 @@ import { NetworkStatusBanner } from '@/components/NetworkStatusBanner';
 import { navigationRef } from '@/navigation/navigationRef';
 import { addNotificationResponseListener, registerForPushNotificationsAsync } from '@/services/push-notifications';
 import { useThemeStore } from '@/store/theme';
-import { StatusBar } from 'react-native';
+import { StatusBar, AppState } from 'react-native';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default function App() {
@@ -39,6 +39,21 @@ export default function App() {
       if (unsubscribe) unsubscribe();
     };
   }, [token]);
+
+  // App state listeners: pause/resume queries and lightweight refresh on foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') {
+        // Persist pending mutations (already handled by PersistQueryClientProvider)
+      } else if (state === 'active') {
+        // On resume, refetch key lists for freshness
+        queryClient.invalidateQueries({ queryKey: ['exercises'] });
+        queryClient.invalidateQueries({ queryKey: ['workouts'] });
+        queryClient.invalidateQueries({ queryKey: ['achievements'] });
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const linking = {
     prefixes: ['guidemecoach://'],

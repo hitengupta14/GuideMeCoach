@@ -12,7 +12,7 @@ if (typeof window !== 'undefined') {
   document.title = 'Exercise Library - GuideMeCoach'
 }
 
-async function fetchExercises(filters: Record<string, string | null>) {
+async function fetchExercises(filters: Record<string, string | null>, page: number, limit: number) {
   const params = new URLSearchParams()
 
   Object.entries(filters).forEach(([key, value]) => {
@@ -20,6 +20,9 @@ async function fetchExercises(filters: Record<string, string | null>) {
       params.append(key, value)
     }
   })
+
+  params.append('page', String(page))
+  params.append('limit', String(limit))
 
   const response = await fetch(`/api/exercises?${params.toString()}`)
   if (!response.ok) {
@@ -42,9 +45,13 @@ export default function ExercisesPage() {
     location: null,
   })
 
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['exercises', filters],
-    queryFn: () => fetchExercises(filters),
+    queryKey: ['exercises', filters, page, limit],
+    queryFn: () => fetchExercises(filters, page, limit),
+    keepPreviousData: true,
   })
 
   const handleFilterChange = (key: string, value: string | null) => {
@@ -52,10 +59,12 @@ export default function ExercisesPage() {
       ...prev,
       [key]: value,
     }))
+    setPage(1)
   }
 
-  const exercises = data?.exercises || []
-  const filteredExercises = exercises.filter((ex: Exercise) =>
+  const items = data?.items || []
+  const total = data?.total ?? 0
+  const filteredExercises = items.filter((ex: Exercise) =>
     ex.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -121,10 +130,40 @@ export default function ExercisesPage() {
             ) : (
               <>
                 {/* Results Count */}
-                <div className="mb-6">
+                <div className="mb-6 flex items-center justify-between">
                   <p className="text-gray-600">
-                    Found <span className="font-semibold text-primary-600">{filteredExercises.length}</span> exercises
+                    Showing <span className="font-semibold text-primary-600">{filteredExercises.length}</span> of{' '}
+                    <span className="font-semibold text-primary-600">{total}</span> exercises
                   </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="px-3 py-2 border rounded disabled:opacity-50"
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    >
+                      ← Prev
+                    </button>
+                    <span className="text-gray-700">Page {page}</span>
+                    <button
+                      className="px-3 py-2 border rounded disabled:opacity-50"
+                      disabled={page * limit >= total}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      Next →
+                    </button>
+                    <select
+                      className="ml-2 px-2 py-2 border rounded"
+                      value={limit}
+                      onChange={(e) => {
+                        setLimit(Number(e.target.value));
+                        setPage(1);
+                      }}
+                    >
+                      {[12, 20, 30, 50].map((n) => (
+                        <option key={n} value={n}>{n} / page</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Grid */}

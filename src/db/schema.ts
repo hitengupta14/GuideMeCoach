@@ -359,6 +359,17 @@ export const aiUsageLogs = pgTable('ai_usage_logs', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+// Mobile Push Notification Tokens
+export const pushTokens = pgTable('push_tokens', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  platform: text('platform').notNull(), // 'ios' | 'android'
+  metadata: jsonb('metadata').$type<Record<string, any>>(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
 // Export types
 export type Exercise = typeof exercises.$inferSelect
 export type NewExercise = typeof exercises.$inferInsert
@@ -373,3 +384,4 @@ export type ChatMessage = typeof chatMessages.$inferSelect
 export type AdminActivityLog = typeof adminActivityLogs.$inferSelect
 export type SystemMetric = typeof systemMetrics.$inferSelect
 export type AIUsageLog = typeof aiUsageLogs.$inferSelect
+export type PushToken = typeof pushTokens.$inferSelect
