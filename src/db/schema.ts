@@ -113,7 +113,7 @@ export const exercises = pgTable('exercises', {
   thumbnailUrl: text('thumbnail_url'),
   
   // Data integrity fields (Phase 1)
-  baseExerciseId: uuid('base_exercise_id').references(() => exercises.id, { onDelete: 'set null' }),
+  baseExerciseId: uuid('base_exercise_id'),
   source: exerciseSourceEnum('source').default('manual').notNull(),
   reviewStatus: reviewStatusEnum('review_status').default('approved').notNull(),
   confidenceScore: integer('confidence_score'), // 0-100, for AI-generated exercises

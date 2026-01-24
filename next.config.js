@@ -12,6 +12,16 @@ const nextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      {
+        module: /@prisma[\\/]instrumentation/,
+        message: /Critical dependency/,
+      },
+    ];
+    return config;
+  },
 };
 
 module.exports = nextConfig;

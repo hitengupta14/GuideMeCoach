@@ -5,13 +5,17 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import AIPlannerForm from '@/components/AIPlannerForm'
 import CustomPlannerComponent from '@/components/CustomPlannerComponent'
+import UpgradeModal from '@/components/UpgradeModal'
+import { useAIQuota } from '@/hooks/useAIQuota'
 
 function UnifiedPlannerContent() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<'ai' | 'custom'>('ai')
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { quotas } = useAIQuota()
 
   useEffect(() => {
     const checkSession = async () => {
@@ -32,6 +36,9 @@ function UnifiedPlannerContent() {
         const modeParam = searchParams?.get('mode')
         if (modeParam === 'custom') {
           setMode('custom')
+        } else if (modeParam === 'ai' && !data.user.isPremium) {
+          // Show upgrade modal if free user tries to access AI planner
+          setShowUpgradeModal(true)
         }
       } catch (err) {
         console.error('Session check failed:', err)
@@ -136,6 +143,11 @@ function UnifiedPlannerContent() {
 
         {/* Content */}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <UpgradeModal
+            isOpen={showUpgradeModal && mode === 'ai'}
+            onClose={() => setShowUpgradeModal(false)}
+            feature="planner"
+          />
           {mode === 'ai' ? (
             <div className="p-8">
               <AIPlannerForm />

@@ -1,42 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
+import { db } from '@/db';
+import { users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { createRazorpayOrder, RAZORPAY_PLANS, type PlanType } from '@/lib/razorpay';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
 
-// Mock Stripe integration - in production use real Stripe SDK
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
-
-const PLANS = {
-  basic: {
-    id: 'price_basic_monthly',
-    name: 'Basic',
-    price: 9.99,
-    features: ['Core exercises', 'Basic progress tracking'],
-  },
-  pro: {
-    id: 'price_pro_monthly',
-    name: 'Pro',
-    price: 19.99,
-    features: [
-      'All core features',
-      'Video form analysis',
-      'AI coaching',
-      'Wearable integration',
-    ],
-  },
-  elite: {
-    id: 'price_elite_monthly',
-    name: 'Elite',
-    price: 49.99,
-    features: [
-      'Everything in Pro',
-      '1-on-1 coaching',
-      'Custom meal plans',
-      'Priority support',
-    ],
-  },
-};
-
+/**
+ * Create Razorpay order for subscription
+ * Step 1: Backend creates order
+ * Step 2: Frontend shows Razorpay checkout
+ * Step 3: User completes payment
+ * Step 4: Webhook/verify endpoint confirms payment
+ */
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -51,46 +28,72 @@ export async function POST(req: NextRequest) {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     const userId = payload.userId as string;
 
-    const { planType, paymentMethodId } = await req.json();
+    const { planType } = await req.json();
 
-    if (!planType || !Object.keys(PLANS).includes(planType)) {
+    // Validate plan type
+    if (!planType || !RAZORPAY_PLANS[planType as PlanType]) {
       return NextResponse.json(
-        { success: false, error: 'Invalid plan type' },
+        { success: false, error: 'Invalid plan type. Use "premium" or "premium-yearly"' },
         { status: 400 }
       );
     }
 
-    // In production: Create Stripe customer and subscription
-    // For now, generate mock subscription
+    // Get user details
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
-    const subscriptionId = `sub_${Date.now()}`;
-    const plan = PLANS[planType as keyof typeof PLANS];
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
 
-    // In production: Call Stripe API
-    // const stripe = new Stripe(STRIPE_SECRET_KEY);
-    // const subscription = await stripe.subscriptions.create({...});
+    // Create Razorpay order
+    const order = await createRazorpayOrder(planType as PlanType, userId);
+    const plan = RAZORPAY_PLANS[planType as PlanType];
 
     return NextResponse.json({
       success: true,
       data: {
-        subscriptionId,
-        status: 'active',
+        orderId: order.orderId,
+        amount: order.amount,
+        currency: order.currency,
+        keyId: order.keyId,
         plan: {
           type: planType,
           name: plan.name,
-          price: plan.price,
-          currency: 'USD',
-          interval: 'month',
+          amount: plan.amount,
+          currency: plan.currency,
+          period: plan.period,
+          features: plan.features,
         },
-        currentPeriodStart: new Date().toISOString(),
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        message: `Successfully subscribed to ${plan.name} plan`,
+        userDetails: {
+          name: user.name || '',
+          email: user.email,
+        },
       },
     });
-  } catch (error) {
-    console.error('Subscription creation error:', error);
+  } catch (error: any) {
+    console.error('Razorpay order creation error:', error);
+    
+    // Handle Razorpay configuration errors
+    if (error.message?.includes('Razorpay credentials')) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Payment system not configured. Please contact support.',
+          details: 'RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set in environment variables'
+        },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
-      { success: false, error: 'Failed to create subscription' },
+      { success: false, error: 'Failed to create payment order' },
       { status: 500 }
     );
   }

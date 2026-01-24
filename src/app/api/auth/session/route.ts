@@ -54,7 +54,7 @@ export async function GET() {
 
     logger.info('Session validated', { userId: user.id })
     
-    return NextResponse.json({ user })
+    return NextResponse.json({ user, token })
   } catch (error) {
     logger.error('Session validation error', error as Error)
     return NextResponse.json({ user: null }, { status: 500 })
