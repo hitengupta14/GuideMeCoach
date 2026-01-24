@@ -249,3 +249,46 @@ export const BODY_PART_SPLITS = {
     ],
   },
 }
+
+// AI Safety: Movement Pattern Whitelist (Phase 1)
+// AI can only create exercises using these patterns
+export const ALLOWED_MOVEMENT_PATTERNS = [
+  'push',
+  'pull',
+  'hinge',
+  'squat',
+  'rotate',
+  'carry',
+  'isolation',
+] as const
+
+// AI Safety: Equipment Whitelist (Phase 1)
+// AI can only suggest exercises with these equipment types
+export const ALLOWED_EQUIPMENT = [
+  'none',
+  'dumbbell',
+  'barbell',
+  'resistance_band',
+  'machine',
+  'cable',
+  'kettlebell',
+  'pull_up_bar',
+  'bench',
+] as const
+
+export type AllowedMovementPattern = typeof ALLOWED_MOVEMENT_PATTERNS[number]
+export type AllowedEquipment = typeof ALLOWED_EQUIPMENT[number]
+
+/**
+ * Validate if movement patterns are in whitelist
+ */
+export function validateMovementPatterns(patterns: string[]): boolean {
+  return patterns.every(p => ALLOWED_MOVEMENT_PATTERNS.includes(p as AllowedMovementPattern))
+}
+
+/**
+ * Validate if equipment is in whitelist
+ */
+export function validateEquipment(equipment: string[]): boolean {
+  return equipment.every(e => ALLOWED_EQUIPMENT.includes(e as AllowedEquipment))
+}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 import { filterExercisesForUser } from '@/lib/planner/filters'
 import type { UserPreferences } from '@/lib/planner/types'
 
@@ -13,16 +14,18 @@ export async function POST(request: NextRequest) {
     const preferences: UserPreferences = await request.json()
 
     // Fetch all exercises
-    const allExercises = await db.query.exercises.findMany()
+    const allExercises = await db.query.exercises.findMany({
+      where: eq(exercises.reviewStatus, 'approved')
+    })
 
     // Transform to match our types
     const transformedExercises = allExercises.map((ex) => ({
       ...ex,
       equipment: ex.equipment as string[],
-      movementPattern: ex.movementPattern as string[],
+      movementPattern: (ex.movementPattern || []) as string[],
       medicalFlags: ex.medicalFlags as { notRecommendedFor: string[]; safeFor: string[] },
       benefits: ex.benefits as any,
-    }))
+    })) as any[]
 
     // Filter exercises
     const { filtered, excludedCount } = filterExercisesForUser(transformedExercises, preferences)

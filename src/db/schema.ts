@@ -57,6 +57,17 @@ export const adminRoleEnum = pgEnum('admin_role', [
   'support_admin'
 ])
 
+export const exerciseSourceEnum = pgEnum('exercise_source', [
+  'manual',
+  'ai_generated',
+  'curated'
+])
+
+export const reviewStatusEnum = pgEnum('review_status', [
+  'draft',
+  'approved'
+])
+
 // Main Exercises Table
 export const exercises = pgTable('exercises', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -100,6 +111,12 @@ export const exercises = pgTable('exercises', {
   }>(),
   
   thumbnailUrl: text('thumbnail_url'),
+  
+  // Data integrity fields (Phase 1)
+  baseExerciseId: uuid('base_exercise_id').references(() => exercises.id, { onDelete: 'set null' }),
+  source: exerciseSourceEnum('source').default('manual').notNull(),
+  reviewStatus: reviewStatusEnum('review_status').default('approved').notNull(),
+  confidenceScore: integer('confidence_score'), // 0-100, for AI-generated exercises
   
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -357,6 +374,20 @@ export const aiUsageLogs = pgTable('ai_usage_logs', {
   errorMessage: text('error_message'),
   
   createdAt: timestamp('created_at').defaultNow(),
+})
+
+// AI Usage Quotas (Phase 1 - Critical)
+export const aiUsageQuotas = pgTable('ai_usage_quotas', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  
+  feature: text('feature').notNull(), // 'planner', 'chat', 'insights', 'edits'
+  usedCount: integer('used_count').default(0).notNull(),
+  monthlyLimit: integer('monthly_limit').notNull(),
+  resetAt: timestamp('reset_at').notNull(), // Auto-reset monthly
+  
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 })
 
 // Mobile Push Notification Tokens

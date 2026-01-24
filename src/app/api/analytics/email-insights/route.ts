@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
     await sendProgressEmail({
       email: user.email,
       name: user.name || 'User',
-      insights,
+      insights: typeof insights === 'string' ? insights : JSON.stringify(insights),
       stats,
       period: {
         weeks: weeksBack,

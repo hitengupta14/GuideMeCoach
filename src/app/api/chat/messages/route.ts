@@ -7,6 +7,7 @@ import { eq, and, desc } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { apiRateLimiter } from '@/lib/rate-limit'
 import { generateChatResponse, isOpenAIConfigured } from '@/lib/ai'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
@@ -137,10 +138,45 @@ export async function POST(request: NextRequest) {
         goals: users.goals,
         medicalConditions: users.medicalConditions,
         age: users.age,
+        isPremium: users.isPremium,
       })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1)
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // PHASE 1: Check AI quota BEFORE generating response
+    const quota = await checkQuota(userId, 'chat', user.isPremium || false)
+    
+    if (!quota.allowed) {
+      // Save user message but return quota error
+      await db
+        .insert(chatMessages)
+        .values({
+          conversationId,
+          userId,
+          role: 'user',
+          content,
+        })
+
+      return NextResponse.json(
+        { 
+          error: 'AI chat quota exceeded',
+          quota: {
+            used: quota.used,
+            limit: quota.limit,
+            resetAt: quota.resetAt,
+          },
+          message: user.isPremium 
+            ? `You've used all ${quota.limit} AI chat messages this month. Resets on ${new Date(quota.resetAt).toLocaleDateString()}`
+            : 'Upgrade to Premium to access AI chat (₹199-₹299/month)',
+        },
+        { status: 403 }
+      )
+    }
 
     // Get conversation history (last 10 messages for context)
     const previousMessages = await db
@@ -169,6 +205,9 @@ export async function POST(request: NextRequest) {
 
     logger.info('User message saved', { conversationId, userId })
 
+    // Track AI usage
+    const startTime = Date.now()
+
     // Generate AI response
     let aiResponseText: string
     
@@ -190,8 +229,31 @@ export async function POST(request: NextRequest) {
           medicalConditions: user?.medicalConditions || undefined,
           age: user?.age || undefined,
         })
+
+        // PHASE 1: Decrement quota AFTER successful AI generation
+        await decrementQuota(userId, 'chat', user.isPremium || false)
+
+        // Log AI usage
+        await logAIUsage({
+          userId,
+          feature: 'chat',
+          model: 'gpt-4',
+          responseTime: Date.now() - startTime,
+          success: true,
+        })
       } catch (aiError) {
         logger.error('AI generation failed, using fallback', aiError as Error)
+        
+        // Log failed AI usage
+        await logAIUsage({
+          userId,
+          feature: 'chat',
+          model: 'gpt-4',
+          responseTime: Date.now() - startTime,
+          success: false,
+          errorMessage: (aiError as Error).message,
+        })
+        
         aiResponseText = getFallbackResponse(content)
       }
     } else {

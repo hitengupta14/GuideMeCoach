@@ -8,6 +8,8 @@ import {
   PencilIcon,
   TrashIcon,
   PlayIcon,
+  CheckCircleIcon,
+  XCircleIcon,
 } from '@heroicons/react/24/outline'
 import { Exercise } from '@/db/schema'
 
@@ -38,6 +40,31 @@ export default function ExerciseManagementTable({
   const [searchInput, setSearchInput] = useState(searchTerm)
   const [category, setCategory] = useState(categoryFilter)
   const [difficulty, setDifficulty] = useState(difficultyFilter)
+  const [isUpdating, setIsUpdating] = useState<string | null>(null)
+
+  const handleApprove = async (exerciseId: string, currentStatus: string) => {
+    try {
+      setIsUpdating(exerciseId)
+      const newStatus = currentStatus === 'approved' ? 'draft' : 'approved'
+      
+      const response = await fetch(`/api/admin/exercises/${exerciseId}/approve`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewStatus: newStatus }),
+      })
+
+      if (response.ok) {
+        router.refresh()
+      } else {
+        alert('Failed to update exercise status')
+      }
+    } catch (error) {
+      console.error('Error updating exercise:', error)
+      alert('Error updating exercise')
+    } finally {
+      setIsUpdating(null)
+    }
+  }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -145,6 +172,9 @@ export default function ExerciseManagementTable({
                 Exercise
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Category
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -189,6 +219,22 @@ export default function ExerciseManagementTable({
                 </td>
                 <td className="px-6 py-4">
                   <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      exercise.reviewStatus === 'approved'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                    }`}
+                  >
+                    {exercise.reviewStatus === 'approved' ? '✓ Approved' : '⏸ Draft'}
+                  </span>
+                  {exercise.source && exercise.source !== 'manual' && (
+                    <span className="ml-2 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                      {exercise.source === 'ai_generated' ? '🤖 AI' : '⭐ Curated'}
+                    </span>
+                  )}
+                </td>
+                <td className="px-6 py-4">
+                  <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryBadge(
                       exercise.category
                     )}`}
@@ -212,6 +258,26 @@ export default function ExerciseManagementTable({
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => handleApprove(exercise.id, exercise.reviewStatus)}
+                      disabled={isUpdating === exercise.id}
+                      className={`p-2 rounded-lg transition-colors ${
+                        exercise.reviewStatus === 'approved'
+                          ? 'text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
+                          : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
+                      } disabled:opacity-50`}
+                      title={
+                        exercise.reviewStatus === 'approved'
+                          ? 'Move to draft'
+                          : 'Approve exercise'
+                      }
+                    >
+                      {exercise.reviewStatus === 'approved' ? (
+                        <XCircleIcon className="w-4 h-4" />
+                      ) : (
+                        <CheckCircleIcon className="w-4 h-4" />
+                      )}
+                    </button>
                     <button
                       onClick={() => router.push(`/admin/exercises/${exercise.id}`)}
                       className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"

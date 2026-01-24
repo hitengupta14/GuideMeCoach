@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         .values({
           email,
           name: name || email.split('@')[0],
-          password: '', // No password for OAuth users
+          passwordHash: null, // No password for OAuth users
         })
         .returning()
 

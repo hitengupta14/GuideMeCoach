@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { generateWorkoutPlan, isOpenAIConfigured } from '@/lib/ai'
 import { aiRateLimiter } from '@/lib/rate-limit'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
@@ -81,10 +82,35 @@ export async function POST(request: NextRequest) {
         age: users.age,
         weight: users.weight,
         height: users.height,
+        isPremium: users.isPremium,
       })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1)
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // PHASE 1: Check AI quota BEFORE generating
+    const quota = await checkQuota(userId, 'planner', user.isPremium || false)
+    
+    if (!quota.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'AI planner quota exceeded',
+          quota: {
+            used: quota.used,
+            limit: quota.limit,
+            resetAt: quota.resetAt,
+          },
+          message: user.isPremium 
+            ? `You've used all ${quota.limit} AI plans this month. Resets on ${new Date(quota.resetAt).toLocaleDateString()}`
+            : 'Upgrade to Premium to access AI-powered workout plans (₹199-₹299/month)',
+        },
+        { status: 403 }
+      )
+    }
 
     if (!isOpenAIConfigured()) {
       return NextResponse.json(
@@ -93,53 +119,97 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    logger.info('Generating AI workout plan', { userId, goal, daysPerWeek })
+    logger.info('Generating AI workout plan', { userId, goal, daysPerWeek, remaining: quota.remaining })
 
-    // Generate plan using AI
-    const aiPlan = await generateWorkoutPlan({
-      goal,
-      experienceLevel,
-      daysPerWeek,
-      equipment: equipment || [],
-      medicalConditions: medicalConditions || [],
-      duration: duration || 60,
-      userProfile: user ? {
-        name: user.name || undefined,
-        age: user.age || undefined,
-        weight: user.weight || undefined,
-        height: user.height || undefined,
-      } : undefined,
-    })
+    // Track AI usage start time
+    const startTime = Date.now()
+    let aiSuccess = true
+    let aiError: string | undefined
 
-    // Save plan to database
-    const [savedPlan] = await db
-      .insert(workoutPlans)
-      .values({
-        userId,
-        name: aiPlan.planName || `${goal} - ${daysPerWeek} days/week`,
-        description: aiPlan.description || `AI-generated ${goal} plan`,
-        durationWeeks: 4, // Default 4 weeks
-        planData: {
-          weeks: [], // Will be populated when user activates the plan
-        },
-        isActive: false, // User needs to activate it
-      })
-      .returning()
-
-    logger.info('AI workout plan created', { planId: savedPlan.id, userId })
-
-    return NextResponse.json({
-      plan: savedPlan,
-      aiDetails: aiPlan,
-      metadata: {
+    try {
+      // Generate plan using AI
+      const aiPlan = await generateWorkoutPlan({
         goal,
         experienceLevel,
         daysPerWeek,
-        progressionStrategy: aiPlan.progressionStrategy,
-        weeklyStructure: aiPlan.weeklyStructure,
-        tips: aiPlan.tips,
-      }
-    }, { status: 201 })
+        equipment: equipment || [],
+        medicalConditions: medicalConditions || [],
+        duration: duration || 60,
+        userProfile: {
+          name: user.name || undefined,
+          age: user.age || undefined,
+          weight: user.weight || undefined,
+          height: user.height || undefined,
+        },
+      })
+
+      // Save plan to database
+      const [savedPlan] = await db
+        .insert(workoutPlans)
+        .values({
+          userId,
+          name: aiPlan.planName || `${goal} - ${daysPerWeek} days/week`,
+          description: aiPlan.description || `AI-generated ${goal} plan`,
+          durationWeeks: 4, // Default 4 weeks
+          planData: {
+            weeks: [], // Will be populated when user activates the plan
+          },
+          isActive: false, // User needs to activate it
+        })
+        .returning()
+
+      // PHASE 1: Decrement quota AFTER successful generation
+      await decrementQuota(userId, 'planner', user.isPremium || false)
+
+      // Calculate response time
+      const responseTime = Date.now() - startTime
+
+      // Log AI usage for monitoring
+      await logAIUsage({
+        userId,
+        feature: 'planner',
+        model: 'gpt-4', // or whatever model you use
+        tokensUsed: aiPlan.tokensUsed || undefined,
+        responseTime,
+        success: true,
+      })
+
+      logger.info('AI workout plan created', { planId: savedPlan.id, userId, quotaRemaining: quota.remaining - 1 })
+
+      return NextResponse.json({
+        plan: savedPlan,
+        aiDetails: aiPlan,
+        quota: {
+          used: quota.used + 1,
+          remaining: quota.remaining - 1,
+          limit: quota.limit,
+          resetAt: quota.resetAt,
+        },
+        metadata: {
+          goal,
+          experienceLevel,
+          daysPerWeek,
+          progressionStrategy: aiPlan.progressionStrategy,
+          weeklyStructure: aiPlan.weeklyStructure,
+          tips: aiPlan.tips,
+        }
+      }, { status: 201 })
+    } catch (aiGenerationError) {
+      aiSuccess = false
+      aiError = (aiGenerationError as Error).message
+
+      // Log failed AI usage
+      await logAIUsage({
+        userId,
+        feature: 'planner',
+        model: 'gpt-4',
+        responseTime: Date.now() - startTime,
+        success: false,
+        errorMessage: aiError,
+      })
+
+      throw aiGenerationError
+    }
   } catch (error) {
     logger.error('AI plan generation error', error as Error)
     return NextResponse.json(

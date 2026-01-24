@@ -42,7 +42,9 @@ export async function GET(request: Request) {
     const pageFromOffset = Number.isFinite(offsetParam) && offsetParam >= 0 ? (Math.floor(offsetParam / limit) + 1) : null
     const page = pageFromOffset ?? (Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1)
 
-    const conditions = []
+    const conditions = [
+      eq(exercises.reviewStatus, 'approved') // Only show approved exercises
+    ]
     
     if (filters.category) {
       conditions.push(eq(exercises.category, filters.category as any))
