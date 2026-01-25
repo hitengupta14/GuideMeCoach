@@ -104,6 +104,41 @@ export async function createRazorpayOrder(planType: PlanType, userId: string) {
 }
 
 /**
+ * Create order with server-decided pricing (override amount/currency)
+ */
+export async function createRazorpayOrderWithPricing(
+  amountPaise: number,
+  currency: string,
+  planType: PlanType,
+  userId: string,
+  notes?: Record<string, string>
+) {
+  const razorpay = getRazorpayInstance()
+
+  const shortUserId = userId.substring(0, 8)
+  const timestamp = Date.now().toString().slice(-5)
+  const receipt = `ord_${shortUserId}_${timestamp}`.substring(0, 40)
+
+  const order = await razorpay.orders.create({
+    amount: amountPaise,
+    currency,
+    receipt,
+    notes: {
+      userId,
+      planType,
+      ...(notes || {}),
+    },
+  })
+
+  return {
+    orderId: order.id,
+    amount: order.amount,
+    currency: order.currency,
+    keyId: process.env.RAZORPAY_KEY_ID,
+  }
+}
+
+/**
  * Verify Razorpay payment signature
  */
 export function verifyRazorpaySignature(

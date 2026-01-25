@@ -6,12 +6,14 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/solid'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import { useSession } from '@/hooks/useSession'
+import { PricingRegionSelector } from '@/components/PricingRegionSelector'
 
 const PRICING_PLANS = [
   {
     id: 'free',
     name: 'Free',
-    price: '₹0',
+    priceIndia: '₹0',
+    priceInternational: '$0',
     period: '/month',
     description: 'Perfect for getting started',
     features: [
@@ -27,7 +29,8 @@ const PRICING_PLANS = [
   {
     id: 'premium',
     name: 'Premium Monthly',
-    price: '₹249',
+    priceIndia: '₹299',
+    priceInternational: '$5',
     period: '/month',
     description: 'AI-powered personalization',
     features: [
@@ -45,7 +48,8 @@ const PRICING_PLANS = [
   {
     id: 'premium-yearly',
     name: 'Premium Yearly',
-    price: '₹2,490',
+    priceIndia: '₹2,499',
+    priceInternational: '$49',
     period: '/year',
     description: 'Best value - save 17%',
     features: [
@@ -53,7 +57,7 @@ const PRICING_PLANS = [
       'All AI features',
       'Priority support',
       'Early access to new features',
-      'Save ₹3,478/year vs monthly',
+      'Save 16% vs monthly',
     ],
     cta: 'Start Free Trial',
     highlighted: false,
@@ -62,6 +66,7 @@ const PRICING_PLANS = [
 
 export default function PricingPage() {
   const [isCancelling, setIsCancelling] = useState(false)
+  const [selectedRegion, setSelectedRegion] = useState<'india' | 'international'>('india')
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isLoading } = useSession({ required: false })
@@ -198,6 +203,16 @@ export default function PricingPage() {
           )}
         </div>
 
+        {/* Regional Pricing Selector - Only show if not premium */}
+        {!isPremium && (
+          <div className="max-w-2xl mx-auto mb-12">
+            <PricingRegionSelector
+              defaultRegion="india"
+              onRegionChange={setSelectedRegion}
+            />
+          </div>
+        )}
+
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-3 gap-8 mb-12">
           {PRICING_PLANS.map((plan) => {
@@ -250,7 +265,7 @@ export default function PricingPage() {
                   {/* Price */}
                   <div className="mb-6">
                     <span className="text-4xl font-bold text-gray-900 dark:text-white">
-                      {plan.price}
+                      {selectedRegion === 'india' ? plan.priceIndia : plan.priceInternational}
                     </span>
                     <span className="text-gray-600 dark:text-gray-400 ml-2">{plan.period}</span>
                   </div>

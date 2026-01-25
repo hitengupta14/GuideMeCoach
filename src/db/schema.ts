@@ -68,6 +68,12 @@ export const reviewStatusEnum = pgEnum('review_status', [
   'approved'
 ])
 
+// Pricing tiers for regional pricing
+export const pricingTierEnum = pgEnum('pricing_tier', [
+  'india',
+  'international'
+])
+
 // Main Exercises Table
 export const exercises = pgTable('exercises', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -194,6 +200,10 @@ export const users = pgTable('users', {
   subscriptionEndsAt: timestamp('subscription_ends_at'),
   pendingPlanType: text('pending_plan_type'), // 'premium', 'premium-yearly', null
   pendingPlanStartsAt: timestamp('pending_plan_starts_at'), // When pending plan activates
+
+  // Regional pricing fields
+  billingCountry: text('billing_country'), // e.g., 'IN', 'US', 'DE'
+  pricingTier: pricingTierEnum('pricing_tier'), // 'india' | 'international'
   
   // Email verification
   emailVerified: boolean('email_verified').default(false),
@@ -429,14 +439,14 @@ export const pushTokens = pgTable('push_tokens', {
 })
 
 // Refresh Tokens (for JWT refresh strategy)
-export const refreshTokens = pgTable('refresh_tokens', {
+export const refreshTokens: any = pgTable('refresh_tokens', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   token: text('token').notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   revokedAt: timestamp('revoked_at'),
-  replacedBy: uuid('replaced_by').references(() => refreshTokens.id, { onDelete: 'set null' }),
+  replacedBy: uuid('replaced_by').references((): any => refreshTokens.id, { onDelete: 'set null' }),
   deviceInfo: jsonb('device_info').$type<{
     userAgent?: string
     platform?: string

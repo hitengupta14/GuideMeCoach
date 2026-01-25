@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { users } from '@/db/schema';
+import { users, adminActivityLogs } from '@/db/schema';
+import { payments } from '@/db/schema-mobile';
 import { eq } from 'drizzle-orm';
 import { verifyWebhookSignature } from '@/lib/razorpay';
 import { sendPaymentSuccessEmail } from '@/lib/email';
 import { logger } from '@/lib/logger';
+import type { PricingTier } from '@/lib/pricing';
 
 /**
  * Razorpay Webhook Handler
@@ -83,30 +85,80 @@ async function handlePaymentSuccess(payment: any) {
   try {
     const userId = payment.notes?.userId;
     const planType = payment.notes?.planType;
+    const tier = payment.notes?.tier as PricingTier | undefined;
+    const pricingReason = payment.notes?.pricingReason;
+    const displayRegion = payment.notes?.displayRegion;
 
     if (!userId) {
       console.error('[Razorpay Webhook] Missing userId in payment notes');
       return;
     }
 
-    console.log(`[Razorpay Webhook] Payment successful for user: ${userId}`);
+    console.log(`[Razorpay Webhook] Payment successful for user: ${userId}, tier: ${tier || 'unknown'}`);
 
     const now = new Date();
     const subscriptionEndsAt = planType === 'premium-yearly'
       ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
       : new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
 
-    // Update user to premium
+    // Fetch existing user to check for pricing mismatch
+    const [existingUser] = await db
+      .select({ billingCountry: users.billingCountry, pricingTier: users.pricingTier })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const inferredCountry = payment.card?.issuer_country || payment.method === 'upi' ? 'IN' : null;
+    const detectedCountry = inferredCountry ?? 'UNKNOWN';
+
+    const mismatchAttempt = displayRegion && tier
+      ? (displayRegion !== tier)
+      : false;
+
+    // Update user: set billing country and pricing tier (lock after first successful payment)
+    const updateData: any = {
+      isPremium: true,
+      subscriptionEndsAt,
+      updatedAt: now,
+    };
+
+    if (!existingUser?.billingCountry && detectedCountry !== 'UNKNOWN') {
+      updateData.billingCountry = detectedCountry;
+    }
+    if (!existingUser?.pricingTier && tier) {
+      updateData.pricingTier = tier;
+    }
+
     await db
       .update(users)
-      .set({
-        isPremium: true,
-        subscriptionEndsAt: subscriptionEndsAt,
-        updatedAt: now,
-      })
+      .set(updateData)
       .where(eq(users.id, userId));
 
-    console.log(`[Razorpay Webhook] User ${userId} upgraded to premium`);
+    console.log(`[Razorpay Webhook] User ${userId} upgraded to premium; tier locked: ${tier || 'none'}`);
+
+    // Log payment with pricing audit
+    try {
+      await db.insert(payments).values({
+        userId,
+        amount: payment.amount.toString(),
+        currency: payment.currency || 'INR',
+        status: 'succeeded',
+        description: `Payment for ${planType}`,
+        metadata: {
+          razorpayPaymentId: payment.id,
+          planType,
+          tier,
+          pricingReason,
+          displayRegion,
+          pricingMismatchAttempt: mismatchAttempt,
+        },
+        detectedCountry,
+        chargedCurrency: payment.currency || 'INR',
+        chargedAmount: (payment.amount / 100).toFixed(2),
+      });
+    } catch (paymentLogError) {
+      logger.error('Failed to log payment record', paymentLogError as Error, { userId });
+    }
 
     // Send payment success email
     try {

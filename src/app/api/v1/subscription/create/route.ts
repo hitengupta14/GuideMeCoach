@@ -3,7 +3,8 @@ import { jwtVerify } from 'jose';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { createRazorpayOrder, RAZORPAY_PLANS, type PlanType } from '@/lib/razorpay';
+import { createRazorpayOrderWithPricing, RAZORPAY_PLANS, type PlanType } from '@/lib/razorpay';
+import { decidePricing } from '@/lib/pricing';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
 
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     const userId = payload.userId as string;
 
-    const { planType } = await req.json();
+    const { planType, displayRegion } = await req.json();
 
     // Validate plan type
     if (!planType || !RAZORPAY_PLANS[planType as PlanType]) {
@@ -45,6 +46,8 @@ export async function POST(req: NextRequest) {
         name: users.name,
         email: users.email,
         isPremium: users.isPremium,
+        billingCountry: users.billingCountry,
+        pricingTier: users.pricingTier,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -57,9 +60,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create Razorpay order
-    const order = await createRazorpayOrder(planType as PlanType, userId);
-    const plan = RAZORPAY_PLANS[planType as PlanType];
+    // Decide pricing on backend (authoritative)
+    const decision = decidePricing({
+      planType: planType as PlanType,
+      billingCountry: user.billingCountry ?? null,
+      lockedTier: user.pricingTier ?? null,
+    })
+
+    // Create Razorpay order with server-decided amount/currency
+    const order = await createRazorpayOrderWithPricing(
+      decision.amountPaise,
+      decision.currency,
+      planType as PlanType,
+      userId,
+      {
+        tier: decision.tier,
+        pricingReason: decision.reason ?? '',
+        displayRegion: typeof displayRegion === 'string' ? displayRegion : '',
+      }
+    )
+
+    const plan = RAZORPAY_PLANS[planType as PlanType]
 
     return NextResponse.json({
       success: true,
@@ -71,17 +92,22 @@ export async function POST(req: NextRequest) {
         plan: {
           type: planType,
           name: plan.name,
-          amount: plan.amount,
-          currency: plan.currency,
+          amount: decision.amountPaise,
+          currency: decision.currency,
           period: plan.period,
           features: plan.features,
+        },
+        pricing: {
+          tier: decision.tier,
+          reason: decision.reason,
+          displayRegion: typeof displayRegion === 'string' ? displayRegion : undefined,
         },
         userDetails: {
           name: user.name || '',
           email: user.email,
         },
       },
-    });
+    })
   } catch (error: any) {
     console.error('Razorpay order creation error:', error);
     

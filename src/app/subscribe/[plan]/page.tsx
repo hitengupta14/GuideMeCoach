@@ -1,101 +1,110 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import Script from 'next/script'
-import { useSession } from '@/hooks/useSession'
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Script from "next/script";
+import { useSession } from "@/hooks/useSession";
+import { PricingRegionSelector } from "@/components/PricingRegionSelector";
 
 // Add Razorpay types
 declare global {
   interface Window {
-    Razorpay: any
+    Razorpay: any;
   }
 }
 
 const PLANS = {
   premium: {
-    name: 'Premium',
-    price: 249,
-    period: 'month',
-    currency: '₹',
-    apiPlanType: 'pro',
+    name: "Premium",
+    priceIndia: 299,
+    priceInternational: 5,
+    currencyIndia: "₹",
+    currencyInternational: "$",
+    period: "month",
+    apiPlanType: "pro",
     features: [
-      'All Free features',
-      'AI Workout Planner (2/month)',
-      'AI Chat Support (25 messages/month)',
-      'AI Weekly Insights (1/week)',
-      'AI Plan Edits (3/month)',
-      'Priority support',
-      'Ad-free experience',
+      "All Free features",
+      "AI Workout Planner (2/month)",
+      "AI Chat Support (25 messages/month)",
+      "AI Weekly Insights (1/week)",
+      "AI Plan Edits (3/month)",
+      "Priority support",
+      "Ad-free experience",
     ],
   },
-  'premium-yearly': {
-    name: 'Premium Yearly',
-    price: 2490,
-    period: 'year',
-    currency: '₹',
-    apiPlanType: 'pro_yearly',
+  "premium-yearly": {
+    name: "Premium Yearly",
+    priceIndia: 2499,
+    priceInternational: 49,
+    currencyIndia: "₹",
+    currencyInternational: "$",
+    period: "year",
+    apiPlanType: "pro_yearly",
     features: [
-      'All Premium features',
-      'All AI features',
-      'Priority support',
-      'Early access to new features',
-      'Save ₹3,478/year vs monthly',
+      "All Premium features",
+      "All AI features",
+      "Priority support",
+      "Early access to new features",
+      "Save 16% vs monthly",
     ],
   },
-}
+};
 
 export default function SubscribePage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { user, isLoading: isSessionLoading } = useSession({ required: true })
-  
-  const planKey = (searchParams.get('plan') || 'premium') as keyof typeof PLANS
-  const plan = PLANS[planKey] || PLANS.premium
-  
-  const [token, setToken] = useState<string | null>(null)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, isLoading: isSessionLoading } = useSession({ required: true });
+
+  const planKey = (searchParams.get("plan") || "premium") as keyof typeof PLANS;
+  const plan = PLANS[planKey] || PLANS.premium;
+
+  const [token, setToken] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<
+    "india" | "international"
+  >("india");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const handleSubscribe = async () => {
     if (!token || !user?.id) {
-      setError('Please log in first')
-      router.push('/auth/login?redirect=/pricing')
-      return
+      setError("Please log in first");
+      router.push("/auth/login?redirect=/pricing");
+      return;
     }
 
     try {
-      setIsProcessing(true)
-      setError(null)
+      setIsProcessing(true);
+      setError(null);
 
       // Step 1: Create Razorpay order
-      const response = await fetch('/api/v1/subscription/create', {
-        method: 'POST',
-        credentials: 'include',
+      const response = await fetch("/api/v1/subscription/create", {
+        method: "POST",
+        credentials: "include",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          displayRegion: selectedRegion, // Pass selected region for analytics
           planType: planKey, // Use actual plan key (premium or premium-yearly)
         }),
-      })
+      });
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to create payment order')
+        const data = await response.json();
+        throw new Error(data.error || "Failed to create payment order");
       }
 
-      const data = await response.json()
+      const data = await response.json();
 
       // Step 2: Open Razorpay checkout
-      if (typeof window !== 'undefined' && window.Razorpay) {
+      if (typeof window !== "undefined" && window.Razorpay) {
         const options = {
           key: data.data.keyId,
           amount: data.data.amount,
           currency: data.data.currency,
-          name: 'GuideMeCoach',
+          name: "GuideMeCoach",
           description: data.data.plan.name,
           order_id: data.data.orderId,
           prefill: {
@@ -103,66 +112,78 @@ export default function SubscribePage() {
             email: data.data.userDetails.email,
           },
           theme: {
-            color: '#3b82f6', // blue-600
+            color: "#3b82f6", // blue-600
           },
           handler: async function (response: any) {
             // Payment successful - verify on backend
             try {
-              const verifyResponse = await fetch('/api/v1/subscription/verify', {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
+              const verifyResponse = await fetch(
+                "/api/v1/subscription/verify",
+                {
+                  method: "POST",
+                  credentials: "include",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                    planType: planKey,
+                  }),
                 },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  planType: planKey,
-                }),
-              })
+              );
 
-              console.log('[Subscribe] Verify response status:', verifyResponse.status);
+              console.log(
+                "[Subscribe] Verify response status:",
+                verifyResponse.status,
+              );
               const verifyData = await verifyResponse.json();
-              console.log('[Subscribe] Verify response data:', verifyData);
+              console.log("[Subscribe] Verify response data:", verifyData);
 
               if (!verifyResponse.ok) {
-                throw new Error(verifyData.error || 'Payment verification failed')
+                throw new Error(
+                  verifyData.error || "Payment verification failed",
+                );
               }
 
-              console.log('[Subscribe] Payment verified successfully');
-              setSuccess(true)
-              
+              console.log("[Subscribe] Payment verified successfully");
+              setSuccess(true);
+
               // Redirect back to pricing to see updated status
               setTimeout(() => {
-                console.log('[Subscribe] Redirecting to pricing');
-                router.push('/pricing?from=payment')
-              }, 2000)
+                console.log("[Subscribe] Redirecting to pricing");
+                router.push("/pricing?from=payment");
+              }, 2000);
             } catch (err) {
-              console.error('[Subscribe] Verification error:', err);
-              setError(err instanceof Error ? err.message : 'Payment verification failed')
-              setIsProcessing(false)
+              console.error("[Subscribe] Verification error:", err);
+              setError(
+                err instanceof Error
+                  ? err.message
+                  : "Payment verification failed",
+              );
+              setIsProcessing(false);
             }
           },
           modal: {
             ondismiss: function () {
-              setIsProcessing(false)
-              setError('Payment cancelled')
-            }
-          }
-        }
+              setIsProcessing(false);
+              setError("Payment cancelled");
+            },
+          },
+        };
 
-        const razorpay = new window.Razorpay(options)
-        razorpay.open()
+        const razorpay = new window.Razorpay(options);
+        razorpay.open();
       } else {
-        throw new Error('Razorpay SDK not loaded')
+        throw new Error("Razorpay SDK not loaded");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-      setIsProcessing(false)
+      setError(err instanceof Error ? err.message : "An error occurred");
+      setIsProcessing(false);
     }
-  }
+  };
 
   if (isSessionLoading) {
     return (
@@ -172,7 +193,7 @@ export default function SubscribePage() {
           <p className="text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -200,11 +221,17 @@ export default function SubscribePage() {
         {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg">
-            <p className="text-red-800 dark:text-red-200">
-              {error}
-            </p>
+            <p className="text-red-800 dark:text-red-200">{error}</p>
           </div>
         )}
+
+        {/* Regional Pricing Selector */}
+        <div className="mb-8">
+          <PricingRegionSelector
+            defaultRegion="india"
+            onRegionChange={setSelectedRegion}
+          />
+        </div>
 
         {/* Plan Card */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 mb-8">
@@ -214,7 +241,12 @@ export default function SubscribePage() {
             </h2>
             <div className="flex items-baseline gap-2 mb-4">
               <span className="text-5xl font-bold text-gray-900 dark:text-white">
-                {plan.currency}{plan.price}
+                {selectedRegion === "india"
+                  ? plan.currencyIndia
+                  : plan.currencyInternational}
+                {selectedRegion === "india"
+                  ? plan.priceIndia
+                  : plan.priceInternational}
               </span>
               <span className="text-gray-600 dark:text-gray-400">
                 per {plan.period}
@@ -240,7 +272,9 @@ export default function SubscribePage() {
                     clipRule="evenodd"
                   />
                 </svg>
-                <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                <span className="text-gray-700 dark:text-gray-300">
+                  {feature}
+                </span>
               </div>
             ))}
           </div>
@@ -251,7 +285,7 @@ export default function SubscribePage() {
             disabled={isProcessing}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors mb-4"
           >
-            {isProcessing ? 'Processing...' : 'Subscribe Now'}
+            {isProcessing ? "Processing..." : "Subscribe Now"}
           </button>
 
           <p className="text-center text-sm text-gray-600 dark:text-gray-400">
@@ -271,7 +305,9 @@ export default function SubscribePage() {
                 Can I cancel anytime?
               </h4>
               <p className="text-gray-600 dark:text-gray-400">
-                Yes, you can cancel your subscription anytime from your account settings. Your access will continue until the end of your billing period.
+                Yes, you can cancel your subscription anytime from your account
+                settings. Your access will continue until the end of your
+                billing period.
               </p>
             </div>
 
@@ -280,7 +316,8 @@ export default function SubscribePage() {
                 Is there a free trial?
               </h4>
               <p className="text-gray-600 dark:text-gray-400">
-                Yes! You get a 7-day free trial. After that, you'll be charged monthly unless you cancel.
+                Yes! You get a 7-day free trial. After that, you'll be charged
+                monthly unless you cancel.
               </p>
             </div>
 
@@ -289,7 +326,8 @@ export default function SubscribePage() {
                 What payment methods do you accept?
               </h4>
               <p className="text-gray-600 dark:text-gray-400">
-                We accept all major credit and debit cards through secure payment processing.
+                We accept all major credit and debit cards through secure
+                payment processing.
               </p>
             </div>
           </div>
@@ -302,5 +340,5 @@ export default function SubscribePage() {
         strategy="lazyOnload"
       />
     </div>
-  )
+  );
 }
