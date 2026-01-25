@@ -1,44 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useSession } from '@/hooks/useSession'
 import NutritionGuidanceComponent from '@/components/NutritionGuidanceComponent'
 
 export default function NutritionPage() {
-  const [userId, setUserId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
+  const { user, isLoading } = useSession({ required: true })
 
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        })
-
-        if (!response.ok) {
-          router.push('/auth/login')
-          return
-        }
-
-        const data = await response.json()
-        if (data.user?.id) {
-          setUserId(data.user.id)
-        } else {
-          router.push('/auth/login')
-        }
-      } catch (err) {
-        console.error('Session check failed:', err)
-        router.push('/auth/login')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkSession()
-  }, [router])
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
@@ -47,10 +15,6 @@ export default function NutritionPage() {
         </div>
       </div>
     )
-  }
-
-  if (!userId) {
-    return null
   }
 
   return (
@@ -64,7 +28,7 @@ export default function NutritionPage() {
 
       <main className="max-w-7xl mx-auto px-4 py-12">
         <div className="bg-white rounded-lg shadow-lg p-8">
-          <NutritionGuidanceComponent userId={userId} />
+          <NutritionGuidanceComponent userId={user!.id} />
         </div>
       </main>
     </div>

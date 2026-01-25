@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
+import { verifySession } from '@/lib/auth-helpers';
 import { db } from '@/db';
 import { users, aiUsageQuotas } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyRazorpaySignature } from '@/lib/razorpay';
 import { AI_FEATURE_LIMITS } from '@/lib/ai-quota';
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
 
 /**
  * Verify Razorpay payment and activate subscription
@@ -14,17 +12,13 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secr
  */
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const userId = await verifySession(req);
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid token' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    const token = authHeader.slice(7);
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    const userId = payload.userId as string;
 
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planType } = await req.json();
 

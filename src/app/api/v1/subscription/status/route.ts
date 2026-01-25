@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+import { verifySession } from '@/lib/auth-helpers';
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const userId = await verifySession(req);
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid token' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    const token = authHeader.slice(7);
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    const userId = payload.userId as string;
 
     // In production: Fetch from database
     // For now, returning mock data

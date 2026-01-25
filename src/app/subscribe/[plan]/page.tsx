@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Script from 'next/script'
+import { useSession } from '@/hooks/useSession'
 
 // Add Razorpay types
 declare global {
@@ -47,49 +48,18 @@ const PLANS = {
 export default function SubscribePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user, isLoading: isSessionLoading } = useSession({ required: true })
   
   const planKey = (searchParams.get('plan') || 'premium') as keyof typeof PLANS
   const plan = PLANS[planKey] || PLANS.premium
   
-  const [userId, setUserId] = useState<string | null>(null)
   const [token, setToken] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        })
-
-        if (!response.ok) {
-          router.push('/auth/login?redirect=/pricing')
-          return
-        }
-
-        const data = await response.json()
-        if (data.user?.id && data.token) {
-          setUserId(data.user.id)
-          setToken(data.token)
-        } else {
-          router.push('/auth/login?redirect=/pricing')
-        }
-      } catch (err) {
-        console.error('Session check failed:', err)
-        router.push('/auth/login?redirect=/pricing')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    checkSession()
-  }, [router])
-
   const handleSubscribe = async () => {
-    if (!token || !userId) {
+    if (!token || !user?.id) {
       setError('Please log in first')
       router.push('/auth/login?redirect=/pricing')
       return
@@ -194,7 +164,7 @@ export default function SubscribePage() {
     }
   }
 
-  if (isLoading) {
+  if (isSessionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
         <div className="text-center">

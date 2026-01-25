@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { jwtVerify } from 'jose'
 import { db } from '@/db'
 import { users, workoutPlans } from '@/db/schema'
 import { eq } from 'drizzle-orm'
@@ -8,34 +6,8 @@ import { logger } from '@/lib/logger'
 import { generateWorkoutPlan, isOpenAIConfigured } from '@/lib/ai'
 import { aiRateLimiter } from '@/lib/rate-limit'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
-
-// Helper to verify session - supports both Bearer token and session cookie
-async function verifySession(request: NextRequest): Promise<string | null> {
-  try {
-    // Check Bearer token first
-    const authHeader = request.headers.get('authorization')
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
-      if (verified) return verified.payload.userId as string
-    }
-
-    // Fall back to session cookie
-    const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
-
-    if (!token) return null
-
-    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
-    if (!verified) return null
-
-    return verified.payload.userId as string
-  } catch {
-    return null
-  }
-}
+import { verifySession } from '@/lib/auth-helpers'
+import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache'
 
 export async function POST(request: NextRequest) {
   try {
@@ -121,6 +93,53 @@ export async function POST(request: NextRequest) {
 
     logger.info('Generating AI workout plan', { userId, goal, daysPerWeek, remaining: quota.remaining })
 
+    // Generate cache key from parameters
+    const cacheKey = hashAIRequest('planner', {
+      goal,
+      experienceLevel,
+      daysPerWeek,
+      equipment: equipment || [],
+      medicalConditions: medicalConditions || [],
+      duration: duration || 60,
+    })
+
+    // Check cache first (7 days TTL for workout plans)
+    const cachedPlan = await getCachedAIResponse(cacheKey, 168) // 7 days
+    
+    if (cachedPlan) {
+      logger.info('Using cached AI workout plan', { cacheKey, userId })
+      
+      // Still decrement quota (user is using AI feature)
+      await decrementQuota(userId, 'planner', user.isPremium || false)
+      
+      // Save the cached plan to user's account
+      const [savedPlan] = await db
+        .insert(workoutPlans)
+        .values({
+          userId,
+          name: cachedPlan.planName || `${goal} - ${daysPerWeek} days/week`,
+          description: cachedPlan.description || `AI-generated ${goal} plan`,
+          durationWeeks: 4,
+          planData: {
+            weeks: [],
+          },
+          isActive: false,
+        })
+        .returning()
+
+      return NextResponse.json({
+        plan: savedPlan,
+        aiDetails: cachedPlan,
+        cached: true,
+        quota: {
+          used: quota.used + 1,
+          remaining: quota.remaining - 1,
+          limit: quota.limit,
+          resetAt: quota.resetAt,
+        },
+      }, { status: 201 })
+    }
+
     // Track AI usage start time
     const startTime = Date.now()
     let aiSuccess = true
@@ -161,6 +180,16 @@ export async function POST(request: NextRequest) {
       // PHASE 1: Decrement quota AFTER successful generation
       await decrementQuota(userId, 'planner', user.isPremium || false)
 
+      // Cache the AI response for future users
+      await cacheAIResponse(cacheKey, 'planner', aiPlan, {
+        goal,
+        experienceLevel,
+        daysPerWeek,
+        equipment,
+        medicalConditions,
+        duration,
+      })
+
       // Calculate response time
       const responseTime = Date.now() - startTime
 
@@ -168,7 +197,7 @@ export async function POST(request: NextRequest) {
       await logAIUsage({
         userId,
         feature: 'planner',
-        model: 'gpt-4', // or whatever model you use
+        model: 'gpt-4',
         tokensUsed: aiPlan.tokensUsed || undefined,
         responseTime,
         success: true,

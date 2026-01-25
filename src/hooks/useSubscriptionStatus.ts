@@ -40,8 +40,10 @@ export function useSubscriptionStatus(token?: string | null) {
       return result.data as SubscriptionStatusData;
     },
     enabled: !!token,
-    staleTime: 30 * 1000, // 30 seconds - refresh faster after payment
-    refetchOnWindowFocus: true, // Refetch when user returns to tab
+    staleTime: 2 * 60 * 1000, // 2 minutes (was 30 seconds) - reasonable for subscription data
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false, // Don't refetch on every tab focus (was true)
+    refetchOnMount: true, // Refetch on mount to ensure fresh subscription status
   });
 
   const hasAccess = useCallback(() => {

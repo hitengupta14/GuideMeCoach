@@ -1,52 +1,29 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Chatbot from '@/components/Chatbot'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useAIQuota } from '@/hooks/useAIQuota'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
+import { useSession } from '@/hooks/useSession'
 import { PremiumPageGuard } from '@/components/PremiumPageGuard'
 
 export default function ChatPage() {
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const router = useRouter()
-  const { hasAccess, isLoading: subLoading, isPremium } = useSubscriptionStatus(typeof window !== 'undefined' ? localStorage.getItem('token') : null)
-  const { quotas, loading: quotasLoading, canAccessFeature } = useAIQuota()
+  const { user, isLoading } = useSession()
+  const { hasAccess, isPremium } = useSubscriptionStatus(
+    typeof window !== 'undefined' ? localStorage.getItem('token') : null
+  )
+  const { quotas, canAccessFeature } = useAIQuota()
 
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        })
+  // Check if free user - show upgrade prompt
+  if (!user?.isPremium && !isLoading) {
+    setShowUpgradeModal(true)
+  }
 
-        const data = await response.json()
-        if (!response.ok || !data.user) {
-          router.push('/auth/login')
-          return
-        }
-
-        setUser(data.user)
-
-        // Check if free user - show upgrade prompt
-        if (!data.user.isPremium) {
-          setShowUpgradeModal(true)
-        }
-      } catch (err) {
-        console.error('Session check failed:', err)
-        router.push('/auth/login')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkSession()
-  }, [router])
-
-  if (loading || subLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">

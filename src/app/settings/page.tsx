@@ -1,12 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useSession } from '@/hooks/useSession'
 
 export default function SettingsPage() {
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const { isLoading } = useSession({ required: true })
   const [settings, setSettings] = useState({
     theme: 'light',
     notifications: true,
@@ -22,32 +21,6 @@ export default function SettingsPage() {
   })
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
-  const router = useRouter()
-
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        })
-
-        const data = await response.json()
-        if (!response.ok || !data.user) {
-          router.push('/auth/login')
-          return
-        }
-
-        setUser(data.user)
-      } catch (err) {
-        console.error('Session check failed:', err)
-        router.push('/auth/login')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkSession()
-  }, [router])
 
   useEffect(() => {
     // Load settings from localStorage
@@ -124,8 +97,6 @@ export default function SettingsPage() {
   }
 
   const handleDeleteAccount = async () => {
-    if (!user) return
-
     const confirmed = window.confirm('Are you sure you want to delete your account? This action cannot be undone.')
     if (!confirmed) return
 
@@ -136,13 +107,13 @@ export default function SettingsPage() {
         credentials: 'include',
       })
       localStorage.removeItem('appSettings')
-      router.push('/')
+      window.location.href = '/'
     } catch (error) {
       console.error('Error deleting account:', error)
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">

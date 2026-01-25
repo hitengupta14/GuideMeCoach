@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { useSession } from '@/hooks/useSession'
 import AIPlannerForm from '@/components/AIPlannerForm'
 import CustomPlannerComponent from '@/components/CustomPlannerComponent'
 import UpgradeModal from '@/components/UpgradeModal'
@@ -11,50 +12,28 @@ import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import { PremiumPageGuard } from '@/components/PremiumPageGuard'
 
 function UnifiedPlannerContent() {
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<'ai' | 'custom'>('ai')
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user, isLoading } = useSession({ required: true })
   const { hasAccess, isLoading: subLoading, isPremium } = useSubscriptionStatus(typeof window !== 'undefined' ? localStorage.getItem('token') : null)
   const { quotas } = useAIQuota()
 
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        })
-
-        const data = await response.json()
-        if (!response.ok || !data.user) {
-          router.push('/auth/login')
-          return
-        }
-
-        setUser(data.user)
-
-        // Check if mode was specified in URL
-        const modeParam = searchParams?.get('mode')
-        if (modeParam === 'custom') {
-          setMode('custom')
-        } else if (modeParam === 'ai' && !data.user.isPremium) {
-          // Show upgrade modal if free user tries to access AI planner
-          setShowUpgradeModal(true)
-        }
-      } catch (err) {
-        console.error('Session check failed:', err)
-        router.push('/auth/login')
-      } finally {
-        setLoading(false)
+    if (!isLoading && user) {
+      // Check if mode was specified in URL
+      const modeParam = searchParams?.get('mode')
+      if (modeParam === 'custom') {
+        setMode('custom')
+      } else if (modeParam === 'ai' && !user.isPremium) {
+        // Show upgrade modal if free user tries to access AI planner
+        setShowUpgradeModal(true)
       }
     }
+  }, [isLoading, user, searchParams])
 
-    checkSession()
-  }, [router, searchParams])
-
-  if (loading || subLoading) {
+  if (isLoading || subLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100">
         <div className="text-center">

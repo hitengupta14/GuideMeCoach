@@ -392,6 +392,20 @@ export const aiUsageQuotas = pgTable('ai_usage_quotas', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+// AI Response Cache (for cost optimization)
+export const aiResponseCache = pgTable('ai_response_cache', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  cacheKey: text('cache_key').notNull().unique(), // SHA-256 hash of request params
+  
+  feature: text('feature').notNull(), // 'planner', 'chat', 'insights', 'recommendations'
+  response: jsonb('response').notNull(), // Cached AI response
+  metadata: jsonb('metadata').$type<Record<string, any>>(), // Request params, model, etc.
+  
+  hitCount: integer('hit_count').default(0), // Track how many times cache was used
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  lastAccessedAt: timestamp('last_accessed_at').defaultNow(),
+})
+
 // Mobile Push Notification Tokens
 export const pushTokens = pgTable('push_tokens', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -428,4 +442,5 @@ export type ChatMessage = typeof chatMessages.$inferSelect
 export type AdminActivityLog = typeof adminActivityLogs.$inferSelect
 export type SystemMetric = typeof systemMetrics.$inferSelect
 export type AIUsageLog = typeof aiUsageLogs.$inferSelect
+export type AIResponseCache = typeof aiResponseCache.$inferSelect
 export type PushToken = typeof pushTokens.$inferSelect

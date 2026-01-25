@@ -1,38 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { jwtVerify } from 'jose'
 import { db } from '@/db'
 import { chatConversations, chatMessages } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
-
-// Helper to verify session - supports both Bearer token and session cookie
-async function verifySession(request: NextRequest): Promise<string | null> {
-  try {
-    // Check Bearer token first
-    const authHeader = request.headers.get('authorization')
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
-      if (verified) return verified.payload.userId as string
-    }
-
-    // Fall back to session cookie
-    const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
-
-    if (!token) return null
-
-    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
-    if (!verified) return null
-
-    return verified.payload.userId as string
-  } catch {
-    return null
-  }
-}
+import { verifySession } from '@/lib/auth-helpers'
 
 // Create a new conversation
 export async function POST(request: NextRequest) {

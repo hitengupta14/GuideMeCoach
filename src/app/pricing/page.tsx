@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/solid'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
+import { useSession } from '@/hooks/useSession'
 
 const PRICING_PLANS = [
   {
@@ -60,99 +61,64 @@ const PRICING_PLANS = [
 ]
 
 export default function PricingPage() {
+  const [isCancelling, setIsCancelling] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [user, setUser] = useState<any>(null)
-  const [token, setToken] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isCancelling, setIsCancelling] = useState(false)
-  const { subscriptionStatus, isPremium, isLoading: subLoading, refetch } = useSubscriptionStatus(token)
-
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        })
-        const data = await response.json()
-        if (response.ok && data.user) {
-          setUser(data.user)
-          // Also set token from session if available
-          if (data.token) {
-            setToken(data.token)
-            localStorage.setItem('token', data.token)
-          }
-        }
-      } catch (err) {
-        console.error('Session check failed:', err)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    checkSession()
-  }, [])
-
-  // Get token from localStorage after component mounts
-  useEffect(() => {
-    const savedToken = localStorage.getItem('token')
-    if (savedToken) {
-      setToken(savedToken)
-    }
-  }, [])
+  const { user, isLoading } = useSession({ required: false })
+  const { subscriptionStatus, isPremium, refetch } = useSubscriptionStatus(
+    typeof window !== 'undefined' ? localStorage.getItem('token') : null
+  )
 
   // Refetch subscription status when pricing page comes into focus
   useEffect(() => {
     const handleFocus = () => {
-      if (token) {
-        refetch()
-      }
+      refetch()
     }
 
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
-  }, [token, refetch])
+  }, [refetch])
 
-  // Check if returning from payment
+  // Check if coming from payment
   useEffect(() => {
     const isFromPayment = searchParams?.get('from') === 'payment'
-    if (isFromPayment && token) {
-      // Force refetch subscription status
+    if (isFromPayment) {
       refetch()
     }
-  }, [searchParams, token, refetch])
+  }, [searchParams, refetch])
 
   const handleCancelSubscription = async () => {
-    if (!token || !confirm('Are you sure you want to cancel your subscription? You\'ll keep premium access until your current period ends, but no renewal will occur.')) {
+    if (!confirm('Are you sure you want to cancel your subscription? You\'ll keep premium access until your current period ends, but no renewal will occur.')) {
       return
     }
 
     setIsCancelling(true)
+
     try {
-      const response = await fetch('/api/v1/subscription/cancel', {
+      const response = await fetch('/api/subscription/cancel-renewal', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       })
 
-      const data = await response.json()
-      
       if (response.ok) {
-        alert(data.message)
+        alert('Subscription cancellation requested successfully!')
         refetch() // Refresh subscription status
       } else {
-        alert(data.error || 'Failed to cancel subscription')
+        const error = await response.json()
+        alert(`Failed to cancel: ${error.message}`)
       }
-    } catch (err) {
-      console.error('Cancel error:', err)
-      alert('An error occurred while cancelling subscription')
+    } catch (error) {
+      console.error('Error cancelling subscription:', error)
+      alert('Failed to cancel subscription')
     } finally {
       setIsCancelling(false)
     }
   }
 
-  if (isLoading || subLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center">
         <div className="animate-pulse text-center">

@@ -1,40 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from './ThemeProvider'
+import { useSession } from '@/hooks/useSession'
 
 export function Header() {
-  const [user, setUser] = useState<any>(null)
+  const { user, isLoading: loading, refetch } = useSession({ required: false })
   const [showMenu, setShowMenu] = useState(false)
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
   const { theme, toggleTheme } = useTheme()
-
-  useEffect(() => {
-    // Check session via cookie
-    const checkSession = async () => {
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        })
-        
-        if (response.ok) {
-          const data = await response.json()
-          if (data.user) {
-            setUser(data.user)
-          }
-        }
-      } catch (err) {
-        console.error('Session check failed:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkSession()
-  }, [])
 
   const handleLogout = async () => {
     try {
@@ -42,7 +18,7 @@ export function Header() {
         method: 'POST',
         credentials: 'include',
       })
-      setUser(null)
+      await refetch()
       setShowMenu(false)
       router.push('/')
     } catch (err) {
