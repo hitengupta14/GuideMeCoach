@@ -11,6 +11,10 @@ import { coreExercises } from '@/db/seed-data/core'
 async function seed() {
   console.log('🌱 Seeding database...')
 
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED !== 'true') {
+    throw new Error('Seeding blocked in production. Set ALLOW_SEED=true to override intentionally.')
+  }
+
   // Check if data already exists
   const existingMuscles = await db.select().from(muscleGroups).limit(1)
   if (existingMuscles.length > 0) {

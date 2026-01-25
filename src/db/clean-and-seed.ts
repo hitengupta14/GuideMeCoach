@@ -8,6 +8,12 @@ import { shouldersExercises } from '@/db/seed-data/shoulders'
 import { armsExercises } from '@/db/seed-data/arms'
 import { coreExercises } from '@/db/seed-data/core'
 
+const allowDestructive = process.env.ALLOW_DESTRUCTIVE_SEED === 'true'
+if (!allowDestructive) {
+  console.error('Refusing to run clean-and-seed: set ALLOW_DESTRUCTIVE_SEED=true to proceed (NOT for production).')
+  process.exit(1)
+}
+
 async function cleanAndSeed() {
   try {
     console.log('🧹 Cleaning database...')
