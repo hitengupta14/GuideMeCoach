@@ -13,9 +13,16 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-
 export async function GET() {
   try {
     const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
+    const sessionCookie = cookieStore.get('session')
+    
+    console.log('[Session] Checking for session cookie')
+    console.log('[Session] Available cookies:', Array.from(cookieStore.getAll()).map(c => c.name))
+    console.log('[Session] Session cookie:', sessionCookie ? 'Found' : 'Not found')
+    
+    const token = sessionCookie?.value
 
     if (!token) {
+      console.log('[Session] No token found in cookie')
       return NextResponse.json({ user: null }, { status: 401 })
     }
 
@@ -23,10 +30,12 @@ export async function GET() {
     const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
     if (!verified) {
       logger.warn('Invalid JWT token')
+      console.log('[Session] JWT verification failed')
       return NextResponse.json({ user: null }, { status: 401 })
     }
 
     const userId = verified.payload.userId as string
+    console.log('[Session] JWT verified for user:', userId)
 
     // Find user by ID from token
     const [user] = await db
@@ -53,6 +62,7 @@ export async function GET() {
     }
 
     logger.info('Session validated', { userId: user.id })
+    console.log('[Session] User found and verified')
     
     return NextResponse.json({ user, token })
   } catch (error) {

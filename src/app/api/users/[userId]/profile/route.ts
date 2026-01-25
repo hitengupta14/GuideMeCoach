@@ -25,7 +25,29 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 })
     }
 
-    const user = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+    const user = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        height: users.height,
+        weight: users.weight,
+        age: users.age,
+        gender: users.gender,
+        experienceLevel: users.experienceLevel,
+        goals: users.goals,
+        medicalConditions: users.medicalConditions,
+        availableEquipment: users.availableEquipment,
+        timeAvailability: users.timeAvailability,
+        preferredLocation: users.preferredLocation,
+        weakAreas: users.weakAreas,
+        painAreas: users.painAreas,
+        currentWeight: users.currentWeight,
+        targetWeight: users.targetWeight,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
 
     if (user.length === 0) {
       logger.warn('User not found', { userId: userId.substring(0, 8) + '***' })

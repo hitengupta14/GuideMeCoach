@@ -151,13 +151,15 @@ async function handleSubscriptionCancelled(subscription: any) {
 
   console.log(`[Razorpay Webhook] Subscription cancelled for user: ${userId}`);
 
-  await db
-    .update(users)
   // When cancelled, keep premium until subscription ends naturally
   // Don't immediately revoke access - let subscriptionEndsAt handle it
+  const now = new Date();
+  
   await db
     .update(users)
     .set({
+      updatedAt: now,
+    })
     .where(eq(users.id, userId));
 }
 
@@ -167,13 +169,13 @@ async function handleSubscriptionCharged(payment: any) {
   
   // Handle recurring payment - extend subscription
   if (userId) {
-    const now = new Date(sAt = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const now = new Date();
+    const subscriptionEndsAt = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
 
     await db
       .update(users)
       .set({
-        subscriptionEndsAt: subscriptionEndsAt
-        subscriptionEnd: subscriptionEnd,
+        subscriptionEndsAt: subscriptionEndsAt,
         updatedAt: now,
       })
       .where(eq(users.id, userId));

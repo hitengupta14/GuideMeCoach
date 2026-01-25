@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { CheckIcon } from '@heroicons/react/24/solid'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { CheckIcon, XMarkIcon } from '@heroicons/react/24/solid'
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 
 const PRICING_PLANS = [
   {
+    id: 'free',
     name: 'Free',
     price: '₹0',
     period: '/month',
@@ -18,11 +21,11 @@ const PRICING_PLANS = [
       'No AI features',
     ],
     cta: 'Get Started',
-    ctaLink: '/auth/signup',
     highlighted: false,
   },
   {
-    name: 'Premium',
+    id: 'premium',
+    name: 'Premium Monthly',
     price: '₹249',
     period: '/month',
     description: 'AI-powered personalization',
@@ -36,10 +39,10 @@ const PRICING_PLANS = [
       'Ad-free experience',
     ],
     cta: 'Start Free Trial',
-    ctaLink: '/subscribe/premium',
     highlighted: true,
   },
   {
+    id: 'premium-yearly',
     name: 'Premium Yearly',
     price: '₹2,490',
     period: '/year',
@@ -52,13 +55,134 @@ const PRICING_PLANS = [
       'Save ₹3,478/year vs monthly',
     ],
     cta: 'Start Free Trial',
-    ctaLink: '/subscribe/premium-yearly',
     highlighted: false,
   },
 ]
 
 export default function PricingPage() {
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly')
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [user, setUser] = useState<any>(null)
+  const [token, setToken] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isCancelling, setIsCancelling] = useState(false)
+  const { subscriptionStatus, isPremium, isLoading: subLoading, refetch } = useSubscriptionStatus(token)
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        })
+        const data = await response.json()
+        if (response.ok && data.user) {
+          setUser(data.user)
+          // Also set token from session if available
+          if (data.token) {
+            setToken(data.token)
+            localStorage.setItem('token', data.token)
+          }
+        }
+      } catch (err) {
+        console.error('Session check failed:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkSession()
+  }, [])
+
+  // Get token from localStorage after component mounts
+  useEffect(() => {
+    const savedToken = localStorage.getItem('token')
+    if (savedToken) {
+      setToken(savedToken)
+    }
+  }, [])
+
+  // Refetch subscription status when pricing page comes into focus
+  useEffect(() => {
+    const handleFocus = () => {
+      if (token) {
+        refetch()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [token, refetch])
+
+  // Check if returning from payment
+  useEffect(() => {
+    const isFromPayment = searchParams?.get('from') === 'payment'
+    if (isFromPayment && token) {
+      // Force refetch subscription status
+      refetch()
+    }
+  }, [searchParams, token, refetch])
+
+  const handleCancelSubscription = async () => {
+    if (!token || !confirm('Are you sure you want to cancel your subscription? You\'ll keep premium access until your current period ends, but no renewal will occur.')) {
+      return
+    }
+
+    setIsCancelling(true)
+    try {
+      const response = await fetch('/api/v1/subscription/cancel', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      const data = await response.json()
+      
+      if (response.ok) {
+        alert(data.message)
+        refetch() // Refresh subscription status
+      } else {
+        alert(data.error || 'Failed to cancel subscription')
+      }
+    } catch (err) {
+      console.error('Cancel error:', err)
+      alert('An error occurred while cancelling subscription')
+    } finally {
+      setIsCancelling(false)
+    }
+  }
+
+  if (isLoading || subLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center">
+        <div className="animate-pulse text-center">
+          <div className="w-20 h-20 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto text-center">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            Please log in to view pricing
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-8">
+            Sign in to see your subscription status and upgrade options.
+          </p>
+          <Link
+            href={`/auth/login?redirect=/pricing`}
+            className="inline-block px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
+          >
+            Log In
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 py-12 px-4 sm:px-6 lg:px-8">
@@ -73,96 +197,166 @@ export default function PricingPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-            Simple, Transparent Pricing
+            {isPremium ? 'Manage Your Subscription' : 'Simple, Transparent Pricing'}
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 mb-8">
-            Unlock AI-powered workout planning and personalized guidance
+            {isPremium
+              ? subscriptionStatus?.message
+              : 'Unlock AI-powered workout planning and personalized guidance'}
           </p>
 
-          {/* Billing Toggle */}
-          <div className="flex items-center justify-center gap-4 mb-8">
-            <button
-              onClick={() => setBillingPeriod('monthly')}
-              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                billingPeriod === 'monthly'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingPeriod('yearly')}
-              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                billingPeriod === 'yearly'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              Yearly
-            </button>
-            <span className="ml-4 inline-block bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
-              Save 17%
-            </span>
-          </div>
+          {/* Current Plan Status Badge */}
+          {isPremium && subscriptionStatus && (
+            <div className="inline-block mb-8 px-6 py-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <p className="text-green-800 dark:text-green-200 font-semibold text-lg">
+                ✓ {subscriptionStatus.planType === 'premium-yearly' ? 'Premium Yearly' : 'Premium Monthly'} Active
+              </p>
+              {subscriptionStatus.daysRemaining > 0 && (
+                <p className="text-green-700 dark:text-green-300 text-sm mt-2">
+                  Renews in {subscriptionStatus.daysRemaining} day{subscriptionStatus.daysRemaining !== 1 ? 's' : ''}
+                </p>
+              )}
+              {subscriptionStatus.pendingPlanType && (
+                <p className="text-amber-700 dark:text-amber-300 text-sm mt-2">
+                  ⏳ {subscriptionStatus.pendingPlanType === 'premium-yearly' ? 'Yearly' : 'Monthly'} plan scheduled after current expires
+                </p>
+              )}
+              <button
+                onClick={handleCancelSubscription}
+                disabled={isCancelling}
+                className="mt-4 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 underline disabled:opacity-50"
+              >
+                {isCancelling ? 'Cancelling...' : 'Cancel Subscription'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-3 gap-8 mb-12">
-          {PRICING_PLANS.map((plan, index) => (
-            <div
-              key={index}
-              className={`rounded-xl transition-all duration-300 ${
-                plan.highlighted
-                  ? 'ring-2 ring-blue-600 transform scale-105 shadow-2xl bg-white dark:bg-gray-900'
-                  : 'bg-white dark:bg-gray-900 shadow-lg hover:shadow-xl'
-              }`}
-            >
-              {plan.highlighted && (
-                <div className="bg-blue-600 text-white text-center py-2 rounded-t-xl font-semibold">
-                  Most Popular
-                </div>
-              )}
+          {PRICING_PLANS.map((plan) => {
+            const isCurrentPlan = isPremium && subscriptionStatus?.planType === plan.id;
+            const hasPendingPlan = subscriptionStatus?.pendingPlanType;
+            const isPendingPlan = hasPendingPlan && subscriptionStatus?.pendingPlanType === plan.id;
+            
+            // User can only change plan if:
+            // 1. They're not on this plan already
+            // 2. They don't already have a pending plan scheduled
+            const canChangeToPlan = isPremium && !isCurrentPlan && !hasPendingPlan && plan.id !== 'free';
 
-              <div className="p-8">
-                {/* Plan Name */}
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  {plan.name}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6 h-12">{plan.description}</p>
+            return (
+              <div
+                key={plan.id}
+                className={`rounded-xl transition-all duration-300 ${
+                  isCurrentPlan
+                    ? 'ring-2 ring-green-600 transform scale-100 shadow-2xl bg-white dark:bg-gray-900'
+                    : isPendingPlan
+                    ? 'ring-2 ring-amber-500 transform scale-100 shadow-2xl bg-white dark:bg-gray-900'
+                    : plan.highlighted
+                    ? 'ring-2 ring-blue-600 transform scale-105 shadow-2xl bg-white dark:bg-gray-900'
+                    : 'bg-white dark:bg-gray-900 shadow-lg hover:shadow-xl'
+                }`}
+              >
+                {/* Badge */}
+                {isCurrentPlan && (
+                  <div className="bg-green-600 text-white text-center py-2 rounded-t-xl font-semibold">
+                    ✓ Current Plan
+                  </div>
+                )}
+                {isPendingPlan && (
+                  <div className="bg-amber-500 text-white text-center py-2 rounded-t-xl font-semibold">
+                    ⏳ Scheduled to Activate
+                  </div>
+                )}
+                {!isCurrentPlan && !isPendingPlan && plan.highlighted && (
+                  <div className="bg-blue-600 text-white text-center py-2 rounded-t-xl font-semibold">
+                    Most Popular
+                  </div>
+                )}
 
-                {/* Price */}
-                <div className="mb-6">
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">
-                    {plan.price}
-                  </span>
-                  <span className="text-gray-600 dark:text-gray-400 ml-2">{plan.period}</span>
-                </div>
+                <div className="p-8">
+                  {/* Plan Name */}
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    {plan.name}
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 h-12">{plan.description}</p>
 
-                {/* CTA Button */}
-                <Link
-                  href={plan.ctaLink}
-                  className={`block w-full text-center py-3 rounded-lg font-semibold transition-colors mb-8 ${
-                    plan.highlighted
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  {plan.cta}
-                </Link>
+                  {/* Price */}
+                  <div className="mb-6">
+                    <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                      {plan.price}
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-400 ml-2">{plan.period}</span>
+                  </div>
 
-                {/* Features List */}
-                <div className="space-y-4">
-                  {plan.features.map((feature, featureIndex) => (
-                    <div key={featureIndex} className="flex items-start gap-3">
-                      <CheckIcon className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                  {/* CTA Button */}
+                  {isCurrentPlan ? (
+                    <button
+                      disabled
+                      className="block w-full text-center py-3 rounded-lg font-semibold mb-8 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                    >
+                      Current Plan
+                    </button>
+                  ) : isPendingPlan ? (
+                    <div className="mb-8">
+                      <button
+                        disabled
+                        className="block w-full text-center py-3 rounded-lg font-semibold mb-2 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 cursor-not-allowed"
+                      >
+                        ⏳ Activates When Current Plan Ends
+                      </button>
+                      <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                        Scheduled for {subscriptionStatus?.pendingPlanStartsAt ? new Date(subscriptionStatus.pendingPlanStartsAt).toLocaleDateString() : 'plan expiry'}
+                      </p>
                     </div>
-                  ))}
+                  ) : hasPendingPlan ? (
+                    <button
+                      disabled
+                      className="block w-full text-center py-3 rounded-lg font-semibold mb-8 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 cursor-not-allowed"
+                    >
+                      Plan Change Pending
+                    </button>
+                  ) : canChangeToPlan ? (
+                    <div>
+                      <button
+                        onClick={() => router.push(`/subscribe/${plan.id}`)}
+                        className="block w-full text-center py-3 rounded-lg font-semibold mb-4 bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                      >
+                        Change Plan
+                      </button>
+                      <p className="text-xs text-amber-700 dark:text-amber-400 text-center font-medium">
+                        ⏳ Activates after current plan ends
+                      </p>
+                    </div>
+                  ) : plan.id === 'free' ? (
+                    <button
+                      onClick={() => router.push('/dashboard')}
+                      className="block w-full text-center py-3 rounded-lg font-semibold mb-8 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
+                    >
+                      {isPremium ? 'Current Features' : "You're on Free"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => router.push(`/subscribe/${plan.id}`)}
+                      className="block w-full text-center py-3 rounded-lg font-semibold mb-8 bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                    >
+                      {plan.cta}
+                    </button>
+                  )}
+
+                  {/* Features List */}
+                  <div className="space-y-4">
+                    {plan.features.map((feature, featureIndex) => (
+                      <div key={featureIndex} className="flex items-start gap-3">
+                        <CheckIcon className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* FAQ Section */}
@@ -183,7 +377,7 @@ export default function PricingPage() {
               },
               {
                 q: 'Can I upgrade/downgrade?',
-                a: 'Yes, change your plan anytime. We\'ll prorate charges fairly.',
+                a: 'Yes, change your plan anytime. When upgrading, new plan activates after current plan ends.',
               },
               {
                 q: 'Is there a free trial?',

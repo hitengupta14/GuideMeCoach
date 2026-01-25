@@ -153,17 +153,24 @@ export default function SubscribePage() {
                 }),
               })
 
+              console.log('[Subscribe] Verify response status:', verifyResponse.status);
+              const verifyData = await verifyResponse.json();
+              console.log('[Subscribe] Verify response data:', verifyData);
+
               if (!verifyResponse.ok) {
-                throw new Error('Payment verification failed')
+                throw new Error(verifyData.error || 'Payment verification failed')
               }
 
+              console.log('[Subscribe] Payment verified successfully');
               setSuccess(true)
               
-              // Redirect to dashboard
+              // Redirect back to pricing to see updated status
               setTimeout(() => {
-                router.push('/dashboard')
+                console.log('[Subscribe] Redirecting to pricing');
+                router.push('/pricing?from=payment')
               }, 2000)
             } catch (err) {
+              console.error('[Subscribe] Verification error:', err);
               setError(err instanceof Error ? err.message : 'Payment verification failed')
               setIsProcessing(false)
             }

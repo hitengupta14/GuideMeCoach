@@ -40,7 +40,12 @@ export async function POST(req: NextRequest) {
 
     // Get user details
     const [user] = await db
-      .select()
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        isPremium: users.isPremium,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);

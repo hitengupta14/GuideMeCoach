@@ -192,6 +192,8 @@ export const users = pgTable('users', {
   
   isPremium: boolean('is_premium').default(false),
   subscriptionEndsAt: timestamp('subscription_ends_at'),
+  pendingPlanType: text('pending_plan_type'), // 'premium', 'premium-yearly', null
+  pendingPlanStartsAt: timestamp('pending_plan_starts_at'), // When pending plan activates
   
   // Email verification
   emailVerified: boolean('email_verified').default(false),

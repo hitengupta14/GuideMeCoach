@@ -36,7 +36,22 @@ export async function POST(request: NextRequest) {
 
     // Find user
     const user = await db
-      .select()
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        passwordHash: users.passwordHash,
+        height: users.height,
+        weight: users.weight,
+        age: users.age,
+        experienceLevel: users.experienceLevel,
+        goals: users.goals,
+        isAdmin: users.isAdmin,
+        adminRole: users.adminRole,
+        isPremium: users.isPremium,
+        subscriptionEndsAt: users.subscriptionEndsAt,
+        lastLoginAt: users.lastLoginAt,
+      })
       .from(users)
       .where(eq(users.email, email.toLowerCase()))
       .limit(1)
@@ -132,11 +147,13 @@ export async function POST(request: NextRequest) {
     // Set HTTP-only cookie with JWT token
     response.cookies.set('session', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production', // false in dev, true in prod
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60, // 30 days
       path: '/',
     })
+
+    console.log('[Login] Cookie set. NODE_ENV:', process.env.NODE_ENV, 'Secure:', process.env.NODE_ENV === 'production')
 
     logger.info('User login successful', { userId: foundUser.id })
     return response

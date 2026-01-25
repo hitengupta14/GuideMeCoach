@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation'
 import Chatbot from '@/components/Chatbot'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useAIQuota } from '@/hooks/useAIQuota'
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
+import { PremiumPageGuard } from '@/components/PremiumPageGuard'
 
 export default function ChatPage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const router = useRouter()
+  const { hasAccess, isLoading: subLoading, isPremium } = useSubscriptionStatus(typeof window !== 'undefined' ? localStorage.getItem('token') : null)
   const { quotas, loading: quotasLoading, canAccessFeature } = useAIQuota()
 
   useEffect(() => {
@@ -43,7 +46,7 @@ export default function ChatPage() {
     checkSession()
   }, [router])
 
-  if (loading) {
+  if (loading || subLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
@@ -59,15 +62,17 @@ export default function ChatPage() {
   }
 
   return (
-    <>
-      <UpgradeModal
-        isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        feature="chat"
-      />
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <Chatbot />
-      </div>
-    </>
+    <PremiumPageGuard featureName="AI Chat Support">
+      <>
+        <UpgradeModal
+          isOpen={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+          feature="chat"
+        />
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+          <Chatbot />
+        </div>
+      </>
+    </PremiumPageGuard>
   )
 }

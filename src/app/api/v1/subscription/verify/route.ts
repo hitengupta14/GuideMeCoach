@@ -56,14 +56,88 @@ export async function POST(req: NextRequest) {
       ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
       : new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
 
-    await db
-      .update(users)
-      .set({
-        isPremium: true,
-        subscriptionEndsAt: subscriptionEndsAt,
-        updatedAt: now,
+    console.log('[Verify API] Updating user to premium:', {
+      userId,
+      planType,
+      subscriptionEndsAt: subscriptionEndsAt.toISOString(),
+    });
+
+    // Check if user already has an active subscription
+    const [existingUser] = await db
+      .select({
+        id: users.id,
+        isPremium: users.isPremium,
+        subscriptionEndsAt: users.subscriptionEndsAt,
+        pendingPlanType: users.pendingPlanType,
+        pendingPlanStartsAt: users.pendingPlanStartsAt,
       })
-      .where(eq(users.id, userId));
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const hasActiveSubscription = existingUser?.isPremium && 
+      existingUser?.subscriptionEndsAt && 
+      existingUser.subscriptionEndsAt.getTime() > now.getTime();
+
+    if (hasActiveSubscription && existingUser.subscriptionEndsAt) {
+      // User has active subscription - schedule new plan for after current expires
+      console.log('[Verify API] User has active subscription. Setting as pending plan.');
+      
+      const result = await db
+        .update(users)
+        .set({
+          pendingPlanType: planType,
+          pendingPlanStartsAt: existingUser.subscriptionEndsAt,
+          updatedAt: now,
+        })
+        .where(eq(users.id, userId));
+
+      console.log('[Verify API] Pending plan set:', result);
+
+      return NextResponse.json({
+        success: true,
+        message: 'Payment verified! Your new plan will activate when your current plan expires.',
+        data: {
+          paymentId: razorpay_payment_id,
+          orderId: razorpay_order_id,
+          isPending: true,
+          activatesAt: existingUser.subscriptionEndsAt.toISOString(),
+        },
+      });
+    } else {
+      // No active subscription or expired - activate immediately
+      const result = await db
+        .update(users)
+        .set({
+          isPremium: true,
+          subscriptionEndsAt: subscriptionEndsAt,
+          pendingPlanType: null, // Clear any pending plans
+          pendingPlanStartsAt: null,
+          updatedAt: now,
+        })
+        .where(eq(users.id, userId));
+
+      console.log('[Verify API] Database update result:', result);
+    }
+
+    // Verify the update actually happened
+    const [updatedUser] = await db
+      .select({
+        id: users.id,
+        isPremium: users.isPremium,
+        subscriptionEndsAt: users.subscriptionEndsAt,
+        pendingPlanType: users.pendingPlanType,
+        pendingPlanStartsAt: users.pendingPlanStartsAt,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    console.log('[Verify API] Verified user after update:', {
+      userId: updatedUser?.id,
+      isPremium: updatedUser?.isPremium,
+      subscriptionEndsAt: updatedUser?.subscriptionEndsAt?.toISOString(),
+    });
 
     // Initialize AI quotas for premium user
     const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
