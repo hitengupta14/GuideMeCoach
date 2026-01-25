@@ -3,6 +3,8 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyWebhookSignature } from '@/lib/razorpay';
+import { sendPaymentSuccessEmail } from '@/lib/email';
+import { logger } from '@/lib/logger';
 
 /**
  * Razorpay Webhook Handler
@@ -105,6 +107,29 @@ async function handlePaymentSuccess(payment: any) {
       .where(eq(users.id, userId));
 
     console.log(`[Razorpay Webhook] User ${userId} upgraded to premium`);
+
+    // Send payment success email
+    try {
+      const [user] = await db
+        .select({ email: users.email, name: users.name })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (user?.email) {
+        await sendPaymentSuccessEmail({
+          email: user.email,
+          name: user.name || 'User',
+          planType: planType || 'premium',
+          amount: payment.amount || 0,
+          subscriptionEndsAt: subscriptionEndsAt.toISOString(),
+        });
+        logger.info('Payment success email sent', { userId, email: user.email.substring(0, 5) + '***' });
+      }
+    } catch (emailError) {
+      // Don't fail the webhook if email fails
+      logger.error('Failed to send payment success email', emailError as Error, { userId });
+    }
   } catch (error) {
     console.error('[Razorpay Webhook] Error handling payment success:', error);
   }

@@ -115,7 +115,21 @@ Return ONLY valid JSON (no other text):
     const jsonMatch = response.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error('No JSON found in response')
 
-    return JSON.parse(jsonMatch[0])
+    const parsedKnowledge = JSON.parse(jsonMatch[0])
+    
+    // Validate with Zod schema
+    const { aiExerciseKnowledgeSchema } = await import('@/lib/ai-schemas')
+    const validationResult = aiExerciseKnowledgeSchema.safeParse(parsedKnowledge)
+    
+    if (!validationResult.success) {
+      logger.warn(`AI exercise knowledge validation failed for ${exerciseName}`, 
+        new Error('Validation failed'), 
+        { errors: validationResult.error.errors }
+      )
+      throw new Error('Validation failed')
+    }
+    
+    return validationResult.data
   } catch (error) {
     logger.warn(`Failed to generate knowledge for ${exerciseName}`, error as Error)
     // Return fallback

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { users, workoutPlans } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { users, workoutPlans, aiResponseCache } from '@/db/schema'
+import { eq, and } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { generateWorkoutPlan, isOpenAIConfigured } from '@/lib/ai'
 import { aiRateLimiter } from '@/lib/rate-limit'
@@ -144,24 +144,104 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now()
     let aiSuccess = true
     let aiError: string | undefined
+    let aiPlan: any
+
+    // Retry logic for AI generation (max 2 attempts)
+    const MAX_RETRIES = 1
+    let attempt = 0
+    
+    while (attempt <= MAX_RETRIES) {
+      try {
+        attempt++
+        logger.info('Attempting AI plan generation', { attempt, userId, goal })
+        
+        // Generate plan using AI
+        aiPlan = await generateWorkoutPlan({
+          goal,
+          experienceLevel,
+          daysPerWeek,
+          equipment: equipment || [],
+          medicalConditions: medicalConditions || [],
+          duration: duration || 60,
+          userProfile: {
+            name: user.name || undefined,
+            age: user.age || undefined,
+            weight: user.weight || undefined,
+            height: user.height || undefined,
+          },
+        })
+        
+        // If we got here, validation passed
+        break
+      } catch (generationError: any) {
+        aiError = generationError.message
+        logger.warn('AI plan generation attempt failed', {
+          error: (generationError as Error).message,
+          attempt,
+          userId,
+          goal,
+        })
+        
+        if (attempt > MAX_RETRIES) {
+          // All retries exhausted, check for fallback
+          aiSuccess = false
+          
+          // Try to find a similar cached plan as fallback
+          logger.info('Attempting fallback to cached plan', { userId, goal })
+          
+          // Look for any cached plan with similar parameters
+          const similarCacheKey = hashAIRequest('planner', {
+            goal,
+            experienceLevel,
+          })
+          
+          try {
+            const cachedPlans = await db
+              .select()
+              .from(aiResponseCache)
+              .where(
+                and(
+                  eq(aiResponseCache.feature, 'planner'),
+                  eq(aiResponseCache.cacheKey, similarCacheKey)
+                )
+              )
+              .limit(1)
+            
+            const fallbackPlan = cachedPlans[0]?.response
+          
+            if (fallbackPlan) {
+              logger.info('Using fallback cached plan', { userId, goal })
+              aiPlan = fallbackPlan
+              aiSuccess = true
+              break
+            }
+          } catch (cacheError) {
+            logger.warn('Failed to retrieve fallback plan', { error: (cacheError as Error).message })
+          }
+          
+          // No fallback available, return error
+          logger.error('AI plan generation failed after retries, no fallback', {
+            error: (generationError as Error).message,
+            userId,
+            goal,
+            retries: MAX_RETRIES,
+          })
+          
+          return NextResponse.json(
+            {
+              error: 'Failed to generate workout plan. Please try again in a moment.',
+              details: 'AI service temporarily unavailable',
+            },
+            { status: 503 }
+          )
+        }
+        
+        // Wait a bit before retry
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
+    }
 
     try {
-      // Generate plan using AI
-      const aiPlan = await generateWorkoutPlan({
-        goal,
-        experienceLevel,
-        daysPerWeek,
-        equipment: equipment || [],
-        medicalConditions: medicalConditions || [],
-        duration: duration || 60,
-        userProfile: {
-          name: user.name || undefined,
-          age: user.age || undefined,
-          weight: user.weight || undefined,
-          height: user.height || undefined,
-        },
-      })
-
       // Save plan to database
       const [savedPlan] = await db
         .insert(workoutPlans)

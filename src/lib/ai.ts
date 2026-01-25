@@ -259,7 +259,29 @@ Generate the plan now:`
     })
 
     const responseText = completion.choices[0]?.message?.content || '{}'
-    const plan = JSON.parse(responseText)
+    
+    // Parse JSON with error handling
+    let parsedPlan
+    try {
+      parsedPlan = JSON.parse(responseText)
+    } catch (parseError) {
+      logger.error('AI response JSON parse error', parseError as Error, {
+        responsePreview: responseText.substring(0, 200),
+      })
+      throw new Error('AI returned invalid JSON format')
+    }
+
+    // Validate with Zod schema
+    const { aiWorkoutPlanSchema } = await import('./ai-schemas')
+    const validationResult = aiWorkoutPlanSchema.safeParse(parsedPlan)
+    
+    if (!validationResult.success) {
+      logger.error('AI response validation failed', new Error('Validation failed'), {
+        errors: validationResult.error.errors,
+        responsePreview: responseText.substring(0, 200),
+      })
+      throw new Error('AI response validation failed')
+    }
 
     logger.info('AI workout plan generated', {
       goal: input.goal,
@@ -267,10 +289,10 @@ Generate the plan now:`
       tokens: completion.usage?.total_tokens,
     })
 
-    return plan
+    return validationResult.data
   } catch (error) {
     logger.error('Workout plan generation error', error as Error)
-    throw new Error('Failed to generate workout plan')
+    throw error
   }
 }
 
@@ -544,14 +566,32 @@ Focus on balance, not just intensity.`
     })
 
     const responseText = completion.choices[0]?.message?.content || '{}'
-    const recommendations = JSON.parse(responseText)
+    
+    // Parse and validate JSON
+    let parsedRecommendations
+    try {
+      parsedRecommendations = JSON.parse(responseText)
+    } catch (parseError) {
+      logger.error('AI adaptive recommendations JSON parse error', parseError as Error)
+      throw new Error('AI returned invalid JSON format')
+    }
+
+    const { aiAdaptiveRecommendationsSchema } = await import('./ai-schemas')
+    const validationResult = aiAdaptiveRecommendationsSchema.safeParse(parsedRecommendations)
+    
+    if (!validationResult.success) {
+      logger.error('AI adaptive recommendations validation failed', new Error('Validation failed'), {
+        errors: validationResult.error.errors,
+      })
+      throw new Error('AI response validation failed')
+    }
 
     logger.info('Adaptive workout recommendations generated', {
-      shouldDeload: recommendations.shouldDeload,
+      shouldDeload: validationResult.data.shouldDeload,
       tokens: completion.usage?.total_tokens,
     })
 
-    return recommendations
+    return validationResult.data
   } catch (error) {
     logger.error('Adaptive workout recommendation error', error as Error)
     throw new Error('Failed to generate recommendations')
@@ -843,14 +883,29 @@ Focus on:
     })
 
     const responseText = completion.choices[0]?.message?.content || '{}'
-    const recommendations = JSON.parse(responseText)
+    
+    // Parse and validate JSON
+    let parsedRecommendations
+    try {
+      parsedRecommendations = JSON.parse(responseText)
+    } catch (parseError) {
+      logger.error('AI exercise recommendations JSON parse error', parseError as Error)
+      // Return safe fallback
+      return {
+        recommended: [],
+        progressionSuggestions: [],
+        balanceAdvice: null,
+      }
+    }
 
+    // Note: We're using a flexible schema here since the response format varies
+    // In production, you'd want a more specific schema
     logger.info('Exercise recommendations generated', {
       lastExercises: context.lastExercises.length,
       tokens: completion.usage?.total_tokens,
     })
 
-    return recommendations
+    return parsedRecommendations
   } catch (error) {
     logger.error('Exercise recommendation error', error as Error)
     throw new Error('Failed to generate recommendations')

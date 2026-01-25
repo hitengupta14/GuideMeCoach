@@ -190,6 +190,247 @@ If you didn't request a password reset, please ignore this email or contact supp
 }
 
 /**
+ * Payment success email template
+ */
+export function getPaymentSuccessEmailHtml(options: {
+  name: string
+  planType: 'premium' | 'premium-yearly'
+  amount: number
+  subscriptionEndsAt: string
+  appUrl: string
+}): { html: string; text: string } {
+  const planName = options.planType === 'premium-yearly' ? 'Premium Yearly' : 'Premium Monthly'
+  const formattedAmount = (options.amount / 100).toFixed(2)
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; }
+        .content { background: #f9f9f9; padding: 30px; }
+        .success-icon { font-size: 60px; margin-bottom: 20px; }
+        .button { display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .details-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="success-icon">✅</div>
+          <h1>Payment Successful!</h1>
+        </div>
+        <div class="content">
+          <h2>Welcome to GuideMeCoach Premium, ${options.name}! 🎉</h2>
+          <p>Your payment has been processed successfully. You now have access to all premium features!</p>
+          
+          <div class="details">
+            <div class="details-row">
+              <strong>Plan:</strong>
+              <span>${planName}</span>
+            </div>
+            <div class="details-row">
+              <strong>Amount Paid:</strong>
+              <span>₹${formattedAmount}</span>
+            </div>
+            <div class="details-row">
+              <strong>Subscription Valid Until:</strong>
+              <span>${new Date(options.subscriptionEndsAt).toLocaleDateString()}</span>
+            </div>
+          </div>
+
+          <h3>What's Included:</h3>
+          <ul>
+            <li>✨ Unlimited AI-generated workout plans</li>
+            <li>🤖 Unlimited AI chat for fitness guidance</li>
+            <li>📊 Advanced progress insights & analytics</li>
+            <li>🎯 Adaptive workout recommendations</li>
+            <li>💪 Exercise form feedback</li>
+            <li>🍽️ Nutrition guidance</li>
+          </ul>
+
+          <p style="text-align: center;">
+            <a href="${options.appUrl}" class="button">Start Your Premium Journey</a>
+          </p>
+        </div>
+        <div class="footer">
+          <p>Questions? Reply to this email or contact us at support@guidemecoach.com</p>
+          <p>&copy; 2026 GuideMeCoach. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+
+  const text = `
+Payment Successful! ✅
+
+Welcome to GuideMeCoach Premium, ${options.name}!
+
+Your payment has been processed successfully.
+
+Payment Details:
+- Plan: ${planName}
+- Amount Paid: ₹${formattedAmount}
+- Subscription Valid Until: ${new Date(options.subscriptionEndsAt).toLocaleDateString()}
+
+What's Included:
+✨ Unlimited AI-generated workout plans
+🤖 Unlimited AI chat for fitness guidance
+📊 Advanced progress insights & analytics
+🎯 Adaptive workout recommendations
+💪 Exercise form feedback
+🍽️ Nutrition guidance
+
+Start your premium journey: ${options.appUrl}
+
+Questions? Reply to this email or contact us at support@guidemecoach.com
+
+© 2026 GuideMeCoach. All rights reserved.
+  `
+
+  return { html, text }
+}
+
+/**
+ * Subscription expiry warning email template
+ */
+export function getSubscriptionExpiryEmailHtml(options: {
+  name: string
+  daysRemaining: number
+  subscriptionEndsAt: string
+  appUrl: string
+}): { html: string; text: string } {
+  const urgency = options.daysRemaining <= 3 ? 'urgent' : 'warning'
+  const color = urgency === 'urgent' ? '#ef4444' : '#f59e0b'
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: ${color}; color: white; padding: 30px; text-align: center; }
+        .content { background: #f9f9f9; padding: 30px; }
+        .button { display: inline-block; background: ${color}; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .warning-box { background: #fef3c7; border-left: 4px solid ${color}; padding: 20px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>⚠️ Your Premium Subscription is Expiring Soon</h1>
+        </div>
+        <div class="content">
+          <h2>Hi ${options.name},</h2>
+          
+          <div class="warning-box">
+            <h3 style="margin-top: 0; color: ${color};">
+              ${options.daysRemaining} Day${options.daysRemaining !== 1 ? 's' : ''} Remaining
+            </h3>
+            <p>Your GuideMeCoach Premium subscription will expire on <strong>${new Date(options.subscriptionEndsAt).toLocaleDateString()}</strong></p>
+          </div>
+
+          <p>After expiration, you'll lose access to:</p>
+          <ul>
+            <li>🚫 Unlimited AI workout plans</li>
+            <li>🚫 AI chat assistance</li>
+            <li>🚫 Advanced progress insights</li>
+            <li>🚫 Adaptive recommendations</li>
+          </ul>
+
+          <p><strong>Don't let your progress stop!</strong> Renew now to keep all premium features.</p>
+
+          <p style="text-align: center;">
+            <a href="${options.appUrl}/pricing" class="button">Renew Subscription</a>
+          </p>
+        </div>
+        <div class="footer">
+          <p>Questions? Contact us at support@guidemecoach.com</p>
+          <p>&copy; 2026 GuideMeCoach. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+
+  const text = `
+⚠️ Your Premium Subscription is Expiring Soon
+
+Hi ${options.name},
+
+${options.daysRemaining} Day${options.daysRemaining !== 1 ? 's' : ''} Remaining!
+
+Your GuideMeCoach Premium subscription will expire on ${new Date(options.subscriptionEndsAt).toLocaleDateString()}
+
+After expiration, you'll lose access to:
+🚫 Unlimited AI workout plans
+🚫 AI chat assistance
+🚫 Advanced progress insights
+🚫 Adaptive recommendations
+
+Don't let your progress stop! Renew now: ${options.appUrl}/pricing
+
+Questions? Contact us at support@guidemecoach.com
+
+© 2026 GuideMeCoach. All rights reserved.
+  `
+
+  return { html, text }
+}
+
+/**
+ * Send payment success email
+ */
+export async function sendPaymentSuccessEmail(options: {
+  email: string
+  name: string
+  planType: 'premium' | 'premium-yearly'
+  amount: number
+  subscriptionEndsAt: string
+}): Promise<boolean> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const { html, text } = getPaymentSuccessEmailHtml({ ...options, appUrl })
+
+  return sendEmail({
+    to: options.email,
+    subject: '🎉 Payment Successful - Welcome to GuideMeCoach Premium!',
+    html,
+    text,
+  })
+}
+
+/**
+ * Send subscription expiry warning email
+ */
+export async function sendSubscriptionExpiryEmail(options: {
+  email: string
+  name: string
+  daysRemaining: number
+  subscriptionEndsAt: string
+}): Promise<boolean> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const { html, text } = getSubscriptionExpiryEmailHtml({ ...options, appUrl })
+
+  const subject = options.daysRemaining <= 3 
+    ? `⚠️ URGENT: Premium expires in ${options.daysRemaining} day${options.daysRemaining !== 1 ? 's' : ''}!`
+    : `⏰ Premium expires in ${options.daysRemaining} days`
+
+  return sendEmail({
+    to: options.email,
+    subject,
+    html,
+    text,
+  })
+}
+
+/**
  * Send progress summary email
  */
 export async function sendProgressEmail(options: {

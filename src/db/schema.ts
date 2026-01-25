@@ -428,6 +428,24 @@ export const pushTokens = pgTable('push_tokens', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+// Refresh Tokens (for JWT refresh strategy)
+export const refreshTokens = pgTable('refresh_tokens', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  revokedAt: timestamp('revoked_at'),
+  replacedBy: uuid('replaced_by').references(() => refreshTokens.id, { onDelete: 'set null' }),
+  deviceInfo: jsonb('device_info').$type<{
+    userAgent?: string
+    platform?: string
+    deviceName?: string
+    appVersion?: string
+  }>(),
+  ipAddress: text('ip_address'),
+})
+
 // Export types
 export type Exercise = typeof exercises.$inferSelect
 export type NewExercise = typeof exercises.$inferInsert
@@ -444,3 +462,5 @@ export type SystemMetric = typeof systemMetrics.$inferSelect
 export type AIUsageLog = typeof aiUsageLogs.$inferSelect
 export type AIResponseCache = typeof aiResponseCache.$inferSelect
 export type PushToken = typeof pushTokens.$inferSelect
+export type RefreshToken = typeof refreshTokens.$inferSelect
+export type NewRefreshToken = typeof refreshTokens.$inferInsert

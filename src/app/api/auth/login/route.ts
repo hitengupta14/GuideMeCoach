@@ -8,6 +8,7 @@ import { logger } from '@/lib/logger'
 import { authRateLimiter } from '@/lib/rate-limit'
 import { z } from 'zod'
 import { SignJWT } from 'jose'
+import { createRefreshToken } from '@/lib/refresh-token'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
         email: users.email,
         name: users.name,
         passwordHash: users.passwordHash,
+        emailVerified: users.emailVerified,
         height: users.height,
         weight: users.weight,
         age: users.age,
@@ -113,12 +115,30 @@ export async function POST(request: NextRequest) {
       .set({ lastLoginAt: new Date() })
       .where(eq(users.id, foundUser.id))
 
-    // Generate JWT token
+    // Generate JWT access token (short-lived: 1 hour)
     const token = await new SignJWT({ userId: foundUser.id })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime('30d')
+      .setExpirationTime('1h')
       .sign(JWT_SECRET)
+
+    // Create refresh token (long-lived: 30 days)
+    const userAgent = request.headers.get('user-agent') || undefined
+    const platform = request.headers.get('x-platform') || undefined
+    const deviceName = request.headers.get('x-device-name') || undefined
+    const appVersion = request.headers.get('x-app-version') || undefined
+    const ipAddress = request.ip || request.headers.get('x-forwarded-for') || undefined
+
+    const refreshToken = await createRefreshToken(
+      foundUser.id,
+      {
+        userAgent,
+        platform,
+        deviceName,
+        appVersion,
+      },
+      ipAddress
+    )
 
     // Create response
     const response = NextResponse.json(
@@ -127,6 +147,8 @@ export async function POST(request: NextRequest) {
         message: 'Login successful',
         data: {
           token,
+          refreshToken: refreshToken.token,
+          refreshTokenExpiresAt: refreshToken.expiresAt.toISOString(),
           user: {
             id: foundUser.id,
             email: foundUser.email,
@@ -144,12 +166,12 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     )
 
-    // Set HTTP-only cookie with JWT token
+    // Set HTTP-only cookie with JWT token (1 hour)
     response.cookies.set('session', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // false in dev, true in prod
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+      maxAge: 60 * 60, // 1 hour
       path: '/',
     })
 
