@@ -54,7 +54,15 @@ export async function POST(request: NextRequest) {
         age: users.age,
         weight: users.weight,
         height: users.height,
+        gender: users.gender,
+        experienceLevel: users.experienceLevel,
+        goals: users.goals,
+        availableEquipment: users.availableEquipment,
+        preferredLocation: users.preferredLocation,
         isPremium: users.isPremium,
+        timeAvailability: users.timeAvailability,
+        medicalConditions: users.medicalConditions,
+        painAreas: users.painAreas,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -62,6 +70,29 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Validate profile completeness - these are critical for AI to generate good plans
+    const missingFields: string[] = []
+    
+    if (!user.age) missingFields.push('age')
+    if (!user.weight) missingFields.push('weight')
+    if (!user.height) missingFields.push('height')
+    if (!user.gender) missingFields.push('gender')
+    if (!user.experienceLevel) missingFields.push('experience level')
+    if (!user.goals || user.goals.length === 0) missingFields.push('fitness goals')
+    if (!user.availableEquipment || user.availableEquipment.length === 0) missingFields.push('available equipment')
+    if (!user.preferredLocation) missingFields.push('preferred workout location')
+    
+    if (missingFields.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Please complete your profile before generating a plan',
+          missingFields,
+          message: `We need your ${missingFields.join(', ')} to create an effective workout plan. Please update your profile first.`,
+        },
+        { status: 400 }
+      )
     }
 
     // PHASE 1: Check AI quota BEFORE generating
@@ -243,6 +274,8 @@ export async function POST(request: NextRequest) {
 
     try {
       // Save plan to database
+      // Note: Constraints are enforced in the AI prompt itself (see src/lib/ai.ts)
+      // The prompt instructs AI to follow: max 6 exercises, 60 min sessions, rest days, etc.
       const [savedPlan] = await db
         .insert(workoutPlans)
         .values({

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { formatDistanceToNow } from 'date-fns'
+import { useAPIError } from '@/hooks/useAPIError'
+import { apiWrapper } from '@/lib/api-wrapper'
 
 interface AIRequest {
   id: string
@@ -17,6 +19,7 @@ interface AIRequest {
 }
 
 export default function RecentAIRequests() {
+  const { handleError } = useAPIError()
   const [requests, setRequests] = useState<AIRequest[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -25,15 +28,18 @@ export default function RecentAIRequests() {
   }, [])
 
   const fetchRequests = async () => {
-    try {
-      const response = await fetch('/api/admin/ai-logs?limit=10')
-      const data = await response.json()
-      setRequests(data.requests)
-    } catch (error) {
-      console.error('Failed to fetch AI requests:', error)
-    } finally {
+    const { data, error } = await apiWrapper.get<{ requests: AIRequest[] }>('/api/admin/ai-logs?limit=10')
+
+    if (error) {
+      await handleError(error)
       setLoading(false)
+      return
     }
+
+    if (data) {
+      setRequests(data.requests)
+    }
+    setLoading(false)
   }
 
   if (loading) {

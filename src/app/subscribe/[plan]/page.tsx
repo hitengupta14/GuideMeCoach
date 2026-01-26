@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Script from "next/script";
 import { useSession } from "@/hooks/useSession";
+import { useAPIError } from "@/hooks/useAPIError";
+import { apiWrapper } from "@/lib/api-wrapper";
 import { PricingRegionSelector } from "@/components/PricingRegionSelector";
 
 // Add Razorpay types
@@ -54,6 +56,7 @@ export default function SubscribePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: isSessionLoading } = useSession({ required: true });
+  const { handleError, handleSuccess, handleLoading, dismissToast } = useAPIError();
 
   const planKey = (searchParams.get("plan") || "premium") as keyof typeof PLANS;
   const plan = PLANS[planKey] || PLANS.premium;
@@ -68,35 +71,35 @@ export default function SubscribePage() {
 
   const handleSubscribe = async () => {
     if (!token || !user?.id) {
-      setError("Please log in first");
+      await handleError({ error: "Please log in first", statusCode: 401 });
       router.push("/auth/login?redirect=/pricing");
       return;
     }
 
+    const toastId = handleLoading("Creating payment order...");
+    setIsProcessing(true);
+    setError(null);
+
     try {
-      setIsProcessing(true);
-      setError(null);
-
       // Step 1: Create Razorpay order
-      const response = await fetch("/api/v1/subscription/create", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const { data: orderData, error: orderError } = await apiWrapper.post<any>(
+        "/api/v1/subscription/create",
+        {
+          displayRegion: selectedRegion,
+          planType: planKey,
         },
-        body: JSON.stringify({
-          displayRegion: selectedRegion, // Pass selected region for analytics
-          planType: planKey, // Use actual plan key (premium or premium-yearly)
-        }),
-      });
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to create payment order");
+      dismissToast(toastId);
+
+      if (orderError) {
+        await handleError(orderError);
+        setIsProcessing(false);
+        return;
       }
 
-      const data = await response.json();
+      const data = orderData;
 
       // Step 2: Open Razorpay checkout
       if (typeof window !== "undefined" && window.Razorpay) {
@@ -116,55 +119,34 @@ export default function SubscribePage() {
           },
           handler: async function (response: any) {
             // Payment successful - verify on backend
-            try {
-              const verifyResponse = await fetch(
-                "/api/v1/subscription/verify",
-                {
-                  method: "POST",
-                  credentials: "include",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature,
-                    planType: planKey,
-                  }),
-                },
-              );
+            const verifyToastId = handleLoading("Verifying payment...");
+            
+            const { data: verifyData, error: verifyError } = await apiWrapper.post<any>(
+              "/api/v1/subscription/verify",
+              {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                planType: planKey,
+              },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
 
-              console.log(
-                "[Subscribe] Verify response status:",
-                verifyResponse.status,
-              );
-              const verifyData = await verifyResponse.json();
-              console.log("[Subscribe] Verify response data:", verifyData);
+            dismissToast(verifyToastId);
 
-              if (!verifyResponse.ok) {
-                throw new Error(
-                  verifyData.error || "Payment verification failed",
-                );
-              }
-
-              console.log("[Subscribe] Payment verified successfully");
-              setSuccess(true);
-
-              // Redirect back to pricing to see updated status
-              setTimeout(() => {
-                console.log("[Subscribe] Redirecting to pricing");
-                router.push("/pricing?from=payment");
-              }, 2000);
-            } catch (err) {
-              console.error("[Subscribe] Verification error:", err);
-              setError(
-                err instanceof Error
-                  ? err.message
-                  : "Payment verification failed",
-              );
+            if (verifyError) {
+              await handleError(verifyError);
               setIsProcessing(false);
+              return;
             }
+
+            handleSuccess("Payment successful! You're now premium.");
+            setSuccess(true);
+
+            // Redirect back to pricing to see updated status
+            setTimeout(() => {
+              router.push("/pricing?from=payment");
+            }, 2000);
           },
           modal: {
             ondismiss: function () {
