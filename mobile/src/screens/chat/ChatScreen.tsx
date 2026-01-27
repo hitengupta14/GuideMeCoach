@@ -6,12 +6,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute } from '@react-navigation/native';
 import { apiClient } from '../../services/api';
+import { useAIQuota } from '../../hooks/useAIQuota';
+import UpgradeModal from '../../components/UpgradeModal';
 
 export default function ChatScreen() {
   const route: any = useRoute();
   const { conversationId, title } = route.params || {};
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const { canAccessFeature, refetch: refetchQuota } = useAIQuota();
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['messages', conversationId],
@@ -20,14 +24,28 @@ export default function ChatScreen() {
   });
 
   const sendMutation = useMutation({
-    mutationFn: async () => apiClient.addMessage(conversationId, message),
+    mutationFn: async () => {
+      // Check quota before sending message
+      if (!canAccessFeature('chat')) {
+        setShowUpgradeModal(true);
+        throw new Error('Upgrade required');
+      }
+      return apiClient.addMessage(conversationId, message);
+    },
     onSuccess: async () => {
       setMessage('');
       setIsTyping(false);
       await refetch();
+      await refetchQuota();
     },
     onMutate: () => {
       setIsTyping(true);
+    },
+    onError: (error: any) => {
+      setIsTyping(false);
+      if (error.message !== 'Upgrade required') {
+        // Handle other errors
+      }
     },
   });
 
@@ -78,6 +96,13 @@ export default function ChatScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        feature="chat"
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </View>
   );
 }
