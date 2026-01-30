@@ -6,7 +6,8 @@ import {
   uuid, 
   boolean,
   jsonb,
-  pgEnum
+  pgEnum,
+  type PgTableWithColumns
 } from 'drizzle-orm/pg-core'
 
 // Enums
@@ -69,6 +70,7 @@ export const reviewStatusEnum = pgEnum('review_status', [
 ])
 
 // Main Exercises Table
+// @ts-ignore - Self-referencing FK causes circular type inference
 export const exercises = pgTable('exercises', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
@@ -113,7 +115,7 @@ export const exercises = pgTable('exercises', {
   thumbnailUrl: text('thumbnail_url'),
   
   // Data integrity fields (Phase 1)
-  baseExerciseId: uuid('base_exercise_id').references(() => exercises.id, { onDelete: 'set null' }),
+  baseExerciseId: uuid('base_exercise_id').references((): any => (exercises as any).id, { onDelete: 'set null' }),
   source: exerciseSourceEnum('source').default('manual').notNull(),
   reviewStatus: reviewStatusEnum('review_status').default('approved').notNull(),
   confidenceScore: integer('confidence_score'), // 0-100, for AI-generated exercises
