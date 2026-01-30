@@ -11,12 +11,19 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-// @ts-ignore - React Native Razorpay types
-import RazorpayCheckout from 'react-native-razorpay';
 import { useThemeStore } from '../../store/theme';
 import { lightColors, darkColors } from '../../theme/colors';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
+
+// Conditionally import Razorpay - only available in development builds
+let RazorpayCheckout: any = null;
+try {
+  RazorpayCheckout = require('react-native-razorpay').default;
+} catch (e) {
+  // Razorpay not available - running in Expo Go
+  console.log('Running in Expo Go - Razorpay not available');
+}
 
 type CheckoutRouteParams = {
   Checkout: {
@@ -108,6 +115,26 @@ export default function CheckoutScreen() {
 
       const { orderId, amount, currency, keyId } = orderResponse.data;
 
+      // Step 2: Check if Razorpay is available
+      if (!RazorpayCheckout) {
+        // DEMO MODE - Running in Expo Go
+        Alert.alert(
+          'Demo Mode',
+          'Payment system is in demo mode (Expo Go). Install development build to test real payments.',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => setIsProcessing(false) },
+            { 
+              text: 'Simulate Success', 
+              onPress: async () => {
+                await handlePaymentSuccess({ razorpay_payment_id: 'demo_payment_' + Date.now() });
+              }
+            }
+          ]
+        );
+        return;
+      }
+
+      // PRODUCTION CODE - Razorpay available
       // Step 2: Open Razorpay checkout
       const options = {
         description: plan.name,
@@ -132,11 +159,13 @@ export default function CheckoutScreen() {
     } catch (error: any) {
       setIsProcessing(false);
 
-      // Check if user cancelled
+      // Check if user cancelled  
+      /* PRODUCTION CODE:
       if (error.code === RazorpayCheckout.PAYMENT_CANCELLED) {
         Alert.alert('Payment Cancelled', 'You cancelled the payment process');
         return;
       }
+      */
 
       // Handle other errors
       console.error('Payment error:', error);

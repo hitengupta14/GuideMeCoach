@@ -1,18 +1,34 @@
 {
   "expo": {
-    "name": "guidemecoach-mobile",
+    "name": "GuideMeCoach",
     "slug": "guidemecoach-mobile",
     "version": "1.0.0",
     "scheme": "guidemecoach",
+    "sdkVersion": "54.0.0",
     "platforms": [
       "ios",
       "android"
     ],
     "android": {
-      "package": "com.anonymous.guidemecoachmobile"
+      "package": "com.guidemecoach.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET"
+      ]
     },
     "ios": {
-      "bundleIdentifier": "com.anonymous.guidemecoachmobile"
+      "bundleIdentifier": "com.guidemecoach.mobile",
+      "supportsTabletMode": true,
+      "permissions": [
+        "NSCameraUsageDescription",
+        "NSPhotoLibraryUsageDescription"
+      ]
     },
     "plugins": [
       "expo-font",
@@ -29,7 +45,24 @@
           "photosPermission": "Allow GuideMeCoach to upload workout photos."
         }
       ],
-      "expo-av"
-    ]
+      "expo-av",
+      [
+        "react-native-razorpay",
+        {
+          "android_package": "com.guidemecoach.mobile"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "buildProfile": "development"
+            }
+          }
+        }
+      }
+    }
   }
 }
