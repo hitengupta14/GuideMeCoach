@@ -51,7 +51,7 @@ export default function ExercisesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['exercises', filters, page, limit],
     queryFn: () => fetchExercises(filters, page, limit),
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
   })
 
   const handleFilterChange = (key: string, value: string | null) => {

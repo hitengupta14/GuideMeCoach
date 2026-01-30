@@ -74,7 +74,9 @@ export async function GET(request: NextRequest) {
 
     // Calculate streak days (simplified)
     const uniqueDays = new Set(
-      logs.map(log => new Date(log.performedAt).toDateString())
+      logs
+        .filter(log => log.performedAt !== null)
+        .map(log => new Date(log.performedAt!).toDateString())
     )
     const streakDays = uniqueDays.size
 
@@ -86,7 +88,7 @@ export async function GET(request: NextRequest) {
       const dayString = date.toDateString()
       
       const workoutsOnDay = logs.filter(
-        log => new Date(log.performedAt).toDateString() === dayString
+        log => log.performedAt && new Date(log.performedAt).toDateString() === dayString
       ).length
 
       weeklyProgress.push({

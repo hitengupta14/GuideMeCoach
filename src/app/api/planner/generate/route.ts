@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, users, workoutPlans } from '@/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, inArray, and } from 'drizzle-orm'
 import { filterExercisesForUser } from '@/lib/planner/filters'
 import { generateProgressivePlan } from '@/lib/planner/generator'
 import type { UserPreferences } from '@/lib/planner/types'
@@ -22,8 +22,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch all exercises
-    const allExercises = await db.query.exercises.findMany()
+    // Fetch all approved exercises only (exclude drafts)
+    const allExercises = await db.query.exercises.findMany({
+      where: eq(exercises.reviewStatus, 'approved')
+    })
 
     // Fetch exercise-muscle relationships with muscle group details
     const allExerciseMuscles = await db.query.exerciseMuscles.findMany()
@@ -36,10 +38,10 @@ export async function POST(request: NextRequest) {
     const transformedExercises = allExercises.map((ex) => ({
       ...ex,
       equipment: ex.equipment as string[],
-      movementPattern: ex.movementPattern as string[],
+      movementPattern: (ex.movementPattern || []) as string[],
       medicalFlags: ex.medicalFlags as { notRecommendedFor: string[]; safeFor: string[] },
       benefits: ex.benefits as any,
-    }))
+    })) as any[]
 
     const transformedExerciseMuscles = allExerciseMuscles.map((em) => {
       const muscleGroup = muscleGroupMap.get(em.muscleGroupId)

@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       maxIntensity,
     } = await req.json()
 
-    let query = db.select().from(exercises)
+    let query = db.select().from(exercises).where(eq(exercises.reviewStatus, 'approved'))
 
     // Build where conditions
     const conditions = []
