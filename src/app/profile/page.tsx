@@ -7,7 +7,7 @@ import { useSession } from '@/hooks/useSession'
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, isLoading: sessionLoading } = useSession()
+  const { user, isLoading: sessionLoading, refetch } = useSession()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState<Partial<typeof user>>({})
   const [message, setMessage] = useState('')
@@ -51,9 +51,9 @@ export default function ProfilePage() {
       if (!response.ok) throw new Error('Failed to update profile')
 
       const updated = await response.json()
-      setUser(updated)
       setFormData(updated)
-      // No need to update localStorage - session cookie handles authentication
+      // Refetch session to update user data
+      refetch()
       setIsEditing(false)
       setMessage('Profile updated successfully!')
       setTimeout(() => setMessage(''), 3000)
@@ -128,7 +128,7 @@ export default function ProfilePage() {
                 <input
                   type="text"
                   name="name"
-                  value={formData.name || ''}
+                  value={formData?.name || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -139,7 +139,7 @@ export default function ProfilePage() {
                 <input
                   type="email"
                   name="email"
-                  value={formData.email || ''}
+                  value={formData?.email || ''}
                   disabled
                   className="w-full px-4 py-2 border rounded-lg bg-gray-50 text-gray-600"
                 />
@@ -149,7 +149,7 @@ export default function ProfilePage() {
                 <input
                   type="number"
                   name="age"
-                  value={formData.age || ''}
+                  value={formData?.age || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -159,7 +159,7 @@ export default function ProfilePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
                 <select
                   name="gender"
-                  value={formData.gender || ''}
+                  value={formData?.gender || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -182,7 +182,7 @@ export default function ProfilePage() {
                 <input
                   type="number"
                   name="height"
-                  value={formData.height || ''}
+                  value={formData?.height || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -193,7 +193,7 @@ export default function ProfilePage() {
                 <input
                   type="number"
                   name="currentWeight"
-                  value={formData.currentWeight || ''}
+                  value={formData?.currentWeight || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -204,7 +204,7 @@ export default function ProfilePage() {
                 <input
                   type="number"
                   name="targetWeight"
-                  value={formData.targetWeight || ''}
+                  value={formData?.targetWeight || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -221,7 +221,7 @@ export default function ProfilePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Experience Level</label>
                 <select
                   name="experienceLevel"
-                  value={formData.experienceLevel || ''}
+                  value={formData?.experienceLevel || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"

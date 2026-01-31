@@ -7,6 +7,7 @@ import { apiRateLimiter } from '@/lib/rate-limit'
 import { generateChatResponse, isOpenAIConfigured } from '@/lib/ai'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
 import { verifySession } from '@/lib/auth-helpers'
+import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache'
 
 // Get messages in a conversation
 export async function GET(request: NextRequest) {

@@ -62,10 +62,25 @@ export const aiExerciseRecommendationsSchema = z.object({
  */
 export const aiAdaptiveRecommendationsSchema = z.object({
   shouldDeload: z.boolean(),
-  reason: z.string(),
-  adjustedIntensity: z.number().min(0).max(100),
-  recommendedChanges: z.array(z.string()),
-  recoveryAdvice: z.string().optional(),
+  deloadRecommendation: z.string().optional(),
+  volumeAdjustment: z.object({
+    current: z.string(),
+    recommended: z.string(),
+    change: z.number(),
+    rationale: z.string(),
+  }),
+  intensityAdjustment: z.object({
+    current: z.string(),
+    recommended: z.string(),
+    rationale: z.string(),
+  }),
+  exerciseSwaps: z.array(z.object({
+    from: z.string(),
+    to: z.string(),
+    reason: z.string(),
+  })),
+  recoveryFocus: z.array(z.string()),
+  motivationalTip: z.string(),
 })
 
 /**

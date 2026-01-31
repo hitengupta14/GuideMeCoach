@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
         email: users.email,
         name: users.name,
         passwordHash: users.passwordHash,
+        isPremium: users.isPremium,
         isAdmin: users.isAdmin,
       })
       .from(users)

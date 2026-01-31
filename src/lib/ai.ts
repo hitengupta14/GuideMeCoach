@@ -892,9 +892,9 @@ Focus on:
       logger.error('AI exercise recommendations JSON parse error', parseError as Error)
       // Return safe fallback
       return {
-        recommended: [],
-        progressionSuggestions: [],
-        balanceAdvice: null,
+        nextSuggestions: [],
+        alternativeExercises: [],
+        muscleBalanceWarning: undefined,
       }
     }
 

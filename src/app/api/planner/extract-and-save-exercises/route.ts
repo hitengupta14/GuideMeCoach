@@ -123,7 +123,6 @@ Return ONLY valid JSON (no other text):
     
     if (!validationResult.success) {
       logger.warn(`AI exercise knowledge validation failed for ${exerciseName}`, 
-        new Error('Validation failed'), 
         { errors: validationResult.error.errors }
       )
       throw new Error('Validation failed')
@@ -131,7 +130,7 @@ Return ONLY valid JSON (no other text):
     
     return validationResult.data
   } catch (error) {
-    logger.warn(`Failed to generate knowledge for ${exerciseName}`, error as Error)
+    logger.warn(`Failed to generate knowledge for ${exerciseName}`, { error: (error as Error).message })
     // Return fallback
     return {
       description: `${exerciseName} is a strength training exercise.`,
@@ -319,10 +318,12 @@ export async function POST(request: NextRequest) {
 
     // Decrement quota on successful exercise generation
     if (user.isPremium) {
-      await decrementQuota(userId, 'planner')
-      await logAIUsage(userId, 'planner', {
-        exercisesCount: exerciseNames.length,
-        exercisesAdded: exerciseMap.size
+      await decrementQuota(userId, 'planner', true)
+      await logAIUsage({
+        userId,
+        feature: 'planner',
+        model: 'gpt-4',
+        success: true,
       })
     }
 

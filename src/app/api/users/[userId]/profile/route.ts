@@ -54,10 +54,8 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Don't return password hash
-    const { passwordHash: _, ...userWithoutPassword } = user[0]
     logger.info('User profile fetched', { userId: userId.substring(0, 8) + '***' })
-    return NextResponse.json(userWithoutPassword)
+    return NextResponse.json(user[0])
   } catch (error) {
     logger.error('Error fetching user profile', error as Error)
     return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 })
