@@ -12,10 +12,6 @@ export default {
   out: './drizzle',
   driver: 'pg',
   dbCredentials: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || '0705',
-    database: process.env.DB_NAME || 'guidemecoach',
+    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:0705@localhost:5432/guidemecoach',
   },
 } satisfies Config

@@ -8,13 +8,13 @@ interface ExerciseCardProps {
 }
 
 export function ExerciseCard({ exercise }: ExerciseCardProps) {
-  const difficultyColors = {
+  const difficultyColors: Record<string, string> = {
     beginner: 'bg-green-100 text-green-800',
     intermediate: 'bg-yellow-100 text-yellow-800',
     advanced: 'bg-red-100 text-red-800',
   }
 
-  const categoryIcons = {
+  const categoryIcons: Record<string, string> = {
     strength: '💪',
     mobility: '🔄',
     rehab: '⚕️',
@@ -30,8 +30,8 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
         {/* Header with icon and category */}
         <div className="bg-gradient-to-r from-primary-500 to-primary-600 p-4 text-white">
           <div className="flex items-start justify-between">
-            <span className="text-3xl">{categoryIcon}</span>
-            <span className={`px-2 py-1 rounded text-xs font-semibold ${difficultyColor}`}>
+            <span className="text-3xl">{categoryIcons[exercise.category as string]}</span>
+            <span className={`px-2 py-1 rounded text-xs font-semibold ${difficultyColors[exercise.difficulty as string]}`}>
               {exercise.difficulty.charAt(0).toUpperCase() + exercise.difficulty.slice(1)}
             </span>
           </div>
