@@ -2,15 +2,41 @@
 
 import { useParams } from 'next/navigation'
 import ViewPlanComponent from '@/components/ViewPlanComponent'
-import { useSession } from '@/hooks/useSession'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function ViewPlanPage() {
   const params = useParams()
-  const { isLoading } = useSession({ required: true })
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [authorized, setAuthorized] = useState(false)
 
   const planId = params?.id as string
 
-  if (isLoading) {
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        })
+        const data = await response.json()
+        if (data.user) {
+          setAuthorized(true)
+        } else {
+          router.push('/auth/login')
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err)
+        router.push('/auth/login')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100">
         <div className="text-center">
@@ -19,6 +45,10 @@ export default function ViewPlanPage() {
         </div>
       </div>
     )
+  }
+
+  if (!authorized) {
+    return null
   }
 
   return (

@@ -1,20 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
-import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import { createRazorpayOrderWithPricing, RAZORPAY_PLANS, type PlanType } from '@/lib/razorpay';
-import { decidePricing } from '@/lib/pricing';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
 
-/**
- * Create Razorpay order for subscription
- * Step 1: Backend creates order
- * Step 2: Frontend shows Razorpay checkout
- * Step 3: User completes payment
- * Step 4: Webhook/verify endpoint confirms payment
- */
+// Mock Stripe integration - in production use real Stripe SDK
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
+
+const PLANS = {
+  basic: {
+    id: 'price_basic_monthly',
+    name: 'Basic',
+    price: 9.99,
+    features: ['Core exercises', 'Basic progress tracking'],
+  },
+  pro: {
+    id: 'price_pro_monthly',
+    name: 'Pro',
+    price: 19.99,
+    features: [
+      'All core features',
+      'Video form analysis',
+      'AI coaching',
+      'Wearable integration',
+    ],
+  },
+  elite: {
+    id: 'price_elite_monthly',
+    name: 'Elite',
+    price: 49.99,
+    features: [
+      'Everything in Pro',
+      '1-on-1 coaching',
+      'Custom meal plans',
+      'Priority support',
+    ],
+  },
+};
+
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -29,102 +51,46 @@ export async function POST(req: NextRequest) {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     const userId = payload.userId as string;
 
-    const { planType, displayRegion } = await req.json();
+    const { planType, paymentMethodId } = await req.json();
 
-    // Validate plan type
-    if (!planType || !RAZORPAY_PLANS[planType as PlanType]) {
+    if (!planType || !Object.keys(PLANS).includes(planType)) {
       return NextResponse.json(
-        { success: false, error: 'Invalid plan type. Use "premium" or "premium-yearly"' },
+        { success: false, error: 'Invalid plan type' },
         { status: 400 }
       );
     }
 
-    // Get user details
-    const [user] = await db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        isPremium: users.isPremium,
-        billingCountry: users.billingCountry,
-        pricingTier: users.pricingTier,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+    // In production: Create Stripe customer and subscription
+    // For now, generate mock subscription
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      );
-    }
+    const subscriptionId = `sub_${Date.now()}`;
+    const plan = PLANS[planType as keyof typeof PLANS];
 
-    // Decide pricing on backend (authoritative)
-    const decision = decidePricing({
-      planType: planType as PlanType,
-      billingCountry: user.billingCountry ?? null,
-      lockedTier: user.pricingTier ?? null,
-    })
-
-    // Create Razorpay order with server-decided amount/currency
-    const order = await createRazorpayOrderWithPricing(
-      decision.amountPaise,
-      decision.currency,
-      planType as PlanType,
-      userId,
-      {
-        tier: decision.tier,
-        pricingReason: decision.reason ?? '',
-        displayRegion: typeof displayRegion === 'string' ? displayRegion : '',
-      }
-    )
-
-    const plan = RAZORPAY_PLANS[planType as PlanType]
+    // In production: Call Stripe API
+    // const stripe = new Stripe(STRIPE_SECRET_KEY);
+    // const subscription = await stripe.subscriptions.create({...});
 
     return NextResponse.json({
       success: true,
       data: {
-        orderId: order.orderId,
-        amount: order.amount,
-        currency: order.currency,
-        keyId: order.keyId,
+        subscriptionId,
+        status: 'active',
         plan: {
           type: planType,
           name: plan.name,
-          amount: decision.amountPaise,
-          currency: decision.currency,
-          period: plan.period,
-          features: plan.features,
+          price: plan.price,
+          currency: 'USD',
+          interval: 'month',
         },
-        pricing: {
-          tier: decision.tier,
-          reason: decision.reason,
-          displayRegion: typeof displayRegion === 'string' ? displayRegion : undefined,
-        },
-        userDetails: {
-          name: user.name || '',
-          email: user.email,
-        },
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        message: `Successfully subscribed to ${plan.name} plan`,
       },
-    })
-  } catch (error: any) {
-    console.error('Razorpay order creation error:', error);
-    
-    // Handle Razorpay configuration errors
-    if (error.message?.includes('Razorpay credentials')) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Payment system not configured. Please contact support.',
-          details: 'RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set in environment variables'
-        },
-        { status: 503 }
-      );
-    }
-
+    });
+  } catch (error) {
+    console.error('Subscription creation error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to create payment order' },
+      { success: false, error: 'Failed to create subscription' },
       { status: 500 }
     );
   }

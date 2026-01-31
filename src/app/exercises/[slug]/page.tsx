@@ -9,7 +9,6 @@ import { RelatedExercises } from '@/components/RelatedExercises'
 import { exerciseAlternatives } from '@/db/add-videos-alternatives'
 import { useEffect } from 'react'
 import { usePlanHistory } from '@/context/PlanContext'
-import { useSession } from '@/hooks/useSession'
 
 async function fetchExercise(id: string) {
   const response = await fetch(`/api/exercises/${id}`)
@@ -47,7 +46,6 @@ export default function ExerciseDetailPage() {
   const router = useRouter()
   const { previousPage } = usePlanHistory()
   const slug = params.slug as string
-  const { user } = useSession({ required: false })
 
   const { data: exercise, isLoading, error } = useQuery({
     queryKey: ['exercise', slug],

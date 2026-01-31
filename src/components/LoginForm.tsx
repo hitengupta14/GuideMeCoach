@@ -57,22 +57,8 @@ export default function LoginForm() {
         return
       }
 
-      console.log('[LoginForm] Login successful. Response data:', {
-        hasToken: !!data.data?.token,
-        tokenPreview: data.data?.token?.substring(0, 20),
-      })
-
-      // Save token to localStorage for API calls that need Bearer token
-      if (data.data?.token) {
-        localStorage.setItem('token', data.data.token)
-        console.log('[LoginForm] Token saved to localStorage')
-      } else {
-        console.warn('[LoginForm] No token in response')
-      }
-
       // Cookie is set automatically via HTTP-only cookie
-      // Token is also in localStorage for use in Bearer headers
-      console.log('[LoginForm] Redirecting to dashboard')
+      // No need to use localStorage anymore
       router.push('/dashboard')
     } catch (err) {
       setError('Network error. Please try again.')

@@ -1,17 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { v4 as uuidv4 } from 'uuid';
 
 const DEVICE_ID_STORAGE_KEY = 'deviceUUID';
-
-/**
- * Generate a UUID v4 using pure JavaScript (React Native compatible)
- */
-function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
 
 /**
  * Get or generate a stable device UUID.
@@ -25,13 +15,13 @@ export async function getOrGenerateDeviceUUID(): Promise<string> {
     }
 
     // Generate new UUID if not found
-    const newUUID = generateUUID();
+    const newUUID = uuidv4();
     await AsyncStorage.setItem(DEVICE_ID_STORAGE_KEY, newUUID);
     return newUUID;
   } catch (error) {
     console.log('Failed to get/generate device UUID', error);
     // Fallback to a random UUID if storage fails
-    return generateUUID();
+    return uuidv4();
   }
 }
 

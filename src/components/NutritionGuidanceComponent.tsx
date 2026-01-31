@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { Loader, AlertCircle, Zap, Droplet, Apple, Pill } from 'lucide-react'
-import { useAPIError } from '@/hooks/useAPIError'
-import { apiWrapper } from '@/lib/api-wrapper'
 
 interface MacroInfo {
   grams: number
@@ -40,7 +38,6 @@ interface NutritionGuidance {
 }
 
 export default function NutritionGuidanceComponent({ userId }: { userId: string }) {
-  const { handleError } = useAPIError()
   const [guidance, setGuidance] = useState<NutritionGuidance | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -48,19 +45,23 @@ export default function NutritionGuidanceComponent({ userId }: { userId: string 
 
   useEffect(() => {
     const fetchGuidance = async () => {
-      const { data, error: apiError } = await apiWrapper.get<NutritionGuidance>('/api/nutrition/guidance')
+      try {
+        setLoading(true)
+        const response = await fetch('/api/users/nutrition-guidance', {
+          credentials: 'include',
+        })
 
-      if (apiError) {
-        setError(apiError.message || 'Failed to fetch nutrition guidance')
-        await handleError(apiError)
-        setLoading(false)
-        return
-      }
+        if (!response.ok) {
+          throw new Error('Failed to fetch nutrition guidance')
+        }
 
-      if (data) {
+        const data = await response.json()
         setGuidance(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred')
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     fetchGuidance()

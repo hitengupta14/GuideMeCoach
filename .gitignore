@@ -33,6 +33,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Drizzle
+drizzle/
+
 # Mobile (Expo/React Native)
 mobile/.expo/
 mobile/.expo-shared/

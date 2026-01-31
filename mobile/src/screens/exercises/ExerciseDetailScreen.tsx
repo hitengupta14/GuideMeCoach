@@ -70,7 +70,7 @@ export default function ExerciseDetailScreen({
   const addFav = useMutation({
     mutationFn: () => apiClient.addFavorite(user!.id, exerciseId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['favorites', user?.id] });
+      qc.invalidateQueries(['favorites', user?.id]);
       setIsFavorite(true);
     },
   });
@@ -78,7 +78,7 @@ export default function ExerciseDetailScreen({
   const removeFav = useMutation({
     mutationFn: () => apiClient.removeFavorite(user!.id, exerciseId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['favorites', user?.id] });
+      qc.invalidateQueries(['favorites', user?.id]);
       setIsFavorite(false);
     },
   });

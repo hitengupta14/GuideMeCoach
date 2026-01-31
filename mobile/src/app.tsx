@@ -30,8 +30,7 @@ export default function App() {
         const data: any = response.notification.request.content.data || {};
         const screen = data?.screen;
         if (screen) {
-          // @ts-ignore - navigation type mismatch with dynamic routes
-          navigationRef.isReady() && navigationRef.navigate(screen);
+          navigationRef.isReady() && navigationRef.navigate(screen as never, data.params as never);
         }
       });
     };
@@ -56,7 +55,7 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
-  const linking: any = {
+  const linking = {
     prefixes: ['guidemecoach://'],
     config: {
       screens: {
@@ -72,7 +71,7 @@ export default function App() {
         More: 'more',
       },
     },
-  };
+  } as const;
 
   const navTheme = {
     dark: theme === 'dark',

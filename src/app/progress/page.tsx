@@ -1,12 +1,40 @@
 'use client'
 
-import { useSession } from '@/hooks/useSession'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import AnalyticsDashboard from '@/components/AnalyticsDashboard'
 
 export default function ProgressPage() {
-  const { isLoading } = useSession({ required: true })
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
-  if (isLoading) {
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        })
+
+        const data = await response.json()
+        if (!response.ok || !data.user) {
+          router.push('/auth/login')
+          return
+        }
+
+        setUser(data.user)
+      } catch (err) {
+        console.error('Session check failed:', err)
+        router.push('/auth/login')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkSession()
+  }, [router])
+
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
@@ -15,6 +43,10 @@ export default function ProgressPage() {
         </div>
       </div>
     )
+  }
+
+  if (!user) {
+    return null
   }
 
   return (

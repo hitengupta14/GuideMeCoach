@@ -7,7 +7,7 @@ export { StatItem, Badge, ProgressBar } from './UI';
 // Status Components
 export { NetworkStatusBanner } from './NetworkStatusBanner';
 export { SkeletonLoader, ListSkeleton } from './SkeletonLoader';
-export { LoadingView, ErrorView, EmptyView } from './State';
+export { LoadingView, ErrorView, EmptyView, State } from './State';
 
 // Layout Components
 export { Container, Screen, Section } from './Layout';
@@ -21,11 +21,3 @@ export { SearchInput } from './SearchInput';
 
 // Utility Components
 export { WorkoutTimer } from './WorkoutTimer';
-
-// Phase 1 & 2 Components
-export { default as UpgradeModal } from './UpgradeModal';
-export { default as QuotaDisplay } from './QuotaDisplay';
-export { default as ExerciseSourceBadge } from './ExerciseSourceBadge';
-
-// Phase 3 Components
-export { SyncIndicator } from './SyncIndicator';

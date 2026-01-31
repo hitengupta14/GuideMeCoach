@@ -37,12 +37,13 @@ export function Card({ children, onPress, variant = 'default', isDark = false, s
     <View
       style={[
         styles.card,
+        variantStyles[variant],
         {
           backgroundColor: variantStyles[variant].backgroundColor,
-          borderColor: 'borderColor' in variantStyles[variant] ? (variantStyles[variant] as any).borderColor : undefined,
-          borderWidth: 'borderWidth' in variantStyles[variant] ? (variantStyles[variant] as any).borderWidth : 0,
+          borderColor: variantStyles[variant].borderColor,
+          borderWidth: variantStyles[variant].borderWidth,
         },
-        'shadowOpacity' in variantStyles[variant] && (variantStyles[variant] as any).shadowOpacity > 0 ? shadows.md : {},
+        variantStyles[variant].shadowOpacity && shadows.md,
         style,
       ]}
     >

@@ -2,13 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { workoutLogs } from '@/db/schema'
 import { eq, and, gte, desc } from 'drizzle-orm'
-import { verifySession } from '@/lib/auth-helpers'
+import { jwtVerify } from 'jose'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await verifySession(request)
-    if (!userId) {
+    // Get user from Authorization header
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const token = authHeader.substring(7)
+    let userId: string
+
+    try {
+      const { payload } = await jwtVerify(token, JWT_SECRET)
+      userId = payload.userId as string
+    } catch (error) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
     const searchParams = request.nextUrl.searchParams

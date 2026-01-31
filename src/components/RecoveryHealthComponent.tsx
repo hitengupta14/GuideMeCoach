@@ -1,8 +1,6 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useAPIError } from '@/hooks/useAPIError'
-import { apiWrapper } from '@/lib/api-wrapper'
 
 interface RecoveryData {
   recoveryScore: number
@@ -37,7 +35,6 @@ interface RestDaysData {
 }
 
 export default function RecoveryHealthComponent() {
-  const { handleError, handleSuccess } = useAPIError()
   const [activeTab, setActiveTab] = useState<'recovery' | 'soreness' | 'warmup' | 'rest'>('recovery')
   const [recoveryData, setRecoveryData] = useState<RecoveryData | null>(null)
   const [restDaysData, setRestDaysData] = useState<RestDaysData | null>(null)
@@ -61,58 +58,62 @@ export default function RecoveryHealthComponent() {
     try {
       setLoading(true)
       const [recoveryRes, restDaysRes] = await Promise.all([
-        apiWrapper.get<RecoveryData>('/api/recovery/score'),
-        apiWrapper.get<RestDaysData>('/api/recovery/rest-days'),
+        fetch('/api/recovery/score', { credentials: 'include' }),
+        fetch('/api/recovery/rest-days', { credentials: 'include' }),
       ])
 
-      if (recoveryRes.data) {
-        setRecoveryData(recoveryRes.data)
-      } else if (recoveryRes.error) {
-        await handleError(recoveryRes.error)
+      if (recoveryRes.ok) {
+        const data = await recoveryRes.json()
+        setRecoveryData(data)
       }
 
-      if (restDaysRes.data) {
-        setRestDaysData(restDaysRes.data)
-      } else if (restDaysRes.error) {
-        await handleError(restDaysRes.error)
+      if (restDaysRes.ok) {
+        const data = await restDaysRes.json()
+        setRestDaysData(data)
       }
+    } catch (error) {
+      console.error('Failed to fetch recovery data:', error)
     } finally {
       setLoading(false)
     }
   }
 
   const handleSorenessSubmit = async () => {
-    const { data, error } = await apiWrapper.post<{ success: boolean }>(
-      '/api/recovery/soreness',
-      { areas: sorenessAreas }
-    )
+    try {
+      const res = await fetch('/api/recovery/soreness', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ areas: sorenessAreas }),
+      })
 
-    if (error) {
-      await handleError(error)
-      return
+      if (res.ok) {
+        alert('Soreness recorded successfully')
+      }
+    } catch (error) {
+      console.error('Failed to record soreness:', error)
     }
-
-    handleSuccess('Soreness recorded successfully')
   }
 
   const generateWarmup = async () => {
-    const { data, error } = await apiWrapper.post<any>(
-      '/api/recovery/warmup-cooldown',
-      {
-        workoutFocus,
-        type: warmupType,
-        duration: 10,
+    try {
+      const res = await fetch('/api/recovery/warmup-cooldown', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workoutFocus,
+          type: warmupType,
+          duration: 10,
+        }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setWarmupData(data)
       }
-    )
-
-    if (error) {
-      await handleError(error)
-      return
-    }
-
-    if (data) {
-      setWarmupData(data)
-      handleSuccess('Routine generated successfully!')
+    } catch (error) {
+      console.error('Failed to generate routine:', error)
     }
   }
 

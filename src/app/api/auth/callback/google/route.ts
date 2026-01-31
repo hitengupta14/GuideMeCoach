@@ -57,16 +57,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Find or create user by email
-    const existing = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        emailVerified: users.emailVerified,
-      })
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1)
+    const existing = await db.select().from(users).where(eq(users.email, email)).limit(1)
     let userRecord = existing[0]
 
     if (!userRecord) {

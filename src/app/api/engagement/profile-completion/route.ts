@@ -1,13 +1,35 @@
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { NextRequest } from 'next/server'
-import { verifySession } from '@/lib/auth-helpers'
+import { cookies } from 'next/headers'
+import { jwtVerify } from 'jose'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+
+async function getUserId(req: Request): Promise<string | null> {
+  try {
+    const authHeader = req.headers.get('authorization')
+    const bearer = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : null
+
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get('session')?.value
+    const tokenToVerify = bearer || sessionToken
+
+    if (!tokenToVerify) return null
+
+    const verified = await jwtVerify(tokenToVerify, JWT_SECRET).catch(() => null)
+    if (!verified) return null
+    return verified.payload.userId as string
+  } catch {
+    return null
+  }
+}
 
 export async function GET(req: Request) {
   try {
-    const nextReq = new NextRequest(req)
-    const userId = await verifySession(nextReq)
+    const userId = await getUserId(req)
     if (!userId) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -130,12 +152,19 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const nextReq = new NextRequest(req)
-    const userId = await verifySession(nextReq)
+    const cookieStore = await cookies()
+    const token = cookieStore.get('session')?.value
 
-    if (!userId) {
+    if (!token) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    if (!verified) {
+      return Response.json({ error: 'Invalid token' }, { status: 401 })
+    }
+
+    const userId = verified.payload.userId as string
     const body = await req.json()
 
     const updateData: any = {}

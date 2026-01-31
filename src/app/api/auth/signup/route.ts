@@ -10,7 +10,6 @@ import { sendEmail, getVerificationEmailHtml } from '@/lib/email'
 import { z } from 'zod'
 import crypto from 'crypto'
 import { SignJWT } from 'jose'
-import { createRefreshToken } from '@/lib/refresh-token'
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
@@ -81,30 +80,12 @@ export async function POST(request: NextRequest) {
       text,
     })
 
-    // Generate JWT access token (short-lived: 1 hour)
+    // Generate JWT token
     const token = await new SignJWT({ userId: newUser[0].id })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime('1h')
+      .setExpirationTime('30d')
       .sign(JWT_SECRET)
-
-    // Create refresh token (long-lived: 30 days)
-    const userAgent = request.headers.get('user-agent') || undefined
-    const platform = request.headers.get('x-platform') || undefined
-    const deviceName = request.headers.get('x-device-name') || undefined
-    const appVersion = request.headers.get('x-app-version') || undefined
-    const ipAddress = request.ip || request.headers.get('x-forwarded-for') || undefined
-
-    const refreshToken = await createRefreshToken(
-      newUser[0].id,
-      {
-        userAgent,
-        platform,
-        deviceName,
-        appVersion,
-      },
-      ipAddress
-    )
 
     // Create response
     const response = NextResponse.json(
@@ -113,8 +94,6 @@ export async function POST(request: NextRequest) {
         message: 'Account created successfully. Please check your email to verify your account.',
         data: {
           token,
-          refreshToken: refreshToken.token,
-          refreshTokenExpiresAt: refreshToken.expiresAt.toISOString(),
           user: {
             id: newUser[0].id,
             email: newUser[0].email,
@@ -126,12 +105,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
 
-    // Set HTTP-only cookie with JWT token (1 hour)
+    // Set HTTP-only cookie with JWT token
     response.cookies.set('session', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60, // 1 hour
+      maxAge: 30 * 24 * 60 * 60, // 30 days
       path: '/',
     })
 

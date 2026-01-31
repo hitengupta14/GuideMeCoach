@@ -14,16 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email and OTP are required' }, { status: 400 })
     }
 
-    const found = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        emailVerificationToken: users.emailVerificationToken,
-        emailVerificationTokenExpiry: users.emailVerificationTokenExpiry,
-      })
-      .from(users)
-      .where(eq(users.email, email.toLowerCase()))
-      .limit(1)
+    const found = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1)
     if (found.length === 0) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }

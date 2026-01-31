@@ -23,7 +23,7 @@ export default function RecoveryScreen() {
     mutationFn: () => apiClient.submitSoreness(soreness as any, notes || undefined),
     onSuccess: () => {
       Alert.alert('Saved', 'Soreness recorded');
-      qc.invalidateQueries({ queryKey: ['recovery-score'] });
+      qc.invalidateQueries(['recovery-score']);
     },
   });
 
@@ -94,7 +94,7 @@ export default function RecoveryScreen() {
           onChangeText={setNotes}
         />
         <TouchableOpacity style={styles.button} onPress={() => sorenessMutation.mutate()}>
-          <Text style={styles.buttonText}>{sorenessMutation.isPending ? 'Saving...' : 'Save soreness'}</Text>
+          <Text style={styles.buttonText}>{sorenessMutation.isLoading ? 'Saving...' : 'Save soreness'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -123,7 +123,7 @@ export default function RecoveryScreen() {
           ))}
         </View>
         <TouchableOpacity style={styles.button} onPress={() => warmupMutation.mutate()}>
-          <Text style={styles.buttonText}>{warmupMutation.isPending ? 'Generating...' : 'Generate routine'}</Text>
+          <Text style={styles.buttonText}>{warmupMutation.isLoading ? 'Generating...' : 'Generate routine'}</Text>
         </TouchableOpacity>
         {warmupMutation.data && (
           <View style={{ marginTop: 8 }}>

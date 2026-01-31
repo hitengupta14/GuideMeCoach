@@ -7,19 +7,13 @@ import { useAuthStore } from '../../store/auth';
 
 export default function AchievementsScreen() {
   const { user } = useAuthStore();
-  const token = useAuthStore((s) => s.token);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['badges', user?.id, token],
-    enabled: !!user?.id && !!token,
+    queryKey: ['badges', user?.id],
+    enabled: !!user?.id,
     queryFn: async () => {
-      try {
-        await apiClient.checkAndAwardBadges(user!.id);
-        return apiClient.getBadges(user!.id);
-      } catch (err) {
-        console.error('Failed to fetch badges:', err);
-        throw err;
-      }
+      await apiClient.checkAndAwardBadges(user!.id);
+      return apiClient.getBadges(user!.id);
     },
   });
 

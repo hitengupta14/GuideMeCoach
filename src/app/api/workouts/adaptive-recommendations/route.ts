@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth-helpers'
+import { cookies } from 'next/headers'
+import { jwtVerify } from 'jose'
 import { db } from '@/db'
 import { users, workoutSessions, workoutLogs } from '@/db/schema'
 import { eq, and, desc, gte, inArray, sql } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { getAdaptiveWorkoutRecommendations } from '@/lib/ai'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+
+async function verifySession(request: NextRequest): Promise<string | null> {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get('session')?.value
+
+    if (!token) return null
+
+    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    if (!verified) return null
+
+    return verified.payload.userId as string
+  } catch {
+    return null
+  }
+}
 
 function difficultyToNumber(difficulty: string | null): number {
   if (!difficulty) return 5

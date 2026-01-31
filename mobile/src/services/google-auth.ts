@@ -11,7 +11,9 @@ const GOOGLE_WEB_CLIENT_ID = '79067976017-jdrll6f7honug0lpi5bv9vv2m6n3kn3e.apps.
 // @ts-ignore - expo-auth-session internal type issue
 export function useGoogleAuth(): any {
   // In development with Expo Go, use proxy. Otherwise use scheme.
-  const redirectUri = makeRedirectUri();
+  const redirectUri = makeRedirectUri({
+    useProxy: true,
+  });
 
   console.log('🔵 Google Auth Redirect URI:', redirectUri);
 

@@ -3,37 +3,48 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { useSession } from '@/hooks/useSession'
 import AIPlannerForm from '@/components/AIPlannerForm'
 import CustomPlannerComponent from '@/components/CustomPlannerComponent'
-import UpgradeModal from '@/components/UpgradeModal'
-import { useAIQuota } from '@/hooks/useAIQuota'
-import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
-import { PremiumPageGuard } from '@/components/PremiumPageGuard'
 
 function UnifiedPlannerContent() {
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<'ai' | 'custom'>('ai')
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, isLoading } = useSession({ required: true })
-  const { hasAccess, isLoading: subLoading, isPremium } = useSubscriptionStatus(typeof window !== 'undefined' ? localStorage.getItem('token') : null)
-  const { quotas } = useAIQuota()
 
   useEffect(() => {
-    if (!isLoading && user) {
-      // Check if mode was specified in URL
-      const modeParam = searchParams?.get('mode')
-      if (modeParam === 'custom') {
-        setMode('custom')
-      } else if (modeParam === 'ai' && !user.isPremium) {
-        // Show upgrade modal if free user tries to access AI planner
-        setShowUpgradeModal(true)
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        })
+
+        const data = await response.json()
+        if (!response.ok || !data.user) {
+          router.push('/auth/login')
+          return
+        }
+
+        setUser(data.user)
+
+        // Check if mode was specified in URL
+        const modeParam = searchParams?.get('mode')
+        if (modeParam === 'custom') {
+          setMode('custom')
+        }
+      } catch (err) {
+        console.error('Session check failed:', err)
+        router.push('/auth/login')
+      } finally {
+        setLoading(false)
       }
     }
-  }, [isLoading, user, searchParams])
 
-  if (isLoading || subLoading) {
+    checkSession()
+  }, [router, searchParams])
+
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100">
         <div className="text-center">
@@ -46,35 +57,6 @@ function UnifiedPlannerContent() {
 
   if (!user) {
     return null
-  }
-
-  // If trying to access AI planner without premium, block it
-  if (mode === 'ai' && !hasAccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
-        <div className="max-w-md rounded-xl bg-white shadow-lg p-8 text-center">
-          <div className="text-5xl mb-4">🤖</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">AI Workout Planner</h2>
-          <p className="text-gray-600 mb-8">
-            Get a personalized AI-generated workout plan tailored to your goals and experience level. Upgrade to Premium to unlock this feature.
-          </p>
-          <div className="space-y-3">
-            <button
-              onClick={() => router.push('/pricing')}
-              className="block w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Upgrade to Premium
-            </button>
-            <button
-              onClick={() => setMode('custom')}
-              className="block w-full px-6 py-3 bg-gray-200 text-gray-900 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-            >
-              Use Custom Planner
-            </button>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -99,16 +81,15 @@ function UnifiedPlannerContent() {
         {/* Mode Selector */}
         <div className="bg-white rounded-lg shadow-lg p-1 mb-8 inline-flex w-full sm:w-auto">
           <button
-            onClick={() => !hasAccess ? setShowUpgradeModal(true) : setMode('ai')}
+            onClick={() => setMode('ai')}
             className={`flex-1 px-6 py-4 rounded-lg font-semibold transition-all ${
               mode === 'ai'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'bg-white text-gray-700 hover:text-gray-900'
             }`}
-            disabled={!hasAccess}
           >
             <span className="text-xl mr-2">🤖</span>
-            AI Generation {!hasAccess && <span className="text-xs ml-1">👑</span>}
+            AI Generation
           </button>
 
           <button
@@ -133,9 +114,7 @@ function UnifiedPlannerContent() {
                 : 'border-gray-200 bg-gray-50 opacity-60'
             }`}
           >
-            <h3 className="font-semibold text-gray-900 mb-1">
-              🤖 AI Generation {!hasAccess && <span className="text-xs">Premium</span>}
-            </h3>
+            <h3 className="font-semibold text-gray-900 mb-1">🤖 AI Generation</h3>
             <p className="text-sm text-gray-600">
               Let our AI create a personalized plan based on your goals, experience level, equipment, and medical conditions.
             </p>
@@ -157,11 +136,6 @@ function UnifiedPlannerContent() {
 
         {/* Content */}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <UpgradeModal
-            isOpen={showUpgradeModal && mode === 'ai'}
-            onClose={() => setShowUpgradeModal(false)}
-            feature="planner"
-          />
           {mode === 'ai' ? (
             <div className="p-8">
               <AIPlannerForm />

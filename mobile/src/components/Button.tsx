@@ -117,7 +117,7 @@ export function Button({
 
   if (gradientColors && !isDisabled) {
     return (
-      <LinearGradient colors={gradientColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+      <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
         <TouchableOpacity
           style={containerStyle}
           onPress={onPress}

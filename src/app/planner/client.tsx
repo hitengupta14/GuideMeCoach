@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useSession } from '@/hooks/useSession'
+import { useState, useEffect } from 'react'
 import { QuestionnaireForm } from '@/components/QuestionnaireForm'
 import PlanDisplay from '@/components/PlanDisplay'
 import MyPlans from '@/components/MyPlans'
@@ -10,11 +9,11 @@ import type { UserPreferences, WeeklyPlan } from '@/lib/planner/types'
 type PageState = 'questionnaire' | 'loading' | 'display' | 'error'
 
 export default function PlannerPageClient() {
-  const { user } = useSession({ required: false })
   const [pageState, setPageState] = useState<PageState>('questionnaire')
   const [plan, setPlan] = useState<WeeklyPlan | null>(null)
   const [metadata, setMetadata] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [user, setUser] = useState<{ id: string; name?: string } | null>(null)
 
   const handleGeneratePlan = async (preferences: UserPreferences) => {
     setPageState('loading')
@@ -50,6 +49,22 @@ export default function PlannerPageClient() {
     setMetadata(null)
     setError(null)
   }
+
+  // Fetch current session user for Save Plan action
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await fetch('/api/auth/session', { credentials: 'include' })
+        const data = await res.json()
+        if (res.ok && data.user) {
+          setUser({ id: data.user.id, name: data.user.name })
+        }
+      } catch (e) {
+        // silently ignore
+      }
+    }
+    fetchUser()
+  }, [])
 
   const handleSavePlan = async () => {
     if (!user || !plan) {

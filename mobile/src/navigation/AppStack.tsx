@@ -11,8 +11,6 @@ import ProfileScreen from '../screens/home/ProfileScreen';
 import VideoUploadScreen from '../screens/video/VideoUploadScreen';
 import WearablesScreen from '../screens/wearables/WearablesScreen';
 import SubscriptionScreen from '../screens/subscription/SubscriptionScreen';
-import PricingScreen from '../screens/subscription/PricingScreen';
-import CheckoutScreen from '../screens/subscription/CheckoutScreen';
 import ExercisesListScreen from '../screens/exercises/ExercisesListScreen';
 import ExerciseDetailScreen from '../screens/exercises/ExerciseDetailScreen';
 import WorkoutLoggerScreen from '../screens/workouts/WorkoutLoggerScreen';
@@ -226,8 +224,6 @@ function MoreStack() {
       <Stack.Screen name="Plans" component={PlansScreen} options={{ title: 'My Plans' }} />
       <Stack.Screen name="AIHub" component={AIHubScreen} options={{ title: 'AI Hub' }} />
       <Stack.Screen name="ProgressV2" component={ProgressV2Screen} options={{ title: 'Progress V2' }} />
-      <Stack.Screen name="Pricing" component={PricingScreen} options={{ title: 'Choose Your Plan' }} />
-      <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Complete Purchase' }} />
     </Stack.Navigator>
   );
 }

@@ -31,20 +31,8 @@ async function writeQueue(queue: QueuedWorkout[]) {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
 }
 
-/**
- * Phase 3: Prevent duplicate workout uploads
- * Checks if workout with same ID already exists in queue
- */
 export async function enqueueWorkout(workout: QueuedWorkout) {
   const queue = await readQueue();
-  
-  // Check for duplicate by ID
-  const isDuplicate = queue.some(item => item.id === workout.id);
-  if (isDuplicate) {
-    console.warn(`[WorkoutQueue] Duplicate workout prevented: ${workout.id}`);
-    return; // Don't add duplicate
-  }
-  
   await writeQueue([...queue, workout]);
 }
 

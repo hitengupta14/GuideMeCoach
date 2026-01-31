@@ -3,20 +3,59 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useSession } from '@/hooks/useSession'
+
+interface User {
+  id: string
+  name: string
+  email: string
+  height: number | null
+  weight: number | null
+  age: number | null
+  gender: string | null
+  experienceLevel: string | null
+  goals: string[] | null
+  medicalConditions: string[] | null
+  currentWeight: number | null
+  targetWeight: number | null
+}
 
 export default function ProfilePage() {
-  const router = useRouter()
-  const { user, isLoading: sessionLoading } = useSession()
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
-  const [formData, setFormData] = useState<Partial<typeof user>>({})
+  const [formData, setFormData] = useState<Partial<User>>({})
   const [message, setMessage] = useState('')
+  const router = useRouter()
 
   useEffect(() => {
-    if (user) {
-      setFormData(user)
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          router.push('/auth/login')
+          return
+        }
+
+        const data = await response.json()
+        if (data.user) {
+          setUser(data.user)
+          setFormData(data.user)
+        } else {
+          router.push('/auth/login')
+        }
+      } catch (err) {
+        console.error('Session check failed:', err)
+        router.push('/auth/login')
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [user])
+
+    checkSession()
+  }, [router])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -63,7 +102,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (sessionLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">

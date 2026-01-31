@@ -4,8 +4,6 @@ import { exercises, exerciseMuscles, users, workoutPlans } from '@/db/schema'
 import { eq, inArray, and } from 'drizzle-orm'
 import { filterExercisesForUser } from '@/lib/planner/filters'
 import { generateProgressivePlan } from '@/lib/planner/generator'
-import { applyHardConstraints } from '@/lib/planner/constraints'
-import { sanitizePlanExercises } from '@/lib/planner/whitelist'
 import type { UserPreferences } from '@/lib/planner/types'
 
 /**
@@ -16,26 +14,10 @@ export async function POST(request: NextRequest) {
   try {
     const preferences: UserPreferences = await request.json()
 
-    // Validate required high-signal fields
-    const missingFields: string[] = []
-    
-    if (!preferences.age) missingFields.push('age')
-    if (!preferences.weight) missingFields.push('weight')
-    if (!preferences.height) missingFields.push('height')
-    if (!preferences.gender) missingFields.push('gender')
-    if (!preferences.experienceLevel) missingFields.push('experience level')
-    if (!preferences.goals || preferences.goals.length === 0) missingFields.push('fitness goals')
-    if (!preferences.availableEquipment || preferences.availableEquipment.length === 0) missingFields.push('available equipment')
-    if (!preferences.preferredLocation) missingFields.push('preferred workout location')
-    if (!preferences.timeAvailability) missingFields.push('time availability per session')
-    
-    if (missingFields.length > 0) {
+    // Validate required fields
+    if (!preferences.age || !preferences.weight || !preferences.height || !preferences.goals.length) {
       return NextResponse.json(
-        {
-          error: 'Please provide all required information',
-          missingFields,
-          message: `We need your ${missingFields.join(', ')} to create an effective workout plan.`,
-        },
+        { error: 'Missing required fields: age, weight, height, goals' },
         { status: 400 }
       )
     }
@@ -86,16 +68,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate progressive 12-week plan
-    let plan = generateProgressivePlan(
+    const plan = generateProgressivePlan(
       filteredExercises,
       transformedExerciseMuscles,
       preferences,
       12
     )
-
-    // Whitelist exercises and apply hard constraints
-    plan = sanitizePlanExercises(plan, new Set(filteredExercises.map((ex) => ex.id)))
-    plan = applyHardConstraints(plan, preferences)
 
     // Calculate plan metadata
     const totalExercises = plan.weeks.reduce(

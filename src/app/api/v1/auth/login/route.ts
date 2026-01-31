@@ -19,16 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user from database
-    const result = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        passwordHash: users.passwordHash,
-        isAdmin: users.isAdmin,
-      })
-      .from(users)
-      .where(eq(users.email, email));
+    const result = await db.select().from(users).where(eq(users.email, email));
     const user = result[0];
 
     if (!user || !user.passwordHash) {

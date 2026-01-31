@@ -21,17 +21,14 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
     cardio: '❤️',
   }
 
-  const categoryIcon = categoryIcons[exercise.category as keyof typeof categoryIcons] || '💪'
-  const difficultyColor = difficultyColors[exercise.difficulty as keyof typeof difficultyColors] || 'bg-gray-100 text-gray-800'
-
   return (
     <Link href={`/exercises/${exercise.slug}`}>
       <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition cursor-pointer h-full overflow-hidden">
         {/* Header with icon and category */}
         <div className="bg-gradient-to-r from-primary-500 to-primary-600 p-4 text-white">
           <div className="flex items-start justify-between">
-            <span className="text-3xl">{categoryIcon}</span>
-            <span className={`px-2 py-1 rounded text-xs font-semibold ${difficultyColor}`}>
+            <span className="text-3xl">{categoryIcons[exercise.category]}</span>
+            <span className={`px-2 py-1 rounded text-xs font-semibold ${difficultyColors[exercise.difficulty]}`}>
               {exercise.difficulty.charAt(0).toUpperCase() + exercise.difficulty.slice(1)}
             </span>
           </div>
@@ -44,7 +41,7 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
           <div className="mb-3">
             <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Equipment</p>
             <div className="flex flex-wrap gap-1">
-              {exercise.equipment?.map((eq: string) => (
+              {exercise.equipment?.map((eq) => (
                 <span key={eq} className="inline-block bg-gray-100 px-2 py-1 rounded text-xs text-gray-700">
                   {eq.replace(/_/g, ' ')}
                 </span>
@@ -65,7 +62,7 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
             <div className="mb-3">
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Movement</p>
               <div className="flex flex-wrap gap-1">
-                {exercise.movementPattern.map((pattern: string) => (
+                {exercise.movementPattern.map((pattern) => (
                   <span key={pattern} className="inline-block bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs">
                     {pattern}
                   </span>

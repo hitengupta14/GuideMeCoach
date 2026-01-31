@@ -1,16 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useSession } from '@/hooks/useSession'
-import { useAPIError } from '@/hooks/useAPIError'
-import { apiWrapper } from '@/lib/api-wrapper'
+import Link from 'next/link'
 
 export default function SettingsPage() {
-  const { isLoading, user } = useSession({ required: true })
-  const router = useRouter()
-  const { handleError, handleSuccess } = useAPIError()
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState({
     theme: 'light',
     notifications: true,
@@ -26,6 +22,32 @@ export default function SettingsPage() {
   })
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
+  const router = useRouter()
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        })
+
+        const data = await response.json()
+        if (!response.ok || !data.user) {
+          router.push('/auth/login')
+          return
+        }
+
+        setUser(data.user)
+      } catch (err) {
+        console.error('Session check failed:', err)
+        router.push('/auth/login')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkSession()
+  }, [router])
 
   useEffect(() => {
     // Load settings from localStorage
@@ -63,35 +85,47 @@ export default function SettingsPage() {
       return
     }
 
-    const token = localStorage.getItem('token')
-    if (!token) {
-      router.push('/auth/login')
-      return
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/auth/login')
+        return
+      }
+
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setPasswordError(data.error || 'Failed to change password')
+        return
+      }
+
+      setPasswordSuccess('Password changed successfully!')
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setTimeout(() => {
+        setShowPasswordChange(false)
+        setPasswordSuccess('')
+      }, 2000)
+    } catch (error) {
+      console.error('Error changing password:', error)
+      setPasswordError('An error occurred while changing password')
     }
-
-    const { data, error } = await apiWrapper.post<{ success: boolean }>(
-      '/api/auth/change-password',
-      {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
-      },
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-
-    if (error) {
-      setPasswordError(error.message || 'Failed to change password')
-      return
-    }
-
-    handleSuccess('Password changed successfully!')
-    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
-    setTimeout(() => {
-      setShowPasswordChange(false)
-      setPasswordSuccess('')
-    }, 2000)
   }
 
   const handleDeleteAccount = async () => {
+    if (!user) return
+
     const confirmed = window.confirm('Are you sure you want to delete your account? This action cannot be undone.')
     if (!confirmed) return
 
@@ -102,13 +136,13 @@ export default function SettingsPage() {
         credentials: 'include',
       })
       localStorage.removeItem('appSettings')
-      window.location.href = '/'
+      router.push('/')
     } catch (error) {
       console.error('Error deleting account:', error)
     }
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">

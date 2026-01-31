@@ -1,17 +1,26 @@
 import { db } from '@/db'
 import { workoutSessions, workoutLogs, exercises, users } from '@/db/schema'
 import { eq, gte, lte, desc, and } from 'drizzle-orm'
-import { NextRequest } from 'next/server'
-import { verifySession } from '@/lib/auth-helpers'
+import { cookies } from 'next/headers'
+import { jwtVerify } from 'jose'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
 export async function POST(req: Request) {
   try {
-    const nextReq = new NextRequest(req)
-    const userId = await verifySession(nextReq)
+    const cookieStore = await cookies()
+    const token = cookieStore.get('session')?.value
 
-    if (!userId) {
+    if (!token) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    if (!verified) {
+      return Response.json({ error: 'Invalid token' }, { status: 401 })
+    }
+
+    const userId = verified.payload.userId as string
     const { format = 'json', startDate, endDate, type = 'all' } = await req.json()
 
     // Validate dates

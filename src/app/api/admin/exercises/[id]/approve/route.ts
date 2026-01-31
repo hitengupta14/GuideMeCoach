@@ -1,8 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth-helpers'
+import { cookies } from 'next/headers'
+import { jwtVerify } from 'jose'
 import { db } from '@/db'
 import { exercises, adminActivityLogs, users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+
+async function verifySession(request: NextRequest): Promise<string | null> {
+  try {
+    const authHeader = request.headers.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+      if (verified) return verified.payload.userId as string
+    }
+
+    const cookieStore = await cookies()
+    const token = cookieStore.get('session')?.value
+    if (!token) return null
+
+    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    if (!verified) return null
+
+    return verified.payload.userId as string
+  } catch {
+    return null
+  }
+}
 
 export async function PATCH(
   request: NextRequest,

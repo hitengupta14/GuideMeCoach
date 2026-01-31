@@ -15,8 +15,6 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
-import { useAIQuota } from '../../hooks/useAIQuota';
-import UpgradeModal from '../../components/UpgradeModal';
 
 interface PlanFormData {
   goal: string;
@@ -41,8 +39,6 @@ export default function AIPlannerScreen() {
 
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
   const [showForm, setShowForm] = useState(true);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const { canAccessFeature, refetch: refetchQuota } = useAIQuota();
 
   const goals = [
     { value: 'muscle_building', label: 'Muscle Building' },
@@ -66,12 +62,6 @@ export default function AIPlannerScreen() {
 
   const generatePlanMutation = useMutation({
     mutationFn: async () => {
-      // Check quota before making API call
-      if (!canAccessFeature('planner')) {
-        setShowUpgradeModal(true);
-        throw new Error('Upgrade required');
-      }
-      
       return apiClient.request('/planner/ai-generate', {
         method: 'POST',
         body: JSON.stringify({
@@ -81,16 +71,12 @@ export default function AIPlannerScreen() {
         }),
       });
     },
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       setGeneratedPlan(data);
       setShowForm(false);
-      // Refresh quota after successful generation
-      await refetchQuota();
     },
-    onError: (error: any) => {
-      if (error.message !== 'Upgrade required') {
-        Alert.alert('Error', 'Failed to generate plan. Please try again.');
-      }
+    onError: () => {
+      Alert.alert('Error', 'Failed to generate plan. Please try again.');
     },
   });
 
@@ -502,13 +488,6 @@ export default function AIPlannerScreen() {
           )}
         </TouchableOpacity>
       </View>
-
-      {/* Upgrade Modal */}
-      <UpgradeModal
-        visible={showUpgradeModal}
-        feature="planner"
-        onClose={() => setShowUpgradeModal(false)}
-      />
     </View>
   );
 }

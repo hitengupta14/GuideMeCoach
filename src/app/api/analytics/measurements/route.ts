@@ -1,18 +1,27 @@
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth-helpers'
+import { cookies } from 'next/headers'
+import { jwtVerify } from 'jose'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
 // GET - Fetch measurements
 export async function GET(req: Request) {
   try {
-    const nextReq = new NextRequest(req)
-    const userId = await verifySession(nextReq)
+    const cookieStore = await cookies()
+    const token = cookieStore.get('session')?.value
 
-    if (!userId) {
+    if (!token) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    if (!verified) {
+      return Response.json({ error: 'Invalid token' }, { status: 401 })
+    }
+
+    const userId = verified.payload.userId as string
 
     const user = await db
       .select({
@@ -70,12 +79,19 @@ export async function GET(req: Request) {
 // POST - Update measurements
 export async function POST(req: Request) {
   try {
-    const nextReq = new NextRequest(req)
-    const userId = await verifySession(nextReq)
+    const cookieStore = await cookies()
+    const token = cookieStore.get('session')?.value
 
-    if (!userId) {
+    if (!token) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    if (!verified) {
+      return Response.json({ error: 'Invalid token' }, { status: 401 })
+    }
+
+    const userId = verified.payload.userId as string
     const body = await req.json()
 
     const { weight, height, targetWeight, age } = body

@@ -6,7 +6,6 @@ export const navigationRef = createNavigationContainerRef();
 
 export function navigate(name: string, params?: object) {
   if (navigationRef.isReady()) {
-    // @ts-ignore - navigation type mismatch with dynamic routes
-    navigationRef.navigate(name, params);
+    navigationRef.navigate(name as never, params as never);
   }
 }

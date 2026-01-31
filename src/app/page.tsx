@@ -1,22 +1,39 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSession } from '@/hooks/useSession'
 
 export default function Home() {
   const router = useRouter()
-  const { isLoading } = useSession({ required: false })
+  const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    if (!isLoading) {
-      // Note: useSession doesn't auto-redirect when required: false
-      // We'll handle the redirect check after loading
+    // Check session via cookie
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.user) {
+            router.replace('/dashboard')
+            return
+          }
+        }
+      } catch (err) {
+        // Not logged in, continue to home page
+      } finally {
+        setChecking(false)
+      }
     }
-  }, [isLoading, router])
 
-  if (isLoading) {
+    checkSession()
+  }, [router])
+
+  if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-indigo-950">
         <div className="text-center">

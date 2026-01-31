@@ -17,12 +17,10 @@ export const API_BASE_URL = __DEV__
 
 export const config = {
   apiUrl: API_BASE_URL,
-  timeout: 60000, // 60 second timeout for mobile networks (increased from 30s)
+  timeout: 30000, // 30 second timeout for mobile networks
   headers: {
     'Content-Type': 'application/json',
   },
-  maxRetries: 3, // Retry failed requests up to 3 times
-  retryDelay: 1000, // Initial retry delay in ms
 };
 
 console.log('📡 API Configuration:', {

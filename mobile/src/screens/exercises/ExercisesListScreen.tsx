@@ -148,7 +148,7 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
                 <Text
                   style={[
                     typography.caption2,
-                    { color: colors.textSecondary, marginTop: spacing.sm },
+                    { color: colors.textTertiary, marginTop: spacing.sm },
                   ]}
                   numberOfLines={1}
                 >
@@ -179,7 +179,7 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
         <Text style={[typography.heading2, { color: colors.textInverse, marginBottom: spacing.sm }]}>
           Exercises
         </Text>
-        <Text style={[typography.body3, { color: `${colors.textInverse}` }]}>
+        <Text style={[typography.body3, { color: `${colors.textInverse}99` }]}>
           {exercises.length} exercises available
         </Text>
       </LinearGradient>
@@ -221,7 +221,7 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
             style={[
               styles.filterChip,
               {
-                backgroundColor: selectedCategory === cat ? colors.primary : colors.backgroundSecondary,
+                backgroundColor: selectedCategory === cat ? colors.primary : colors.surfaceSecondary,
               },
             ]}
             onPress={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
@@ -253,7 +253,7 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
             style={[
               styles.filterChip,
               {
-                backgroundColor: selectedDifficulty === diff ? colors.secondary : colors.backgroundSecondary,
+                backgroundColor: selectedDifficulty === diff ? colors.secondary : colors.surfaceSecondary,
               },
             ]}
             onPress={() =>

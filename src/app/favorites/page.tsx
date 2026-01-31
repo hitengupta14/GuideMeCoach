@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useSession } from '@/hooks/useSession'
 
 interface Exercise {
   id: string
@@ -19,15 +19,35 @@ interface Favorite {
 }
 
 export default function FavoritesPage() {
-  const { user, isLoading } = useSession({ required: true })
+  const [user, setUser] = useState<any>(null)
   const [favorites, setFavorites] = useState<Favorite[]>([])
+  const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const router = useRouter()
 
   useEffect(() => {
-    if (user) {
-      fetchFavorites(user.id)
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        })
+
+        const data = await response.json()
+        if (!response.ok || !data.user) {
+          router.push('/auth/login')
+          return
+        }
+
+        setUser(data.user)
+        fetchFavorites(data.user.id)
+      } catch (err) {
+        console.error('Session check failed:', err)
+        router.push('/auth/login')
+      }
     }
-  }, [user])
+
+    checkSession()
+  }, [router])
 
   const fetchFavorites = async (userId: string) => {
     try {
@@ -36,11 +56,13 @@ export default function FavoritesPage() {
       setFavorites(data)
     } catch (error) {
       console.error('Error fetching favorites:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
   const removeFavorite = async (favoriteId: string) => {
-    if (!user?.id) return
+    if (!user) return
 
     try {
       await fetch(`/api/users/${user.id}/favorites`, {
@@ -55,7 +77,7 @@ export default function FavoritesPage() {
     }
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
@@ -65,6 +87,8 @@ export default function FavoritesPage() {
       </div>
     )
   }
+
+  if (!user) return null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-10 px-4">

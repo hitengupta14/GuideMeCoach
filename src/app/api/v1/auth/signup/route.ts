@@ -19,10 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await db
-      .select({ id: users.id, email: users.email })
-      .from(users)
-      .where(eq(users.email, email));
+    const existingUser = await db.select().from(users).where(eq(users.email, email));
     if (existingUser.length > 0) {
       return NextResponse.json(
         { success: false, error: 'User already exists' },

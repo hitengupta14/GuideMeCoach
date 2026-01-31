@@ -12,13 +12,8 @@ interface ThemeState {
     card: string;
     text: string;
     textSecondary: string;
-    textTertiary?: string;
-    textInverse?: string;
     border: string;
     primary: string;
-    primaryDark?: string;
-    secondary?: string;
-    backgroundSecondary?: string;
     success: string;
     warning: string;
     error: string;
@@ -30,13 +25,8 @@ const lightColors = {
   card: '#ffffff',
   text: '#000000',
   textSecondary: '#666666',
-  textTertiary: '#999999',
-  textInverse: '#FFFFFF',
   border: '#e0e0e0',
   primary: '#007AFF',
-  primaryDark: '#0051D5',
-  secondary: '#FB923C',
-  backgroundSecondary: '#F9FAFB',
   success: '#34C759',
   warning: '#FF9500',
   error: '#FF3B30',
@@ -47,13 +37,8 @@ const darkColors = {
   card: '#1c1c1e',
   text: '#ffffff',
   textSecondary: '#98989d',
-  textTertiary: '#666666',
-  textInverse: '#000000',
   border: '#38383a',
   primary: '#0A84FF',
-  primaryDark: '#0051D5',
-  secondary: '#FDBA74',
-  backgroundSecondary: '#374151',
   success: '#30D158',
   warning: '#FF9F0A',
   error: '#FF453A',

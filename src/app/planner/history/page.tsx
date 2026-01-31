@@ -1,14 +1,40 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useSession } from '@/hooks/useSession'
 import ReactMarkdown from 'react-markdown'
 import PlanHistoryComponent from '@/components/PlanHistoryComponent'
 
 export default function PlanHistoryPage() {
-  const { user, isLoading } = useSession({ required: true })
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  if (isLoading) {
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        })
+
+        const data = await response.json()
+        if (!response.ok || !data.user) {
+          window.location.href = '/auth/login'
+          return
+        }
+
+        setUser(data.user)
+      } catch (err) {
+        console.error('Session check failed:', err)
+        window.location.href = '/auth/login'
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkSession()
+  }, [])
+
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100">
         <div className="text-center">
@@ -17,6 +43,10 @@ export default function PlanHistoryPage() {
         </div>
       </div>
     )
+  }
+
+  if (!user) {
+    return null
   }
 
   return (

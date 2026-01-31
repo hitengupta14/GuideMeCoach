@@ -1,8 +1,10 @@
 import { db } from '@/db'
 import { workoutPlans } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { NextRequest } from 'next/server'
-import { verifySession } from '@/lib/auth-helpers'
+import { cookies } from 'next/headers'
+import { jwtVerify } from 'jose'
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
 // Predefined workout templates
 const WORKOUT_TEMPLATES = {
@@ -138,12 +140,19 @@ export async function GET(req: Request) {
 // POST - Apply template to user's plan
 export async function POST(req: Request) {
   try {
-    const nextReq = new NextRequest(req)
-    const userId = await verifySession(nextReq)
+    const cookieStore = await cookies()
+    const token = cookieStore.get('session')?.value
 
-    if (!userId) {
+    if (!token) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
+    if (!verified) {
+      return Response.json({ error: 'Invalid token' }, { status: 401 })
+    }
+
+    const userId = verified.payload.userId as string
     const { templateId, planName } = await req.json()
 
     if (!templateId || !(templateId in WORKOUT_TEMPLATES)) {

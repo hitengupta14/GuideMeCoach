@@ -1,23 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useThemeStore } from '../../store/theme';
 import { lightColors, darkColors } from '../../theme/colors';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
-import { useAIQuota } from '../../hooks/useAIQuota';
-import UpgradeModal from '../../components/UpgradeModal';
 
 export default function AiInsightsScreen() {
   const [weeks, setWeeks] = useState(4);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const { canAccessFeature } = useAIQuota();
-
-  useEffect(() => {
-    // Check access on mount
-    if (!canAccessFeature('insights')) {
-      setShowUpgradeModal(true);
-    }
-  }, [canAccessFeature]);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['ai-insights', weeks],
@@ -87,13 +76,6 @@ export default function AiInsightsScreen() {
           ))}
         </View>
       ) : null}
-
-      {/* Upgrade Modal */}
-      <UpgradeModal
-        visible={showUpgradeModal}
-        feature="insights"
-        onClose={() => setShowUpgradeModal(false)}
-      />
     </ScrollView>
   );
 }
