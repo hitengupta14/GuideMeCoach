@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/solid'
@@ -64,7 +64,7 @@ const PRICING_PLANS = [
   },
 ]
 
-export default function PricingPage() {
+function PricingContent() {
   const [isCancelling, setIsCancelling] = useState(false)
   const [selectedRegion, setSelectedRegion] = useState<'india' | 'international'>('india')
   const router = useRouter()
@@ -387,5 +387,20 @@ export default function PricingPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center">
+        <div className="animate-pulse text-center">
+          <div className="w-20 h-20 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Loading pricing...</p>
+        </div>
+      </div>
+    }>
+      <PricingContent />
+    </Suspense>
   )
 }
