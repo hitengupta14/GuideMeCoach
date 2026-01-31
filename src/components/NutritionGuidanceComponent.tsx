@@ -1,54 +1,33 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader, AlertCircle, Zap, Droplet, Apple, Pill } from 'lucide-react'
+import { Loader, AlertCircle, Apple, UtensilsCrossed } from 'lucide-react'
 import { useAPIError } from '@/hooks/useAPIError'
 import { apiWrapper } from '@/lib/api-wrapper'
 
-interface MacroInfo {
-  grams: number
-  percentage: number
-  rationale: string
-}
-
 interface NutritionGuidance {
-  tdeeEstimate: {
-    bmr: number
-    tdee: number
-    explanation: string
+  calorieRange: { min: number; max: number }
+  proteinMinimum: number
+  simpleRules: string[]
+  mealTemplates: {
+    breakfast: string[]
+    lunch: string[]
+    dinner: string[]
+    snacks: string[]
   }
-  macroRecommendation: {
-    protein: MacroInfo
-    carbs: MacroInfo
-    fats: MacroInfo
-  }
-  mealTiming: {
-    preWorkout: string
-    intraWorkout?: string
-    postWorkout: string
-    tips: string[]
-  }
-  supplementRecommendations: Array<{
-    supplement: string
-    dosage: string
-    timing: string
-    benefit: string
-    safety: string
-  }>
-  hydrationGuide: string
-  generalTips: string[]
+  indianContext: string[]
+  avoidAdvice: string[]
 }
 
 export default function NutritionGuidanceComponent({ userId }: { userId: string }) {
   const { handleError } = useAPIError()
-  const [guidance, setGuidance] = useState<NutritionGuidance | null>(null)
+  const [guidance, setGuidance] = useState<{ guidance: NutritionGuidance } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'macros' | 'timing' | 'supplements'>('overview')
 
   useEffect(() => {
     const fetchGuidance = async () => {
-      const { data, error: apiError } = await apiWrapper.get<NutritionGuidance>('/api/nutrition/guidance')
+      const { data, error: apiError } = await apiWrapper.get<{ guidance: NutritionGuidance }>('/api/nutrition/guidance')
 
       if (apiError) {
         setError(apiError.message || 'Failed to fetch nutrition guidance')
@@ -86,13 +65,15 @@ export default function NutritionGuidanceComponent({ userId }: { userId: string 
     )
   }
 
+  const data = guidance.guidance
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Nutrition Guidance</h2>
         <p className="text-gray-600 mt-1">
-          Personalized nutrition strategy based on your profile. This is guidance only, not a meal plan.
+          Simple, doable nutrition guidelines based on your profile. This is guidance only, not a strict meal plan.
         </p>
       </div>
 
@@ -104,207 +85,127 @@ export default function NutritionGuidanceComponent({ userId }: { userId: string 
         </p>
       </div>
 
-      {/* TDEE Overview */}
+      {/* Calorie & Protein Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+        <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <Zap className="w-6 h-6 text-yellow-500" />
-            <h3 className="font-bold text-gray-900">Estimated TDEE</h3>
+            <Apple className="w-6 h-6 text-indigo-600" />
+            <h3 className="font-bold text-gray-900">Daily Calorie Target</h3>
           </div>
-          <div className="space-y-3">
-            <div>
-              <p className="text-gray-600 text-sm">BMR (Basal Metabolic Rate)</p>
-              <p className="text-2xl font-bold text-gray-900">{guidance.tdeeEstimate.bmr} kcal</p>
-            </div>
-            <div className="pt-3 border-t border-gray-200">
-              <p className="text-gray-600 text-sm">TDEE (Daily Energy Expenditure)</p>
-              <p className="text-3xl font-bold text-indigo-600">{guidance.tdeeEstimate.tdee} kcal</p>
-            </div>
-            <p className="text-sm text-gray-600 pt-3 border-t border-gray-200">
-              {guidance.tdeeEstimate.explanation}
+          <div className="text-center">
+            <p className="text-4xl font-bold text-indigo-600">
+              {data.calorieRange.min} - {data.calorieRange.max}
             </p>
+            <p className="text-gray-600 mt-1">calories per day</p>
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <Apple className="w-6 h-6 text-green-500" />
-            <h3 className="font-bold text-gray-900">Quick Targets</h3>
+            <UtensilsCrossed className="w-6 h-6 text-green-600" />
+            <h3 className="font-bold text-gray-900">Minimum Protein</h3>
           </div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-700 font-semibold">Protein</span>
-              <div className="text-right">
-                <p className="text-xl font-bold text-gray-900">
-                  {guidance.macroRecommendation.protein.grams}g
-                </p>
-                <p className="text-xs text-gray-600">{guidance.macroRecommendation.protein.percentage}%</p>
-              </div>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-700 font-semibold">Carbs</span>
-              <div className="text-right">
-                <p className="text-xl font-bold text-gray-900">
-                  {guidance.macroRecommendation.carbs.grams}g
-                </p>
-                <p className="text-xs text-gray-600">{guidance.macroRecommendation.carbs.percentage}%</p>
-              </div>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-700 font-semibold">Fats</span>
-              <div className="text-right">
-                <p className="text-xl font-bold text-gray-900">
-                  {guidance.macroRecommendation.fats.grams}g
-                </p>
-                <p className="text-xs text-gray-600">{guidance.macroRecommendation.fats.percentage}%</p>
-              </div>
-            </div>
+          <div className="text-center">
+            <p className="text-4xl font-bold text-green-600">{data.proteinMinimum}g</p>
+            <p className="text-gray-600 mt-1">per day</p>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-        <div className="flex border-b border-gray-200 flex-wrap">
-          {['overview', 'macros', 'timing', 'supplements'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab as any)}
-              className={`flex-1 px-4 py-4 font-semibold text-center transition-colors text-sm sm:text-base ${
-                activeTab === tab
-                  ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {tab === 'overview' && '📊 Overview'}
-              {tab === 'macros' && '🥗 Macros'}
-              {tab === 'timing' && '⏰ Meal Timing'}
-              {tab === 'supplements' && '💊 Supplements'}
-            </button>
+      {/* Simple Rules */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+        <h3 className="font-bold text-gray-900 mb-4 text-lg">Simple Rules to Follow</h3>
+        <ul className="space-y-2">
+          {data.simpleRules.map((rule, idx) => (
+            <li key={idx} className="flex gap-2 text-gray-700">
+              <span className="text-indigo-600 font-bold">✓</span>
+              <span>{rule}</span>
+            </li>
           ))}
-        </div>
+        </ul>
+      </div>
 
-        <div className="p-6 space-y-4">
-          {/* Overview Tab */}
-          {activeTab === 'overview' && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-bold text-gray-900 mb-3">General Tips</h3>
-                <div className="space-y-2">
-                  {guidance.generalTips.map((tip, idx) => (
-                    <div key={idx} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
-                      <span className="text-green-600 font-bold flex-shrink-0">✓</span>
-                      <p className="text-gray-800 text-sm">{tip}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-gray-200">
-                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                  <Droplet className="w-5 h-5 text-blue-500" />
-                  Hydration Guide
-                </h3>
-                <p className="text-gray-800 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  {guidance.hydrationGuide}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Macros Tab */}
-          {activeTab === 'macros' && (
-            <div className="space-y-4">
-              {[
-                { label: 'Protein', data: guidance.macroRecommendation.protein, color: 'border-red-200 bg-red-50' },
-                { label: 'Carbs', data: guidance.macroRecommendation.carbs, color: 'border-yellow-200 bg-yellow-50' },
-                { label: 'Fats', data: guidance.macroRecommendation.fats, color: 'border-blue-200 bg-blue-50' },
-              ].map((macro) => (
-                <div key={macro.label} className={`border rounded-lg p-4 ${macro.color}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-bold text-gray-900">{macro.label}</h4>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-gray-900">{macro.data.grams}g</p>
-                      <p className="text-sm text-gray-600">{macro.data.percentage}% of calories</p>
-                    </div>
-                  </div>
-                  <p className="text-gray-800 text-sm">{macro.data.rationale}</p>
-                </div>
+      {/* Meal Templates */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+        <h3 className="font-bold text-gray-900 mb-4 text-lg">Meal Templates (Pick & Choose)</h3>
+        <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="font-semibold text-gray-800 mb-2">🍳 Breakfast Options</h4>
+            <ul className="space-y-2">
+              {data.mealTemplates.breakfast.map((meal, idx) => (
+                <li key={idx} className="text-sm text-gray-700 pl-4 border-l-2 border-yellow-300">
+                  {meal}
+                </li>
               ))}
-            </div>
-          )}
+            </ul>
+          </div>
 
-          {/* Meal Timing Tab */}
-          {activeTab === 'timing' && (
-            <div className="space-y-4">
-              <div className="border border-indigo-200 bg-indigo-50 rounded-lg p-4">
-                <h4 className="font-bold text-gray-900 mb-2">Pre-Workout</h4>
-                <p className="text-gray-800 text-sm">{guidance.mealTiming.preWorkout}</p>
-              </div>
+          <div>
+            <h4 className="font-semibold text-gray-800 mb-2">🍛 Lunch Options</h4>
+            <ul className="space-y-2">
+              {data.mealTemplates.lunch.map((meal, idx) => (
+                <li key={idx} className="text-sm text-gray-700 pl-4 border-l-2 border-orange-300">
+                  {meal}
+                </li>
+              ))}
+            </ul>
+          </div>
 
-              {guidance.mealTiming.intraWorkout && (
-                <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
-                  <h4 className="font-bold text-gray-900 mb-2">During Workout</h4>
-                  <p className="text-gray-800 text-sm">{guidance.mealTiming.intraWorkout}</p>
-                </div>
-              )}
+          <div>
+            <h4 className="font-semibold text-gray-800 mb-2">🍲 Dinner Options</h4>
+            <ul className="space-y-2">
+              {data.mealTemplates.dinner.map((meal, idx) => (
+                <li key={idx} className="text-sm text-gray-700 pl-4 border-l-2 border-blue-300">
+                  {meal}
+                </li>
+              ))}
+            </ul>
+          </div>
 
-              <div className="border border-green-200 bg-green-50 rounded-lg p-4">
-                <h4 className="font-bold text-gray-900 mb-2">Post-Workout</h4>
-                <p className="text-gray-800 text-sm">{guidance.mealTiming.postWorkout}</p>
-              </div>
-
-              {guidance.mealTiming.tips.length > 0 && (
-                <div className="pt-4 border-t border-gray-200">
-                  <h4 className="font-bold text-gray-900 mb-3">Tips</h4>
-                  <div className="space-y-2">
-                    {guidance.mealTiming.tips.map((tip, idx) => (
-                      <p key={idx} className="text-gray-800 text-sm flex gap-2">
-                        <span className="text-indigo-600 font-bold">•</span> {tip}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Supplements Tab */}
-          {activeTab === 'supplements' && (
-            <div className="space-y-4">
-              {guidance.supplementRecommendations.length > 0 ? (
-                guidance.supplementRecommendations.map((supplement, idx) => (
-                  <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-bold text-gray-900">{supplement.supplement}</h4>
-                        <p className="text-sm text-gray-600 mt-1">
-                          <strong>Dosage:</strong> {supplement.dosage}
-                        </p>
-                      </div>
-                      <Pill className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-600 text-xs uppercase font-semibold">Timing</p>
-                        <p className="text-gray-900">{supplement.timing}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600 text-xs uppercase font-semibold">Benefit</p>
-                        <p className="text-gray-900">{supplement.benefit}</p>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded px-3 py-2">
-                      <strong>Safety:</strong> {supplement.safety}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-600 text-center py-8">No supplement recommendations at this time.</p>
-              )}
-            </div>
-          )}
+          <div>
+            <h4 className="font-semibold text-gray-800 mb-2">🥜 Snack Options</h4>
+            <ul className="space-y-2">
+              {data.mealTemplates.snacks.map((meal, idx) => (
+                <li key={idx} className="text-sm text-gray-700 pl-4 border-l-2 border-green-300">
+                  {meal}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
+      </div>
+
+      {/* Indian Context */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 shadow-sm">
+        <h3 className="font-bold text-gray-900 mb-4 text-lg">🇮🇳 Indian Food Tips</h3>
+        <ul className="space-y-2">
+          {data.indianContext.map((tip, idx) => (
+            <li key={idx} className="flex gap-2 text-gray-700">
+              <span className="text-amber-600">•</span>
+              <span>{tip}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Avoid Advice */}
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6 shadow-sm">
+        <h3 className="font-bold text-red-900 mb-4 text-lg">⚠️ Common Mistakes to Avoid</h3>
+        <ul className="space-y-2">
+          {data.avoidAdvice.map((advice, idx) => (
+            <li key={idx} className="flex gap-2 text-red-800">
+              <span className="text-red-600 font-bold">✗</span>
+              <span>{advice}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Bottom Note */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <p className="text-gray-600 text-sm text-center">
+          💡 Remember: Consistency beats perfection. Focus on getting most meals right, not every single one.
+        </p>
       </div>
     </div>
   )

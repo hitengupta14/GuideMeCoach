@@ -251,6 +251,9 @@ export default function ProgressInsightsComponent({ userId }: { userId: string }
 
           <div className="prose prose-sm max-w-none text-gray-800 space-y-4">
             {insights.split('\n').map((line, idx) => {
+              // Check if this is a premium-locked feature line
+              const isPremiumLocked = line.includes('🔒 Upgrade to Premium')
+              
               if (line.startsWith('#')) {
                 return (
                   <h4 key={idx} className="font-bold text-gray-900 mt-4 mb-2">
@@ -258,10 +261,15 @@ export default function ProgressInsightsComponent({ userId }: { userId: string }
                   </h4>
                 )
               } else if (line.startsWith('-') || line.startsWith('•')) {
+                const content = line.replace(/^[-•]\s*/, '')
                 return (
-                  <div key={idx} className="flex gap-2 ml-4">
-                    <span className="text-indigo-600 font-bold">•</span>
-                    <p>{line.replace(/^[-•]\s*/, '')}</p>
+                  <div key={idx} className={`flex gap-2 ml-4 ${isPremiumLocked ? 'items-center' : ''}`}>
+                    <span className={`font-bold ${isPremiumLocked ? 'text-yellow-600' : 'text-indigo-600'}`}>
+                      {isPremiumLocked ? '🔒' : '•'}
+                    </span>
+                    <p className={isPremiumLocked ? 'font-medium text-gray-900' : ''}>
+                      {content}
+                    </p>
                   </div>
                 )
               } else if (line.startsWith('**') && line.endsWith('**')) {
@@ -279,6 +287,21 @@ export default function ProgressInsightsComponent({ userId }: { userId: string }
               }
               return null
             })}
+            
+            {/* Check if insights contain premium upgrade message */}
+            {insights.includes('🔒 Upgrade to Premium') && (
+              <div className="mt-6 pt-6 border-t border-indigo-200">
+                <a
+                  href="/pricing"
+                  className="block w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-center py-3 px-6 rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg"
+                >
+                  Unlock AI-Powered Insights with Premium
+                </a>
+                <p className="text-center text-gray-600 text-sm mt-2">
+                  Get personalized recommendations, plateau detection, and adaptive workout suggestions
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -3,20 +3,59 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useSession } from '@/hooks/useSession'
+
+interface User {
+  id: string
+  name: string
+  email: string
+  height: number | null
+  weight: number | null
+  age: number | null
+  gender: string | null
+  experienceLevel: string | null
+  goals: string[] | null
+  medicalConditions: string[] | null
+  currentWeight: number | null
+  targetWeight: number | null
+}
 
 export default function ProfilePage() {
-  const router = useRouter()
-  const { user, isLoading: sessionLoading, refetch } = useSession()
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
-  const [formData, setFormData] = useState<Partial<typeof user>>({})
+  const [formData, setFormData] = useState<Partial<User>>({})
   const [message, setMessage] = useState('')
+  const router = useRouter()
 
   useEffect(() => {
-    if (user) {
-      setFormData(user)
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          router.push('/auth/login')
+          return
+        }
+
+        const data = await response.json()
+        if (data.user) {
+          setUser(data.user)
+          setFormData(data.user)
+        } else {
+          router.push('/auth/login')
+        }
+      } catch (err) {
+        console.error('Session check failed:', err)
+        router.push('/auth/login')
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [user])
+
+    checkSession()
+  }, [router])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -24,6 +63,16 @@ export default function ProfilePage() {
       ...prev,
       [name]: value === '' ? null : (name === 'height' || name === 'weight' || name === 'age' || name === 'currentWeight' || name === 'targetWeight' ? parseInt(value) : value),
     }))
+  }
+
+  const handleGoalsChange = (goal: string) => {
+    setFormData((prev) => {
+      const currentGoals = prev.goals || []
+      const newGoals = currentGoals.includes(goal)
+        ? currentGoals.filter(g => g !== goal)
+        : [...currentGoals, goal]
+      return { ...prev, goals: newGoals }
+    })
   }
 
   const handleEdit = () => {
@@ -51,9 +100,9 @@ export default function ProfilePage() {
       if (!response.ok) throw new Error('Failed to update profile')
 
       const updated = await response.json()
+      setUser(updated)
       setFormData(updated)
-      // Refetch session to update user data
-      refetch()
+      // No need to update localStorage - session cookie handles authentication
       setIsEditing(false)
       setMessage('Profile updated successfully!')
       setTimeout(() => setMessage(''), 3000)
@@ -63,7 +112,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (sessionLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
@@ -128,7 +177,7 @@ export default function ProfilePage() {
                 <input
                   type="text"
                   name="name"
-                  value={formData?.name || ''}
+                  value={formData.name || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -139,7 +188,7 @@ export default function ProfilePage() {
                 <input
                   type="email"
                   name="email"
-                  value={formData?.email || ''}
+                  value={formData.email || ''}
                   disabled
                   className="w-full px-4 py-2 border rounded-lg bg-gray-50 text-gray-600"
                 />
@@ -149,7 +198,7 @@ export default function ProfilePage() {
                 <input
                   type="number"
                   name="age"
-                  value={formData?.age || ''}
+                  value={formData.age || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -159,7 +208,7 @@ export default function ProfilePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
                 <select
                   name="gender"
-                  value={formData?.gender || ''}
+                  value={formData.gender || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -182,21 +231,24 @@ export default function ProfilePage() {
                 <input
                   type="number"
                   name="height"
-                  value={formData?.height || ''}
+                  value={formData.height || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Current Weight (kg)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Current Weight (kg) <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="number"
                   name="currentWeight"
-                  value={formData?.currentWeight || ''}
+                  value={formData.currentWeight || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
+                  placeholder="Required for AI features"
                 />
               </div>
               <div>
@@ -204,7 +256,7 @@ export default function ProfilePage() {
                 <input
                   type="number"
                   name="targetWeight"
-                  value={formData?.targetWeight || ''}
+                  value={formData.targetWeight || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -221,7 +273,7 @@ export default function ProfilePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Experience Level</label>
                 <select
                   name="experienceLevel"
-                  value={formData?.experienceLevel || ''}
+                  value={formData.experienceLevel || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -232,6 +284,40 @@ export default function ProfilePage() {
                   <option value="advanced">Advanced</option>
                 </select>
               </div>
+            </div>
+
+            {/* Fitness Goals */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Fitness Goals <span className="text-red-500">*</span>
+                <span className="text-gray-500 text-xs ml-2">(Select at least one for AI features)</span>
+              </label>
+              <div className="grid md:grid-cols-2 gap-3">
+                {['fat_loss', 'muscle_gain', 'strength', 'endurance', 'flexibility', 'posture', 'rehab', 'general_fitness'].map((goal) => (
+                  <label
+                    key={goal}
+                    className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                      (formData.goals || []).includes(goal)
+                        ? 'border-indigo-600 bg-indigo-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    } ${!isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={(formData.goals || []).includes(goal)}
+                      onChange={() => handleGoalsChange(goal)}
+                      disabled={!isEditing}
+                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 disabled:opacity-50"
+                    />
+                    <span className="ml-2 text-sm font-medium text-gray-900 capitalize">
+                      {goal.replace('_', ' ')}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {isEditing && (!formData.goals || formData.goals.length === 0) && (
+                <p className="text-red-600 text-xs mt-2">⚠️ Please select at least one goal to use nutrition guidance and AI features</p>
+              )}
             </div>
           </div>
 

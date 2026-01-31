@@ -30,6 +30,16 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const weeksBack = parseInt(searchParams.get('weeks') || '4')
 
+    // Check if user is premium (AI insights is a premium feature)
+    const [userCheck] = await db
+      .select({ isPremium: users.isPremium, subscriptionEndsAt: users.subscriptionEndsAt })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+
+    const isPremium = userCheck?.isPremium && 
+      (!userCheck.subscriptionEndsAt || new Date(userCheck.subscriptionEndsAt) > new Date())
+
     // Get user profile
     const [user] = await db
       .select({
@@ -99,11 +109,34 @@ export async function GET(request: NextRequest) {
 
     // Generate AI insights with timeout
     let insights
-    try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+    
+    // For free users, provide basic insights without AI
+    if (!isPremium) {
+      insights = {
+        summary: `You've completed ${recentSessions.length} workouts in the last ${weeksBack} weeks. Keep up the consistency!`,
+        strengths: [
+          recentSessions.length >= 8 ? 'Great workout consistency!' : 'You\'re tracking your workouts',
+          exerciseStats.length > 0 ? `Training ${exerciseStats.length} different exercises` : 'Getting started with tracking',
+        ],
+        improvements: [
+          '🔒 Upgrade to Premium for AI-powered progress analysis',
+          '🔒 Get personalized recommendations based on your workout data',
+          '🔒 Identify plateau risks before they happen',
+        ],
+        recommendations: [
+          'Track all your workout metrics consistently',
+          'Upgrade to Premium to unlock AI-powered insights and recommendations',
+        ],
+        plateauRisks: [],
+        trends: [],
+      }
+    } else {
+      // Premium users get full AI analysis
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-      insights = await analyzeProgress({
+        insights = await analyzeProgress({
         recentSessions: recentSessions.map(s => ({
           dayName: s.dayName,
           duration: s.duration,
@@ -129,17 +162,18 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      clearTimeout(timeout)
-    } catch (aiError) {
-      logger.error('AI analysis failed', aiError as Error)
-      // Return fallback insights if AI fails
-      insights = {
-        summary: 'Unable to generate AI insights at this time. Please try again later.',
-        strengths: ['Keep tracking your workouts consistently', 'Monitor your energy levels'],
-        improvements: ['Review your form on compound lifts', 'Ensure adequate rest between sessions'],
-        recommendations: ['Continue current training frequency', 'Track nutrition alongside workouts'],
-        plateauRisks: [],
-        trends: [],
+        clearTimeout(timeout)
+      } catch (aiError) {
+        logger.error('AI analysis failed', aiError as Error)
+        // Return fallback insights if AI fails
+        insights = {
+          summary: 'Unable to generate AI insights at this time. Please try again later.',
+          strengths: ['Keep tracking your workouts consistently', 'Monitor your energy levels'],
+          improvements: ['Review your form on compound lifts', 'Ensure adequate rest between sessions'],
+          recommendations: ['Continue current training frequency', 'Track nutrition alongside workouts'],
+          plateauRisks: [],
+          trends: [],
+        }
       }
     }
 

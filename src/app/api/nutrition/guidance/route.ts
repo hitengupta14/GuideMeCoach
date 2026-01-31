@@ -6,30 +6,44 @@ import { verifySession } from '@/lib/auth-helpers'
 import { generateNutritionGuidance } from '@/lib/nutrition/guidance'
 
 /**
- * POST /api/nutrition/guidance
+ * GET/POST /api/nutrition/guidance
  * Get simple, doable nutrition guidance (not strict meal plans).
  */
+export async function GET(request: NextRequest) {
+  return handleNutritionGuidance(request)
+}
+
 export async function POST(request: NextRequest) {
+  return handleNutritionGuidance(request)
+}
+
+async function handleNutritionGuidance(request: NextRequest) {
   try {
     const userId = await verifySession(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { goal, activityLevel } = body
-
-    if (!goal) {
-      return NextResponse.json({ error: 'goal is required' }, { status: 400 })
+    // Support both GET (query params) and POST (body)
+    let goal, activityLevel
+    if (request.method === 'GET') {
+      const searchParams = request.nextUrl.searchParams
+      goal = searchParams.get('goal')
+      activityLevel = searchParams.get('activityLevel')
+    } else {
+      const body = await request.json()
+      goal = body.goal
+      activityLevel = body.activityLevel
     }
 
     // Fetch user profile
     const [user] = await db
       .select({
-        weight: users.weight,
+        weight: users.currentWeight,  // Use currentWeight as the main weight field
         height: users.height,
         age: users.age,
         gender: users.gender,
+        goals: users.goals,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -37,6 +51,15 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Use user's first goal if no goal provided
+    if (!goal && user.goals && Array.isArray(user.goals) && user.goals.length > 0) {
+      goal = user.goals[0]
+    }
+
+    if (!goal) {
+      return NextResponse.json({ error: 'Goal is required. Please update your profile with fitness goals.' }, { status: 400 })
     }
 
     // Validate required fields for nutrition calculation
