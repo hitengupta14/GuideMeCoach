@@ -25,17 +25,37 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 })
     }
 
-    const user = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+    const user = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        height: users.height,
+        weight: users.weight,
+        age: users.age,
+        gender: users.gender,
+        experienceLevel: users.experienceLevel,
+        goals: users.goals,
+        medicalConditions: users.medicalConditions,
+        availableEquipment: users.availableEquipment,
+        timeAvailability: users.timeAvailability,
+        preferredLocation: users.preferredLocation,
+        weakAreas: users.weakAreas,
+        painAreas: users.painAreas,
+        currentWeight: users.currentWeight,
+        targetWeight: users.targetWeight,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
 
     if (user.length === 0) {
       logger.warn('User not found', { userId: userId.substring(0, 8) + '***' })
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Don't return password hash
-    const { passwordHash: _, ...userWithoutPassword } = user[0]
     logger.info('User profile fetched', { userId: userId.substring(0, 8) + '***' })
-    return NextResponse.json(userWithoutPassword)
+    return NextResponse.json(user[0])
   } catch (error) {
     logger.error('Error fetching user profile', error as Error)
     return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 })

@@ -1,26 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { jwtVerify } from 'jose'
 import { db } from '@/db'
 import { users, workoutLogs, exercises, muscleGroups, exerciseMuscles } from '@/db/schema'
 import { eq, and, desc, sql, inArray } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { generateChatResponse, isOpenAIConfigured } from '@/lib/ai'
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
-
-async function verifySession(request: NextRequest): Promise<string | null> {
-  try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
-    if (!token) return null
-    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
-    if (!verified) return null
-    return verified.payload.userId as string
-  } catch {
-    return null
-  }
-}
+import { verifySession } from '@/lib/auth-helpers'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,10 +23,37 @@ export async function GET(request: NextRequest) {
         experienceLevel: users.experienceLevel,
         goals: users.goals,
         medicalConditions: users.medicalConditions,
+        isPremium: users.isPremium,
       })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1)
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Check AI quota before generating recommendations
+    const quota = await checkQuota(userId, 'insights', user.isPremium || false)
+    
+    if (!quota.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'AI recommendations quota exceeded',
+          quota: {
+            used: quota.used,
+            limit: quota.limit,
+            resetAt: quota.resetAt,
+          },
+          message: user.isPremium 
+            ? `You've used all ${quota.limit} AI insights this month. Resets on ${new Date(quota.resetAt).toLocaleDateString()}`
+            : 'Upgrade to Premium to access AI-powered exercise recommendations (₹199-₹299/month)',
+        },
+        { status: 403 }
+      )
+    }
+
+    const startTime = Date.now()
 
     // Get recent exercise history
     const recentLogs = await db
@@ -55,25 +67,22 @@ export async function GET(request: NextRequest) {
       .leftJoin(exercises, eq(workoutLogs.exerciseId, exercises.id))
       .where(eq(workoutLogs.userId, userId))
       .groupBy(workoutLogs.exerciseId, exercises.name, exercises.category)
-      .orderBy(desc(sql`count(*)`))
+      .orderBy(desc(sql<number>`count(*)`))
       .limit(20)
 
     // Get muscle group balance
     const muscleGroupCounts = await db
       .select({
-        muscleGroupId: exerciseMuscles.muscleGroupId,
         muscleName: muscleGroups.name,
-        workoutCount: sql<number>`count(*)`,
+        workoutCount: sql<number>`count(distinct ${workoutLogs.id})`,
       })
-      .from(workoutLogs)
-      .leftJoin(exercises, eq(workoutLogs.exerciseId, exercises.id))
-      .leftJoin(exerciseMuscles, eq(exercises.id, exerciseMuscles.exerciseId))
-      .leftJoin(muscleGroups, eq(exerciseMuscles.muscleGroupId, muscleGroups.id))
+      .from(muscleGroups)
+      .leftJoin(exerciseMuscles, eq(muscleGroups.id, exerciseMuscles.muscleGroupId))
+      .leftJoin(exercises, eq(exerciseMuscles.exerciseId, exercises.id))
+      .leftJoin(workoutLogs, eq(exercises.id, workoutLogs.exerciseId))
       .where(eq(workoutLogs.userId, userId))
-      .groupBy(exerciseMuscles.muscleGroupId, muscleGroups.name)
-      .orderBy(desc(sql`count(*)`))
-
-    logger.info('Fetching AI exercise recommendations', { userId, context })
+      .groupBy(muscleGroups.id, muscleGroups.name)
+      .orderBy(desc(sql<number>`count(distinct ${workoutLogs.id})`))
 
     let recommendations: any
 
@@ -88,20 +97,49 @@ export async function GET(request: NextRequest) {
         userProfile: user,
       })
 
-      const aiResponse = await generateChatResponse(
-        [{ role: 'user', content: prompt }],
-        {
-          experienceLevel: user?.experienceLevel || undefined,
-          goals: user?.goals || undefined,
-          medicalConditions: user?.medicalConditions || undefined,
-        }
-      )
+      try {
+        const aiResponse = await generateChatResponse(
+          [{ role: 'user', content: prompt }],
+          {
+            experienceLevel: user?.experienceLevel || undefined,
+            goals: user?.goals || undefined,
+            medicalConditions: user?.medicalConditions || undefined,
+          }
+        )
 
-      recommendations = {
-        type: context,
-        aiRecommendation: aiResponse,
-        recentExercises: recentLogs.slice(0, 5),
-        muscleGroupBalance: muscleGroupCounts,
+        recommendations = {
+          type: context,
+          aiRecommendation: aiResponse,
+          recentExercises: recentLogs.slice(0, 5),
+          muscleGroupBalance: muscleGroupCounts,
+        }
+
+        // Decrement quota after successful AI call
+        await decrementQuota(userId, 'insights', user.isPremium || false)
+
+        // Log AI usage
+        await logAIUsage({
+          userId,
+          feature: 'insights',
+          model: 'gpt-4',
+          responseTime: Date.now() - startTime,
+          success: true,
+        })
+      } catch (aiError) {
+        logger.error('AI recommendation generation failed', aiError as Error)
+        
+        // Log failed AI usage
+        await logAIUsage({
+          userId,
+          feature: 'insights',
+          model: 'gpt-4',
+          responseTime: Date.now() - startTime,
+          success: false,
+          errorMessage: (aiError as Error).message,
+        })
+
+        // Fallback to rule-based on AI failure
+        recommendations = getFallbackRecommendations(context, recentLogs, muscleGroupCounts)
       }
     }
 

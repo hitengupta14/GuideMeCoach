@@ -1,32 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { jwtVerify } from 'jose'
 import { db } from '@/db'
 import { workoutPlans, users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { cookies } from 'next/headers'
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key')
-
-async function getUserId(request: NextRequest): Promise<string | null> {
-  try {
-    const authHeader = request.headers.get('authorization')
-    const bearer = authHeader?.startsWith('Bearer ')
-      ? authHeader.substring('Bearer '.length)
-      : null
-
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('session')?.value
-    const tokenToVerify = bearer || sessionToken
-
-    if (!tokenToVerify) return null
-
-    const verified = await jwtVerify(tokenToVerify, JWT_SECRET).catch(() => null)
-    if (!verified) return null
-    return verified.payload.userId as string
-  } catch {
-    return null
-  }
-}
+import { verifySession } from '@/lib/auth-helpers'
 
 /**
  * GET /api/planner/plans
@@ -34,7 +10,7 @@ async function getUserId(request: NextRequest): Promise<string | null> {
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = await getUserId(request)
+    const userId = await verifySession(request)
     if (!userId) {
       return NextResponse.json(
         { error: 'Not authenticated' },
@@ -65,7 +41,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const userId = await getUserId(request)
+    const userId = await verifySession(request)
     if (!userId) {
       return NextResponse.json(
         { error: 'Not authenticated' },

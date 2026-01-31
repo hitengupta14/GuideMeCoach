@@ -1,28 +1,19 @@
 import { db } from '@/db'
 import { workoutSessions, workoutLogs, exercises, users } from '@/db/schema'
 import { eq, desc, and } from 'drizzle-orm'
-import { cookies } from 'next/headers'
-import { jwtVerify } from 'jose'
+import { NextRequest } from 'next/server'
+import { verifySession } from '@/lib/auth-helpers'
 
 export const dynamic = 'force-dynamic'
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
-
 export async function GET(req: Request) {
   try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
+    const nextReq = new NextRequest(req)
+    const userId = await verifySession(nextReq)
 
-    if (!token) {
+    if (!userId) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
-    if (!verified) {
-      return Response.json({ error: 'Invalid token' }, { status: 401 })
-    }
-
-    const userId = verified.payload.userId as string
     const { limit = '30', offset = '0' } = Object.fromEntries(
       new URL(req.url).searchParams
     )

@@ -1,26 +1,17 @@
 import { db } from '@/db'
 import { users, exercises, exerciseMuscles } from '@/db/schema'
 import { eq, inArray } from 'drizzle-orm'
-import { cookies } from 'next/headers'
-import { jwtVerify } from 'jose'
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+import { NextRequest } from 'next/server'
+import { verifySession } from '@/lib/auth-helpers'
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
+    const nextReq = new NextRequest(req)
+    const userId = await verifySession(nextReq)
 
-    if (!token) {
+    if (!userId) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
-    if (!verified) {
-      return Response.json({ error: 'Invalid token' }, { status: 401 })
-    }
-
-    const userId = verified.payload.userId as string
     const { exerciseIds, painAreas } = await req.json()
 
     if (!exerciseIds || !Array.isArray(exerciseIds) || !painAreas || !Array.isArray(painAreas)) {

@@ -3,59 +3,20 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-
-interface User {
-  id: string
-  name: string
-  email: string
-  height: number | null
-  weight: number | null
-  age: number | null
-  gender: string | null
-  experienceLevel: string | null
-  goals: string[] | null
-  medicalConditions: string[] | null
-  currentWeight: number | null
-  targetWeight: number | null
-}
+import { useSession } from '@/hooks/useSession'
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [isEditing, setIsEditing] = useState(false)
-  const [formData, setFormData] = useState<Partial<User>>({})
-  const [message, setMessage] = useState('')
   const router = useRouter()
+  const { user, isLoading: sessionLoading, refetch } = useSession()
+  const [isEditing, setIsEditing] = useState(false)
+  const [formData, setFormData] = useState<Partial<typeof user>>({})
+  const [message, setMessage] = useState('')
 
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        })
-
-        if (!response.ok) {
-          router.push('/auth/login')
-          return
-        }
-
-        const data = await response.json()
-        if (data.user) {
-          setUser(data.user)
-          setFormData(data.user)
-        } else {
-          router.push('/auth/login')
-        }
-      } catch (err) {
-        console.error('Session check failed:', err)
-        router.push('/auth/login')
-      } finally {
-        setLoading(false)
-      }
+    if (user) {
+      setFormData(user)
     }
-
-    checkSession()
-  }, [router])
+  }, [user])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -90,9 +51,9 @@ export default function ProfilePage() {
       if (!response.ok) throw new Error('Failed to update profile')
 
       const updated = await response.json()
-      setUser(updated)
       setFormData(updated)
-      // No need to update localStorage - session cookie handles authentication
+      // Refetch session to update user data
+      refetch()
       setIsEditing(false)
       setMessage('Profile updated successfully!')
       setTimeout(() => setMessage(''), 3000)
@@ -102,7 +63,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (loading) {
+  if (sessionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
@@ -167,7 +128,7 @@ export default function ProfilePage() {
                 <input
                   type="text"
                   name="name"
-                  value={formData.name || ''}
+                  value={formData?.name || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -178,7 +139,7 @@ export default function ProfilePage() {
                 <input
                   type="email"
                   name="email"
-                  value={formData.email || ''}
+                  value={formData?.email || ''}
                   disabled
                   className="w-full px-4 py-2 border rounded-lg bg-gray-50 text-gray-600"
                 />
@@ -188,7 +149,7 @@ export default function ProfilePage() {
                 <input
                   type="number"
                   name="age"
-                  value={formData.age || ''}
+                  value={formData?.age || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -198,7 +159,7 @@ export default function ProfilePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
                 <select
                   name="gender"
-                  value={formData.gender || ''}
+                  value={formData?.gender || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -221,7 +182,7 @@ export default function ProfilePage() {
                 <input
                   type="number"
                   name="height"
-                  value={formData.height || ''}
+                  value={formData?.height || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -232,7 +193,7 @@ export default function ProfilePage() {
                 <input
                   type="number"
                   name="currentWeight"
-                  value={formData.currentWeight || ''}
+                  value={formData?.currentWeight || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -243,7 +204,7 @@ export default function ProfilePage() {
                 <input
                   type="number"
                   name="targetWeight"
-                  value={formData.targetWeight || ''}
+                  value={formData?.targetWeight || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
@@ -260,7 +221,7 @@ export default function ProfilePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Experience Level</label>
                 <select
                   name="experienceLevel"
-                  value={formData.experienceLevel || ''}
+                  value={formData?.experienceLevel || ''}
                   onChange={handleChange}
                   disabled={!isEditing}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"

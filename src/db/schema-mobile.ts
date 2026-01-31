@@ -97,6 +97,10 @@ export const payments = pgTable('payments', {
   status: varchar('status', { length: 20 }).notNull(), // succeeded, failed, pending
   description: text('description'),
   metadata: jsonb('metadata').$type<Record<string, any>>(),
+  // Pricing audit fields
+  detectedCountry: text('detected_country'),
+  chargedCurrency: varchar('charged_currency', { length: 3 }),
+  chargedAmount: decimal('charged_amount', { precision: 10, scale: 2 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

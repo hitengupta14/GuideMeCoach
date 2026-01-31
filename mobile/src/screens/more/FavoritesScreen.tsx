@@ -17,7 +17,7 @@ export default function FavoritesScreen() {
 
   const removeMutation = useMutation({
     mutationFn: (exerciseId: string) => apiClient.removeFavorite(user!.id, exerciseId),
-    onSuccess: () => qc.invalidateQueries(['favorites', user?.id]),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['favorites', user?.id] }),
   });
 
   if (!user) {

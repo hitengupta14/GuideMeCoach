@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import { usePlanHistory } from '@/context/PlanContext'
+import { useAPIError } from '@/hooks/useAPIError'
+import { apiWrapper } from '@/lib/api-wrapper'
 
 interface Exercise {
   id: string
@@ -33,6 +35,7 @@ interface WeekPlan {
 }
 
 export default function CustomPlannerComponent() {
+  const { handleError, handleSuccess, handleLoading, dismissToast } = useAPIError()
   const [availableExercises, setAvailableExercises] = useState<Exercise[]>([])
   const [weeks, setWeeks] = useState<WeekPlan[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,28 +50,29 @@ export default function CustomPlannerComponent() {
   }, [])
 
   const fetchExercises = async () => {
-    try {
-      const response = await fetch('/api/exercises')
-      const data = await response.json()
-      setAvailableExercises(data.exercises || [])
+    const { data, error } = await apiWrapper.get<{ exercises: Exercise[] }>('/api/exercises')
 
-      // Initialize with 1 week, 3 days
-      setWeeks([
-        {
-          week: 1,
-          days: [
-            { day: 'Monday', focusMuscle: 'Chest', exercises: [] },
-            { day: 'Wednesday', focusMuscle: 'Back', exercises: [] },
-            { day: 'Friday', focusMuscle: 'Legs', exercises: [] },
-          ],
-        },
-      ])
-
+    if (error) {
+      await handleError(error)
       setLoading(false)
-    } catch (error) {
-      console.error('Error fetching exercises:', error)
-      setLoading(false)
+      return
     }
+
+    setAvailableExercises(data?.exercises || [])
+
+    // Initialize with 1 week, 3 days
+    setWeeks([
+      {
+        week: 1,
+        days: [
+          { day: 'Monday', focusMuscle: 'Chest', exercises: [] },
+          { day: 'Wednesday', focusMuscle: 'Back', exercises: [] },
+          { day: 'Friday', focusMuscle: 'Legs', exercises: [] },
+        ],
+      },
+    ])
+
+    setLoading(false)
   }
 
   const addExerciseToDay = (weekIdx: number, dayIdx: number, exercise: Exercise) => {
@@ -142,48 +146,49 @@ export default function CustomPlannerComponent() {
       return
     }
 
+    const toastId = handleLoading('Saving your plan...')
     setSaving(true)
 
-    try {
-      const response = await fetch('/api/planner/plans', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          name: planName,
-          description: `Custom workout plan - ${durationWeeks} weeks`,
-          durationWeeks,
-          planData: { weeks },
-          isActive: false,
-        }),
-      })
-
-      if (response.ok) {
-        alert('Plan saved successfully!')
-        
-        // Add to plan history
-        addToHistory({
-          name: planName,
-          description: `Custom workout plan - ${durationWeeks} weeks`,
-          isSaved: false,
-          type: 'custom',
-          details: { weeks, durationWeeks }
-        }, 'custom')
-        
-        setPreviousPage('/planner/unified')
-        
-        setPlanName('')
-        setWeeks([])
-        fetchExercises()
-      } else {
-        alert('Failed to save plan')
+    const { data, error } = await apiWrapper.post<{ id: string }>(
+      '/api/planner/plans',
+      {
+        name: planName,
+        description: `Custom workout plan - ${durationWeeks} weeks`,
+        durationWeeks,
+        planData: { weeks },
+        isActive: false,
       }
-    } catch (error) {
-      console.error('Error saving plan:', error)
-      alert('Error saving plan')
-    } finally {
+    )
+
+    dismissToast(toastId)
+
+    if (error) {
+      await handleError(error)
       setSaving(false)
+      return
     }
+
+    handleSuccess('Plan saved successfully!')
+
+    // Add to plan history
+    addToHistory({
+      name: planName,
+      description: `Custom workout plan - ${durationWeeks} weeks`,
+      isSaved: false,
+      type: 'custom',
+      details: { weeks, durationWeeks }
+    }, 'custom')
+
+    setPreviousPage('/planner/unified')
+
+    setPlanName('')
+    setWeeks([])
+    setSaving(false)
+    
+    // Redirect after success
+    setTimeout(() => {
+      router.push('/planner/unified')
+    }, 1500)
   }
 
   if (loading) {

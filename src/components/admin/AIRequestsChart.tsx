@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { Line } from 'react-chartjs-2'
+import { useAPIError } from '@/hooks/useAPIError'
+import { apiWrapper } from '@/lib/api-wrapper'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -16,6 +18,7 @@ import {
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
 
 export default function AIRequestsChart() {
+  const { handleError } = useAPIError()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
@@ -24,10 +27,15 @@ export default function AIRequestsChart() {
   }, [])
 
   const fetchAIData = async () => {
-    try {
-      const response = await fetch('/api/admin/analytics/ai-requests')
-      const result = await response.json()
-      
+    const { data: result, error } = await apiWrapper.get<{ labels: string[], counts: number[] }>('/api/admin/analytics/ai-requests')
+
+    if (error) {
+      await handleError(error)
+      setLoading(false)
+      return
+    }
+
+    if (result) {
       setData({
         labels: result.labels,
         datasets: [
@@ -41,11 +49,8 @@ export default function AIRequestsChart() {
           },
         ],
       })
-    } catch (error) {
-      console.error('Failed to fetch AI data:', error)
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   if (loading) {

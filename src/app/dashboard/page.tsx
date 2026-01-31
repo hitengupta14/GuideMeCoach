@@ -1,59 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useSession } from '@/hooks/useSession'
 import AdaptiveWorkoutsComponent from '@/components/AdaptiveWorkoutsComponent'
 import ExerciseRecommender from '@/components/ExerciseRecommender'
 import NutritionGuidanceComponent from '@/components/NutritionGuidanceComponent'
 import ProgressInsightsComponent from '@/components/ProgressInsightsComponent'
 
-interface User {
-  id: string
-  name: string | null
-  email: string
-  height: number | null
-  weight: number | null
-  age: number | null
-  experienceLevel: string | null
-  goals: string[] | null
-  availableEquipment?: string[] | null
-}
-
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
-
-  useEffect(() => {
-    // Check session via API (validates HTTP-only cookie)
-    const checkSession = async () => {
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        })
-
-        if (!response.ok) {
-          router.push('/auth/login')
-          return
-        }
-
-        const data = await response.json()
-        if (data.user) {
-          setUser(data.user)
-        } else {
-          router.push('/auth/login')
-        }
-      } catch (err) {
-        console.error('Session check failed:', err)
-        router.push('/auth/login')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkSession()
-  }, [router])
+  const { user, isLoading } = useSession()
 
   const handleLogout = async () => {
     try {
@@ -68,7 +25,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-indigo-950">
         <div className="text-center">

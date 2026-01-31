@@ -10,29 +10,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { jwtVerify } from 'jose'
 import { db } from '@/db'
-import { exercises, exerciseMuscles, muscleGroups } from '@/db/schema'
+import { exercises, exerciseMuscles, muscleGroups, users } from '@/db/schema'
 import { eq, ilike } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { generateChatResponse, isOpenAIConfigured } from '@/lib/ai'
 import { apiRateLimiter } from '@/lib/rate-limit'
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
-
-async function verifySession(request: NextRequest): Promise<string | null> {
-  try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
-    if (!token) return null
-    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
-    if (!verified) return null
-    return verified.payload.userId as string
-  } catch {
-    return null
-  }
-}
+import { verifySession } from '@/lib/auth-helpers'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache'
 
 // Extract exercise names from AI plan
 function extractExerciseNames(weeklyStructure: any[]): string[] {
@@ -129,9 +115,22 @@ Return ONLY valid JSON (no other text):
     const jsonMatch = response.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error('No JSON found in response')
 
-    return JSON.parse(jsonMatch[0])
+    const parsedKnowledge = JSON.parse(jsonMatch[0])
+    
+    // Validate with Zod schema
+    const { aiExerciseKnowledgeSchema } = await import('@/lib/ai-schemas')
+    const validationResult = aiExerciseKnowledgeSchema.safeParse(parsedKnowledge)
+    
+    if (!validationResult.success) {
+      logger.warn(`AI exercise knowledge validation failed for ${exerciseName}`, 
+        { errors: validationResult.error.errors }
+      )
+      throw new Error('Validation failed')
+    }
+    
+    return validationResult.data
   } catch (error) {
-    logger.warn(`Failed to generate knowledge for ${exerciseName}`, error as Error)
+    logger.warn(`Failed to generate knowledge for ${exerciseName}`, { error: (error as Error).message })
     // Return fallback
     return {
       description: `${exerciseName} is a strength training exercise.`,
@@ -248,6 +247,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get user premium status for quota check
+    const [user] = await db
+      .select({ isPremium: users.isPremium })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Check AI quota before processing
+    const quota = await checkQuota(userId, 'planner', user.isPremium || false)
+    
+    if (!quota.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'AI quota exceeded',
+          message: user.isPremium 
+            ? `You've used all ${quota.limit} AI plans this month`
+            : 'Upgrade to Premium to access AI exercise generation'
+        },
+        { status: 403 }
+      )
+    }
+
     // Extract exercise names from the plan
     const exerciseNames = extractExerciseNames(weeklyStructure)
 
@@ -290,6 +315,17 @@ export async function POST(request: NextRequest) {
         })
       }
     })
+
+    // Decrement quota on successful exercise generation
+    if (user.isPremium) {
+      await decrementQuota(userId, 'planner', true)
+      await logAIUsage({
+        userId,
+        feature: 'planner',
+        model: 'gpt-4',
+        success: true,
+      })
+    }
 
     return NextResponse.json({
       success: true,

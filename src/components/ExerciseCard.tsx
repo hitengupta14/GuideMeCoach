@@ -21,6 +21,9 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
     cardio: '❤️',
   }
 
+  const categoryIcon = categoryIcons[exercise.category as keyof typeof categoryIcons] || '💪'
+  const difficultyColor = difficultyColors[exercise.difficulty as keyof typeof difficultyColors] || 'bg-gray-100 text-gray-800'
+
   return (
     <Link href={`/exercises/${exercise.slug}`}>
       <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition cursor-pointer h-full overflow-hidden">
