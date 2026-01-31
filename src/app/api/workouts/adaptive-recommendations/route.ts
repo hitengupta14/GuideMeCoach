@@ -4,7 +4,7 @@ import { db } from '@/db'
 import { users, workoutSessions, workoutLogs } from '@/db/schema'
 import { eq, and, desc, gte, inArray, sql } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-import { getAdaptiveWorkoutRecommendations } from '@/lib/ai'
+import { getAdaptiveWorkoutRecommendations, isOpenAIConfigured } from '@/lib/ai'
 
 function difficultyToNumber(difficulty: string | null): number {
   if (!difficulty) return 5
@@ -25,12 +25,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user profile
+    // Get user profile with premium and health data
     const [user] = await db
       .select({
         goals: users.goals,
         experienceLevel: users.experienceLevel,
         timeAvailability: users.timeAvailability,
+        medicalConditions: users.medicalConditions,
+        painAreas: users.painAreas,
+        availableEquipment: users.availableEquipment,
+        isPremium: users.isPremium,
+        subscriptionEndsAt: users.subscriptionEndsAt,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -115,42 +120,53 @@ export async function GET(request: NextRequest) {
     })
 
     // Get adaptive recommendations with timeout
+    const userIsPremium = user.isPremium && user.subscriptionEndsAt && new Date(user.subscriptionEndsAt) > new Date()
     let recommendations
+    let type: 'ai' | 'formula' = 'formula'
+    
     try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      // Premium users get AI-powered recommendations with medical conditions
+      if (userIsPremium && isOpenAIConfigured()) {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-      recommendations = await getAdaptiveWorkoutRecommendations({
-        recentWorkouts: workoutData,
-        averageRecovery: recovery10,
-        currentStreak: calculateStreak(recentWorkouts),
-        goal: (user.goals?.[0] as string) || 'muscle_gain',
-        experienceLevel: user.experienceLevel || 'intermediate',
-        workoutPlanDays: Math.max(3, Math.min(6, Math.round((user.timeAvailability || 60) / 20))), // derive days from time availability
-      })
-
-      clearTimeout(timeout)
+        recommendations = await getAdaptiveWorkoutRecommendations({
+          recentWorkouts: workoutData,
+          averageRecovery: recovery10,
+          currentStreak: calculateStreak(recentWorkouts),
+          goal: (user.goals?.[0] as string) || 'muscle_gain',
+          experienceLevel: user.experienceLevel || 'intermediate',
+          workoutPlanDays: Math.max(3, Math.min(6, Math.round((user.timeAvailability || 60) / 20))),
+          // Premium: Include health data for personalized recommendations
+          medicalConditions: user.medicalConditions || [],
+          painAreas: user.painAreas || [],
+          availableEquipment: user.availableEquipment || [],
+        })
+        
+        type = 'ai'
+        clearTimeout(timeout)
+      } else {
+        // Free users get simple formula-based recommendations
+        recommendations = generateSimpleRecommendations(recovery10, avgRpe, workoutsThisWeek)
+      }
     } catch (aiError) {
       logger.error('AI adaptive recommendations failed', aiError as Error)
-      // Return fallback recommendations if AI fails
-      recommendations = {
-        message: 'Using default recommendations',
-        shouldDeload: false,
-        volumeAdjustment: 'maintain',
-        intensityAdjustment: 'maintain',
-        frequencyAdjustment: 'maintain',
-        recoveryFocus: [],
-        reason: 'AI service unavailable, showing defaults',
-      }
+      // Fallback to simple recommendations for premium users if AI fails
+      recommendations = generateSimpleRecommendations(recovery10, avgRpe, workoutsThisWeek)
+      type = 'formula'
     }
 
     logger.info('Adaptive workout recommendations generated', {
       userId,
       shouldDeload: recommendations.shouldDeload,
+      type,
+      isPremium: userIsPremium,
     })
 
     return NextResponse.json({
       recommendations,
+      isPremium: userIsPremium,
+      type,
       stats: {
         totalWorkouts: recentWorkouts.length,
         averageRecovery: recovery10,
@@ -185,4 +201,60 @@ function calculateStreak(workouts: typeof workoutSessions.$inferSelect[]): numbe
   }
 
   return streak
+}
+
+// Formula-based simple recommendations for free users
+function generateSimpleRecommendations(recovery: number, avgRpe: number, workoutsThisWeek: number) {
+  let shouldDeload = false
+  let volumeChange = 0
+  let volumeRationale = 'Maintain current volume'
+  let intensityRecommendation = 'Maintain current intensity'
+  let recoveryFocus: string[] = []
+
+  // Deload logic
+  if (recovery < 4 && avgRpe > 8) {
+    shouldDeload = true
+  }
+
+  // Volume adjustment
+  if (avgRpe < 5 && recovery > 7) {
+    volumeChange = 10
+    volumeRationale = 'You can handle more volume - gradually increase'
+  } else if (avgRpe > 8.5 || recovery < 4) {
+    volumeChange = -15
+    volumeRationale = 'Reduce volume to improve recovery'
+  }
+
+  // Intensity adjustment
+  if (avgRpe < 5.5) {
+    intensityRecommendation = 'Increase intensity - push closer to failure'
+  } else if (avgRpe > 8.5) {
+    intensityRecommendation = 'Reduce intensity - leave 2-3 reps in reserve'
+  }
+
+  // Recovery focus
+  if (recovery < 6) {
+    recoveryFocus = ['Prioritize sleep (7-9 hours)', 'Increase protein intake', 'Add active recovery sessions']
+  } else if (workoutsThisWeek >= 6) {
+    recoveryFocus = ['Consider a rest day', 'Focus on mobility work']
+  }
+
+  return {
+    shouldDeload,
+    deloadRecommendation: shouldDeload ? 'Take a deload week: reduce volume by 40% while maintaining intensity' : null,
+    volumeAdjustment: {
+      current: 'Current volume',
+      recommended: volumeChange > 0 ? 'Increase volume' : volumeChange < 0 ? 'Decrease volume' : 'Maintain volume',
+      change: volumeChange,
+      rationale: volumeRationale,
+    },
+    intensityAdjustment: {
+      current: 'Current intensity',
+      recommended: intensityRecommendation,
+      rationale: 'Based on average RPE and recovery',
+    },
+    exerciseSwaps: [],
+    recoveryFocus,
+    motivationalTip: recovery > 7 ? 'Great recovery! Keep pushing forward.' : 'Focus on recovery this week.',
+  }
 }

@@ -4,11 +4,14 @@ import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { verifySession } from '@/lib/auth-helpers'
 import { generateNutritionGuidance } from '@/lib/nutrition/guidance'
+import { getNutritionGuidance, isOpenAIConfigured } from '@/lib/ai'
 
 /**
  * GET/POST /api/nutrition/guidance
- * Get simple, doable nutrition guidance (not strict meal plans).
+ * Get nutrition guidance - simple for free users, AI-powered for premium users.
  */
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   return handleNutritionGuidance(request)
 }
@@ -36,14 +39,20 @@ async function handleNutritionGuidance(request: NextRequest) {
       activityLevel = body.activityLevel
     }
 
-    // Fetch user profile
+    // Fetch user profile with premium status
     const [user] = await db
       .select({
-        weight: users.currentWeight,  // Use currentWeight as the main weight field
+        name: users.name,
+        weight: users.currentWeight,
         height: users.height,
         age: users.age,
         gender: users.gender,
         goals: users.goals,
+        medicalConditions: users.medicalConditions,
+        experienceLevel: users.experienceLevel,
+        availableEquipment: users.availableEquipment,
+        isPremium: users.isPremium,
+        subscriptionEndsAt: users.subscriptionEndsAt,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -81,6 +90,37 @@ async function handleNutritionGuidance(request: NextRequest) {
       )
     }
 
+    // Check if user is premium (has active subscription)
+    const userIsPremium = user.isPremium && user.subscriptionEndsAt && new Date(user.subscriptionEndsAt) > new Date()
+
+    // Premium users get AI-powered guidance if OpenAI is configured
+    if (userIsPremium && isOpenAIConfigured()) {
+      try {
+        const aiGuidance = await getNutritionGuidance({
+          name: user.name || undefined,
+          age: user.age!,
+          weight: user.weight!,
+          height: user.height!,
+          goal,
+          experienceLevel: user.experienceLevel || 'beginner',
+          activityLevel: activityLevel || 'moderate',
+          medicalConditions: user.medicalConditions || undefined,
+          dietaryRestrictions: [], // Can be added to profile later
+          supplementsUsing: [], // Can be added to profile later
+        })
+
+        return NextResponse.json({ 
+          guidance: aiGuidance,
+          isPremium: true,
+          type: 'ai'
+        })
+      } catch (aiError) {
+        console.error('AI nutrition guidance failed, falling back to formula-based:', aiError)
+        // Fall back to formula-based if AI fails
+      }
+    }
+
+    // Free users or fallback: formula-based guidance
     const guidance = generateNutritionGuidance({
       weight: user.weight!,
       height: user.height!,
@@ -90,7 +130,11 @@ async function handleNutritionGuidance(request: NextRequest) {
       activityLevel: activityLevel || 'moderate',
     })
 
-    return NextResponse.json({ guidance })
+    return NextResponse.json({ 
+      guidance,
+      isPremium: userIsPremium,
+      type: 'formula'
+    })
   } catch (error) {
     console.error('Error generating nutrition guidance:', error)
     return NextResponse.json({ error: 'Failed to generate guidance' }, { status: 500 })

@@ -259,29 +259,7 @@ Generate the plan now:`
     })
 
     const responseText = completion.choices[0]?.message?.content || '{}'
-    
-    // Parse JSON with error handling
-    let parsedPlan
-    try {
-      parsedPlan = JSON.parse(responseText)
-    } catch (parseError) {
-      logger.error('AI response JSON parse error', parseError as Error, {
-        responsePreview: responseText.substring(0, 200),
-      })
-      throw new Error('AI returned invalid JSON format')
-    }
-
-    // Validate with Zod schema
-    const { aiWorkoutPlanSchema } = await import('./ai-schemas')
-    const validationResult = aiWorkoutPlanSchema.safeParse(parsedPlan)
-    
-    if (!validationResult.success) {
-      logger.error('AI response validation failed', new Error('Validation failed'), {
-        errors: validationResult.error.errors,
-        responsePreview: responseText.substring(0, 200),
-      })
-      throw new Error('AI response validation failed')
-    }
+    const plan = JSON.parse(responseText)
 
     logger.info('AI workout plan generated', {
       goal: input.goal,
@@ -289,10 +267,10 @@ Generate the plan now:`
       tokens: completion.usage?.total_tokens,
     })
 
-    return validationResult.data
+    return plan
   } catch (error) {
     logger.error('Workout plan generation error', error as Error)
-    throw error
+    throw new Error('Failed to generate workout plan')
   }
 }
 
@@ -464,6 +442,9 @@ export async function getAdaptiveWorkoutRecommendations(context: {
   goal: string
   experienceLevel: string
   workoutPlanDays: number
+  medicalConditions?: string[]
+  painAreas?: string[]
+  availableEquipment?: string[]
 }): Promise<{
   shouldDeload: boolean
   deloadRecommendation?: string
@@ -514,6 +495,18 @@ STATS:
 - Goal: ${context.goal}
 - Experience: ${context.experienceLevel}
 
+${context.medicalConditions && context.medicalConditions.length > 0 ? `
+MEDICAL CONDITIONS (Important - Factor these into exercise selection):
+${context.medicalConditions.map((c) => `- ${c}`).join('\n')}` : ''}
+
+${context.painAreas && context.painAreas.length > 0 ? `
+PAIN/INJURY AREAS (Recommend exercises that avoid these):
+${context.painAreas.map((p) => `- ${p}`).join('\n')}` : ''}
+
+${context.availableEquipment && context.availableEquipment.length > 0 ? `
+AVAILABLE EQUIPMENT:
+${context.availableEquipment.map((e) => `- ${e}`).join('\n')}` : ''}
+
 Provide adaptive recommendations in JSON:
 
 {
@@ -533,8 +526,8 @@ Provide adaptive recommendations in JSON:
   "exerciseSwaps": [
     {
       "from": "Challenging exercise they're struggling with",
-      "to": "Better alternative",
-      "reason": "Why to swap"
+      "to": "Better alternative given their medical conditions/pain areas/equipment",
+      "reason": "Why to swap - be specific about medical/pain considerations"
     }
   ],
   "recoveryFocus": ["Sleep", "Nutrition", "Active recovery"],
@@ -546,6 +539,11 @@ DELOAD CRITERIA (recommend deload if):
 - Performance declining for 2+ weeks
 - High fatigue with low energy
 - Recovery <4/10 for extended period
+
+EXERCISE SWAP CRITERIA:
+- Avoid exercises that aggravate medical conditions or pain areas
+- Suggest alternatives using available equipment
+- Prioritize joint-friendly movements if needed
 
 Focus on balance, not just intensity.`
 
@@ -566,32 +564,14 @@ Focus on balance, not just intensity.`
     })
 
     const responseText = completion.choices[0]?.message?.content || '{}'
-    
-    // Parse and validate JSON
-    let parsedRecommendations
-    try {
-      parsedRecommendations = JSON.parse(responseText)
-    } catch (parseError) {
-      logger.error('AI adaptive recommendations JSON parse error', parseError as Error)
-      throw new Error('AI returned invalid JSON format')
-    }
-
-    const { aiAdaptiveRecommendationsSchema } = await import('./ai-schemas')
-    const validationResult = aiAdaptiveRecommendationsSchema.safeParse(parsedRecommendations)
-    
-    if (!validationResult.success) {
-      logger.error('AI adaptive recommendations validation failed', new Error('Validation failed'), {
-        errors: validationResult.error.errors,
-      })
-      throw new Error('AI response validation failed')
-    }
+    const recommendations = JSON.parse(responseText)
 
     logger.info('Adaptive workout recommendations generated', {
-      shouldDeload: validationResult.data.shouldDeload,
+      shouldDeload: recommendations.shouldDeload,
       tokens: completion.usage?.total_tokens,
     })
 
-    return validationResult.data
+    return recommendations
   } catch (error) {
     logger.error('Adaptive workout recommendation error', error as Error)
     throw new Error('Failed to generate recommendations')
@@ -883,29 +863,14 @@ Focus on:
     })
 
     const responseText = completion.choices[0]?.message?.content || '{}'
-    
-    // Parse and validate JSON
-    let parsedRecommendations
-    try {
-      parsedRecommendations = JSON.parse(responseText)
-    } catch (parseError) {
-      logger.error('AI exercise recommendations JSON parse error', parseError as Error)
-      // Return safe fallback
-      return {
-        nextSuggestions: [],
-        alternativeExercises: [],
-        muscleBalanceWarning: undefined,
-      }
-    }
+    const recommendations = JSON.parse(responseText)
 
-    // Note: We're using a flexible schema here since the response format varies
-    // In production, you'd want a more specific schema
     logger.info('Exercise recommendations generated', {
       lastExercises: context.lastExercises.length,
       tokens: completion.usage?.total_tokens,
     })
 
-    return parsedRecommendations
+    return recommendations
   } catch (error) {
     logger.error('Exercise recommendation error', error as Error)
     throw new Error('Failed to generate recommendations')
