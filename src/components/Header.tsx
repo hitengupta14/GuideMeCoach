@@ -1,40 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from './ThemeProvider'
+import { useSession } from '@/hooks/useSession'
 
 export function Header() {
-  const [user, setUser] = useState<any>(null)
+  const { user, isLoading: loading, refetch } = useSession({ required: false })
   const [showMenu, setShowMenu] = useState(false)
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
   const { theme, toggleTheme } = useTheme()
-
-  useEffect(() => {
-    // Check session via cookie
-    const checkSession = async () => {
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        })
-        
-        if (response.ok) {
-          const data = await response.json()
-          if (data.user) {
-            setUser(data.user)
-          }
-        }
-      } catch (err) {
-        console.error('Session check failed:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkSession()
-  }, [])
 
   const handleLogout = async () => {
     try {
@@ -42,7 +18,7 @@ export function Header() {
         method: 'POST',
         credentials: 'include',
       })
-      setUser(null)
+      await refetch()
       setShowMenu(false)
       router.push('/')
     } catch (err) {
@@ -113,6 +89,12 @@ export function Header() {
                 >
                   AI Features
                 </Link>
+                <Link 
+                  href="/pricing" 
+                  className="hidden lg:inline px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition text-sm font-semibold"
+                >
+                  Upgrade
+                </Link>
               </>
             ) : (
               /* Logged Out - Minimal Clean Navigation */
@@ -122,6 +104,12 @@ export function Header() {
                   className="hidden sm:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
                   Exercises
+                </Link>
+                <Link 
+                  href="/pricing" 
+                  className="hidden sm:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  Pricing
                 </Link>
               </>
             )}
@@ -254,6 +242,19 @@ export function Header() {
                       </Link>
                     </div>
 
+                    {/* Subscription & New Features Section */}
+                    <div className="py-2 border-b border-gray-200 dark:border-gray-700">
+                      <Link 
+                        href="/pricing"
+                        className="flex items-center gap-3 px-4 py-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition font-semibold"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <span className="text-lg">⭐</span>
+                        <span>Upgrade to Premium</span>
+                        <span className="ml-auto text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded">NEW</span>
+                      </Link>
+                    </div>
+
                     {/* Settings & Logout Section */}
                     <div className="py-2">
                       {user.isAdmin && (
@@ -265,6 +266,7 @@ export function Header() {
                           >
                             <span className="text-lg">🛡️</span>
                             <span>Admin Panel</span>
+                            <span className="ml-auto text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-1 rounded">NEW</span>
                           </Link>
                         </>
                       )}

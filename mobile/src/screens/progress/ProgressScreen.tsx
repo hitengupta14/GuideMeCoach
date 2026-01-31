@@ -27,21 +27,29 @@ export default function ProgressScreen() {
     "month"
   );
 
-  const { data: progressData, isLoading } = useQuery({
-    queryKey: ["progress", timeRange],
+  const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
+
+  const { data: progressData, isLoading, error: progressError } = useQuery({
+    queryKey: ["progress", timeRange, token],
+    enabled: !!token, // Only enable query when token is available
     queryFn: () => apiClient.request(`/analytics/progress?range=${timeRange}`),
   });
 
-  const user = useAuthStore((s) => s.user);
-  const { data: badges } = useQuery({
-    queryKey: ["badges", user?.id],
-    enabled: !!user?.id,
+  const { data: badges, error: badgesError } = useQuery({
+    queryKey: ["badges", user?.id, token],
+    enabled: !!user?.id && !!token, // Only enable query when both user and token are available
     queryFn: async () => {
-      // First, check and award any new badges
-      await apiClient.checkAndAwardBadges(user!.id);
-      // Then fetch badge list with earned flags
-      const res: any = await apiClient.getBadges(user!.id);
-      return Array.isArray(res) ? res : [];
+      try {
+        // First, check and award any new badges
+        await apiClient.checkAndAwardBadges(user!.id);
+        // Then fetch badge list with earned flags
+        const res: any = await apiClient.getBadges(user!.id);
+        return Array.isArray(res) ? res : [];
+      } catch (error) {
+        console.error('Failed to fetch badges:', error);
+        return [];
+      }
     },
   });
 
@@ -59,6 +67,28 @@ export default function ProgressScreen() {
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={{ marginTop: 10, color: '#666' }}>Loading progress...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (progressError || !token) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <MaterialCommunityIcons name="chart-line" size={28} color="#007AFF" />
+          <Text style={styles.headerTitle}>Progress</Text>
+          <View style={{ width: 28 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#FF3B30" />
+          <Text style={{ marginTop: 10, color: '#FF3B30', fontWeight: 'bold' }}>
+            Unable to load progress
+          </Text>
+          <Text style={{ marginTop: 5, color: '#666', textAlign: 'center', paddingHorizontal: 20 }}>
+            {!token ? 'Please log in first' : 'Network error - check your connection and try again'}
+          </Text>
         </View>
       </View>
     );

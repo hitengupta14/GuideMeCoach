@@ -19,6 +19,7 @@ import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { enqueueWorkout, getQueue, onReconnectFlush } from '../../lib/workoutQueue';
 import { WorkoutTimer } from '../../components/WorkoutTimer';
+import { SyncIndicator } from '../../components/SyncIndicator';
 import { useThemeStore } from '../../store/theme';
 import { SkeletonLoader } from '../../components/SkeletonLoader';
 import { useMediaCapture } from '@/hooks/useMediaCapture';
@@ -362,18 +363,25 @@ export default function WorkoutLoggerScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {pendingCount > 0 && (
-        <View style={styles.syncBanner}>
-          <MaterialCommunityIcons name="cloud-sync" size={18} color="#fff" />
-          <Text style={styles.syncText}>{pendingCount} workout(s) pending sync</Text>
-        </View>
-      )}
-      {pendingUploads > 0 && (
-        <View style={[styles.syncBanner, { backgroundColor: '#8E8E93' }]}>
-          <MaterialCommunityIcons name="cloud-upload" size={18} color="#fff" />
-          <Text style={styles.syncText}>{pendingUploads} media upload(s) pending</Text>
-        </View>
-      )}
+      {/* Phase 3: Enhanced Sync Indicators */}
+      <SyncIndicator 
+        pendingCount={pendingCount} 
+        isSyncing={false}
+        onPress={() => Alert.alert(
+          'Pending Workouts',
+          `${pendingCount} workout(s) will sync when you're back online.`,
+          [{ text: 'OK' }]
+        )}
+      />
+      <SyncIndicator 
+        pendingCount={pendingUploads} 
+        isSyncing={false}
+        onPress={() => Alert.alert(
+          'Pending Uploads',
+          `${pendingUploads} media file(s) will upload when you're back online.`,
+          [{ text: 'OK' }]
+        )}
+      />
       
       {/* Media Picker Modal */}
       <Modal visible={pickerModalExerciseId !== null} animationType="slide">

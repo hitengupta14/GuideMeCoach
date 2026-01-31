@@ -1,6 +1,17 @@
 import 'dotenv/config'
 import postgres from 'postgres'
 
+const allowCleanup = process.env.ALLOW_MIGRATION_CLEANUP === 'true'
+if (!allowCleanup) {
+  console.error('Refusing to run cleanup-migrations: set ALLOW_MIGRATION_CLEANUP=true to proceed (NOT for production).')
+  process.exit(1)
+}
+
+const connectionString = process.env.DATABASE_URL
+if (!connectionString) {
+  throw new Error('DATABASE_URL is required to run cleanup-migrations.')
+}
+
 async function main() {
   const sql = postgres({
     host: process.env.DB_HOST || 'localhost',

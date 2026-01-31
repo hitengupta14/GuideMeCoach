@@ -4,14 +4,17 @@ import { API_BASE_URL, config } from '../config/api';
 export const apiClient = {
   baseURL: API_BASE_URL,
 
-  async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  async request<T>(endpoint: string, options?: RequestInit, retryCount: number = 0): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    console.log(`🔵 API ${options?.method || 'GET'}: ${url}`);
+    console.log(`🔵 API ${options?.method || 'GET'}: ${url} (attempt ${retryCount + 1})`);
 
     try {
       // Add timeout to request
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+      const timeoutId = setTimeout(() => {
+        console.warn(`⏱️ Request timeout after ${config.timeout}ms for ${endpoint}`);
+        controller.abort();
+      }, config.timeout);
 
       const response = await fetch(url, {
         ...options,
@@ -38,7 +41,27 @@ export const apiClient = {
       console.log('✅ API Success:', endpoint);
       return data as T;
     } catch (error: any) {
-      console.error('❌ API Error:', { endpoint, error: error.message, url });
+      const isAborted = error.name === 'AbortError';
+      const isNetworkError = !error.response;
+      const shouldRetry = (isAborted || isNetworkError) && retryCount < (config as any).maxRetries;
+
+      console.error('❌ API Error:', {
+        endpoint,
+        error: error.message,
+        isAborted,
+        isNetworkError,
+        shouldRetry,
+        attempt: retryCount + 1,
+        url,
+      });
+
+      if (shouldRetry) {
+        const delay = (config as any).retryDelay * Math.pow(2, retryCount); // Exponential backoff
+        console.log(`🔄 Retrying ${endpoint} after ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return (this.request as any)(endpoint, options, retryCount + 1) as Promise<T>;
+      }
+
       throw error;
     }
   },

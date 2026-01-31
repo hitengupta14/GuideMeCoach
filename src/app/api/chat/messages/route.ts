@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { jwtVerify } from 'jose'
 import { db } from '@/db'
 import { chatMessages, users, chatConversations } from '@/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
@@ -8,34 +6,7 @@ import { logger } from '@/lib/logger'
 import { apiRateLimiter } from '@/lib/rate-limit'
 import { generateChatResponse, isOpenAIConfigured } from '@/lib/ai'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
-
-// Helper to verify session and get userId - supports both Bearer token and session cookie
-async function verifySession(request: NextRequest): Promise<string | null> {
-  try {
-    // Check Bearer token first
-    const authHeader = request.headers.get('authorization')
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
-      if (verified) return verified.payload.userId as string
-    }
-
-    // Fall back to session cookie
-    const cookieStore = await cookies()
-    const token = cookieStore.get('session')?.value
-
-    if (!token) return null
-
-    const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
-    if (!verified) return null
-
-    return verified.payload.userId as string
-  } catch {
-    return null
-  }
-}
+import { verifySession } from '@/lib/auth-helpers'
 
 // Get messages in a conversation
 export async function GET(request: NextRequest) {
@@ -213,22 +184,43 @@ export async function POST(request: NextRequest) {
     
     if (isOpenAIConfigured()) {
       try {
-        // Build message history for AI
-        const messages = [
-          ...conversationHistory.map(msg => ({
-            role: msg.role as 'user' | 'assistant',
-            content: msg.content,
-          })),
-          { role: 'user' as const, content },
-        ]
-
-        aiResponseText = await generateChatResponse(messages, {
-          name: user?.name || undefined,
-          experienceLevel: user?.experienceLevel || undefined,
-          goals: user?.goals || undefined,
-          medicalConditions: user?.medicalConditions || undefined,
-          age: user?.age || undefined,
+        // Generate cache key from conversation context
+        const cacheKey = hashAIRequest('chat', {
+          userMessage: content,
+          experienceLevel: user?.experienceLevel || 'unknown',
+          goals: user?.goals || [],
         })
+
+        // Check cache first (24 hour TTL for chat responses)
+        const cachedResponse = await getCachedAIResponse(cacheKey, 24)
+        
+        if (cachedResponse) {
+          logger.info('Using cached chat response', { cacheKey, userId })
+          aiResponseText = cachedResponse
+        } else {
+          // Build message history for AI
+          const messages = [
+            ...conversationHistory.map(msg => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content,
+            })),
+            { role: 'user' as const, content },
+          ]
+
+          aiResponseText = await generateChatResponse(messages, {
+            name: user?.name || undefined,
+            experienceLevel: user?.experienceLevel || undefined,
+            goals: user?.goals || undefined,
+            medicalConditions: user?.medicalConditions || undefined,
+            age: user?.age || undefined,
+          })
+
+          // Cache the response for future similar queries
+          await cacheAIResponse(cacheKey, 'chat', aiResponseText, {
+            userMessage: content,
+            experienceLevel: user?.experienceLevel,
+          })
+        }
 
         // PHASE 1: Decrement quota AFTER successful AI generation
         await decrementQuota(userId, 'chat', user.isPremium || false)

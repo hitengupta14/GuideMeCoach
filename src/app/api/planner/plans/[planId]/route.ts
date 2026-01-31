@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { jwtVerify } from 'jose'
 import { db } from '@/db'
 import { workoutPlans } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key')
+import { verifySession } from '@/lib/auth-helpers'
 
 /**
  * DELETE /api/planner/plans/:planId
@@ -12,16 +10,13 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secr
  */
 export async function DELETE(_request: NextRequest, { params }: { params: { planId: string } }) {
   try {
-    const token = _request.cookies.get('session')?.value
-    if (!token) {
+    const userId = await verifySession(_request)
+    if (!userId) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
       )
     }
-
-    const decoded = await jwtVerify(token, JWT_SECRET)
-    const userId = decoded.payload.userId as string
 
     const { planId } = params
 

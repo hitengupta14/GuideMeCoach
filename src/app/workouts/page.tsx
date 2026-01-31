@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import WorkoutLogger from '@/components/WorkoutLogger'
+import { useSession } from '@/hooks/useSession'
 
 interface Exercise {
   id: string
@@ -12,62 +12,41 @@ interface Exercise {
 }
 
 export default function WorkoutsPage() {
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const { user, isLoading } = useSession()
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [selectedExercises, setSelectedExercises] = useState<any[]>([])
   const [showExerciseSelector, setShowExerciseSelector] = useState(true)
   const [showLogger, setShowLogger] = useState(false)
-  const router = useRouter()
 
   useEffect(() => {
-    const checkSession = async () => {
+    // Fetch exercises on mount
+    const fetchExercises = async () => {
       try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        })
-
+        const response = await fetch('/api/exercises')
         const data = await response.json()
-        if (!response.ok || !data.user) {
-          router.push('/auth/login')
-          return
-        }
-
-        setUser(data.user)
-        fetchExercises()
-        
-        // Check if we have exercises from saved plan
-        const savedWorkout = sessionStorage.getItem('workoutExercises')
-        if (savedWorkout) {
-          try {
-            const exercises = JSON.parse(savedWorkout)
-            setSelectedExercises(exercises)
-            setShowLogger(true)
-            sessionStorage.removeItem('workoutExercises')
-          } catch (e) {
-            console.error('Failed to parse saved workout', e)
-          }
-        }
-      } catch (err) {
-        console.error('Session check failed:', err)
-        router.push('/auth/login')
-      } finally {
-        setLoading(false)
+        setExercises(data.exercises?.slice(0, 20) || [])
+      } catch (error) {
+        console.error('Error fetching exercises:', error)
       }
     }
 
-    checkSession()
-  }, [router])
+    fetchExercises()
 
-  const fetchExercises = async () => {
-    try {
-      const response = await fetch('/api/exercises')
-      const data = await response.json()
-      setExercises(data.exercises?.slice(0, 20) || []); // Get first 20 exercises
-    } catch (error) {
-      console.error('Error fetching exercises:', error)
+    // Check if we have exercises from saved plan
+    if (typeof window !== 'undefined') {
+      const savedWorkout = sessionStorage.getItem('workoutExercises')
+      if (savedWorkout) {
+        try {
+          const exercises = JSON.parse(savedWorkout)
+          setSelectedExercises(exercises)
+          setShowLogger(true)
+          sessionStorage.removeItem('workoutExercises')
+        } catch (e) {
+          console.error('Failed to parse saved workout', e)
+        }
+      }
     }
-  }
+  }, [])
 
   const toggleExerciseSelection = (exercise: Exercise) => {
     setSelectedExercises((prev) => {
@@ -103,7 +82,7 @@ export default function WorkoutsPage() {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
