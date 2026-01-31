@@ -92,9 +92,17 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
         ...(validated.height !== undefined && { height: validated.height }),
         ...(validated.weight !== undefined && { weight: validated.weight }),
         ...(validated.age !== undefined && { age: validated.age }),
+        ...(validated.gender !== undefined && { gender: validated.gender }),
+        ...(validated.currentWeight !== undefined && { currentWeight: validated.currentWeight }),
+        ...(validated.targetWeight !== undefined && { targetWeight: validated.targetWeight }),
         ...(validated.experienceLevel && { experienceLevel: validated.experienceLevel }),
         ...(validated.goals && { goals: validated.goals }),
         ...(validated.medicalConditions && { medicalConditions: validated.medicalConditions }),
+        ...(validated.availableEquipment && { availableEquipment: validated.availableEquipment }),
+        ...(validated.timeAvailability && { timeAvailability: validated.timeAvailability }),
+        ...(validated.preferredLocation && { preferredLocation: validated.preferredLocation }),
+        ...(validated.weakAreas && { weakAreas: validated.weakAreas }),
+        ...(validated.painAreas && { painAreas: validated.painAreas }),
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId))
