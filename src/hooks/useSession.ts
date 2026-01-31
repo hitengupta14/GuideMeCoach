@@ -22,11 +22,15 @@ export interface SessionUser {
   experienceLevel: string | null
   goals: string[] | null
   medicalConditions: string[] | null
+  availableEquipment: string[] | null
+  timeAvailability: number | null
+  preferredLocation: string | null
+  weakAreas: string[] | null
+  painAreas: string[] | null
   currentWeight: number | null
   targetWeight: number | null
   isPremium: boolean
   subscriptionEndsAt: Date | null
-  availableEquipment?: string[] | null
   isAdmin?: boolean
 }
 
