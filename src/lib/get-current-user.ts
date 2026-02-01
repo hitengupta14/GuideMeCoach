@@ -24,6 +24,7 @@ export async function getCurrentUser() {
 
     return user || null
   } catch (error) {
+    console.error('[GetCurrentUser] Error:', error)
     return null
   }
 }
@@ -36,4 +37,40 @@ export async function getCurrentAdminUser() {
   }
 
   return user
+}
+
+/**
+ * Admin layout fallback: Try to get admin user from auth header (useful for deployed versions)
+ * This allows API authentication to work even if session cookie is missing
+ */
+export async function getCurrentAdminUserFromRequest(request?: any) {
+  // First try session cookie method
+  const user = await getCurrentAdminUser()
+  if (user) {
+    return user
+  }
+
+  // Fallback: Check authorization header (for API calls or if cookie fails)
+  if (request) {
+    try {
+      const authHeader = request.headers?.get?.('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.substring(7)
+        const verified = await jwtVerify(token, JWT_SECRET)
+        const userId = verified.payload.userId as string
+
+        const user = await db.query.users.findFirst({
+          where: eq(users.id, userId),
+        })
+
+        if (user?.isAdmin) {
+          return user
+        }
+      }
+    } catch (error) {
+      console.error('[GetCurrentAdminUserFromRequest] Error:', error)
+    }
+  }
+
+  return null
 }

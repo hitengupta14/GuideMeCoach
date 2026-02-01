@@ -166,13 +166,14 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     )
 
-    // Set HTTP-only cookie with JWT token (1 hour)
+    // Set HTTP-only cookie with JWT token (24 hours for better persistence)
     response.cookies.set('session', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60, // 1 hour
+      maxAge: 60 * 60 * 24, // 24 hours
       path: '/',
+      domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost', // Let Vercel handle domain
     })
 
     console.log('[Login] Cookie set. NODE_ENV:', process.env.NODE_ENV, 'Secure:', process.env.NODE_ENV === 'production')

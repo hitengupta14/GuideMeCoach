@@ -18,7 +18,13 @@ export default async function AdminLayout({
   const user = await getCurrentAdminUser()
 
   if (!user) {
+    console.error('[AdminLayout] User not authenticated or not admin')
     redirect('/auth/login?redirect=/admin')
+  }
+
+  if (!user.isAdmin) {
+    console.error('[AdminLayout] User is not admin:', user.id)
+    redirect('/dashboard?error=not_admin')
   }
 
   return (
