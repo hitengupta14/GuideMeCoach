@@ -69,6 +69,35 @@ export default function SubscribePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Get auth token from localStorage on mount
+  useEffect(() => {
+    const getToken = async () => {
+      if (typeof window !== 'undefined') {
+        let savedToken = localStorage.getItem('token');
+        
+        // If no token in localStorage but user exists, try to get it from session
+        if (!savedToken && user?.id) {
+          try {
+            const response = await fetch('/api/auth/session');
+            if (response.ok) {
+              const data = await response.json();
+              if (data.token) {
+                savedToken = data.token;
+                localStorage.setItem('token', savedToken);
+              }
+            }
+          } catch (err) {
+            console.error('Failed to fetch token from session:', err);
+          }
+        }
+        
+        setToken(savedToken);
+      }
+    };
+    
+    getToken();
+  }, [user?.id]);
+
   const handleSubscribe = async () => {
     if (!token || !user?.id) {
       await handleError({ error: "Please log in first", statusCode: 401 });
@@ -157,6 +186,10 @@ export default function SubscribePage() {
         };
 
         const razorpay = new window.Razorpay(options);
+        razorpay.on('payment.failed', function (response: any) {
+          setError(`Payment failed: ${response.error.description}`);
+          setIsProcessing(false);
+        });
         razorpay.open();
       } else {
         throw new Error("Razorpay SDK not loaded");
@@ -319,7 +352,7 @@ export default function SubscribePage() {
       {/* Load Razorpay SDK */}
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="lazyOnload"
+        strategy="afterInteractive"
       />
     </div>
   );
