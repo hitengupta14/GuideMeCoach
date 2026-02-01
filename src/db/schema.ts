@@ -58,6 +58,11 @@ export const adminRoleEnum = pgEnum('admin_role', [
   'support_admin'
 ])
 
+export const pricingTierEnum = pgEnum('pricing_tier', [
+  'india',
+  'international'
+])
+
 export const exerciseSourceEnum = pgEnum('exercise_source', [
   'manual',
   'ai_generated',
@@ -216,6 +221,14 @@ export const users = pgTable('users', {
   blockedReason: text('blocked_reason'),
   deletedAt: timestamp('deleted_at'),
   deletedReason: text('deleted_reason'),
+
+  // Pending plan changes
+  pendingPlanType: text('pending_plan_type'),
+  pendingPlanStartsAt: timestamp('pending_plan_starts_at'),
+
+  // Pricing fields
+  billingCountry: text('billing_country'),
+  pricingTier: pricingTierEnum('pricing_tier'),
   
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -242,6 +255,31 @@ export const subscriptionHistory = pgTable('subscription_history', {
   
   notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow(),
+})
+
+// AI Response Cache
+export const aiResponseCache = pgTable('ai_response_cache', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  cacheKey: text('cache_key').notNull().unique(),
+  feature: text('feature').notNull(),
+  response: jsonb('response').$type<any>().notNull(),
+  metadata: jsonb('metadata').$type<Record<string, any>>(),
+  hitCount: integer('hit_count').default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  lastAccessedAt: timestamp('last_accessed_at').defaultNow(),
+})
+
+// Refresh Tokens (JWT refresh strategy)
+export const refreshTokens = pgTable('refresh_tokens', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  revokedAt: timestamp('revoked_at'),
+  replacedBy: uuid('replaced_by').references((): any => (refreshTokens as any).id, { onDelete: 'set null' }),
+  deviceInfo: jsonb('device_info').$type<Record<string, any>>(),
+  ipAddress: text('ip_address'),
 })
 
 // Favorite Exercises (User's saved exercises)
@@ -460,3 +498,5 @@ export type SystemMetric = typeof systemMetrics.$inferSelect
 export type AIUsageLog = typeof aiUsageLogs.$inferSelect
 export type PushToken = typeof pushTokens.$inferSelect
 export type SubscriptionHistory = typeof subscriptionHistory.$inferSelect
+export type AIResponseCache = typeof aiResponseCache.$inferSelect
+export type RefreshToken = typeof refreshTokens.$inferSelect

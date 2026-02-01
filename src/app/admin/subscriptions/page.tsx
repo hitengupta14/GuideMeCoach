@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import SubscriptionManagementTable from '@/components/admin/SubscriptionManagementTable'
 
 export default async function SubscriptionsPage() {
-  const premiumUsers = await db
+  const premiumUsers = (await db
     .select({
       id: users.id,
       email: users.email,
@@ -15,7 +15,11 @@ export default async function SubscriptionsPage() {
       createdAt: users.createdAt,
     })
     .from(users)
-    .where(eq(users.isPremium, true))
+    .where(eq(users.isPremium, true)))
+    .map(user => ({
+      ...user,
+      isPremium: !!user.isPremium,
+    }))
 
   const now = new Date()
 
