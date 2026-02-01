@@ -73,7 +73,7 @@ export default function SubscribePage() {
   useEffect(() => {
     const getToken = async () => {
       if (typeof window !== 'undefined') {
-        let savedToken = localStorage.getItem('token');
+        let savedToken: string | null = localStorage.getItem('token');
         
         // If no token in localStorage but user exists, try to get it from session
         if (!savedToken && user?.id) {
@@ -83,7 +83,6 @@ export default function SubscribePage() {
               const data = await response.json();
               if (data.token) {
                 savedToken = data.token;
-                localStorage.setItem('token', savedToken);
               }
             }
           } catch (err) {
@@ -91,6 +90,9 @@ export default function SubscribePage() {
           }
         }
         
+        if (savedToken) {
+          localStorage.setItem('token', savedToken);
+        }
         setToken(savedToken);
       }
     };

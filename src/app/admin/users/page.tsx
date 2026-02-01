@@ -35,12 +35,19 @@ export default async function UsersPage({
   switch (filter) {
     case 'premium':
       whereConditions.push(eq(users.isPremium, true))
+      whereConditions.push(eq(users.status, 'active'))
       break
     case 'admin':
       whereConditions.push(eq(users.isAdmin, true))
       break
     case 'unverified':
       whereConditions.push(eq(users.emailVerified, false))
+      break
+    case 'blocked':
+      whereConditions.push(eq(users.status, 'blocked'))
+      break
+    case 'deleted':
+      whereConditions.push(eq(users.status, 'deleted'))
       break
   }
 
@@ -91,7 +98,7 @@ export default async function UsersPage({
           User Management
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Manage all users, view activity, and perform administrative actions.
+          Manage users, subscriptions, and access.
         </p>
       </div>
 

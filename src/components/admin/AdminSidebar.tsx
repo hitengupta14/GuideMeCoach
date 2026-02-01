@@ -69,6 +69,12 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
       show: true 
     },
     { 
+      name: 'Audit Logs', 
+      href: '/admin/audit-logs', 
+      icon: DocumentTextIcon, 
+      show: permissions.canManageUsers 
+    },
+    { 
       name: 'Admin Users', 
       href: '/admin/admin-users', 
       icon: ShieldCheckIcon, 

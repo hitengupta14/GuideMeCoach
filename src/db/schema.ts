@@ -69,12 +69,6 @@ export const reviewStatusEnum = pgEnum('review_status', [
   'approved'
 ])
 
-// Pricing tiers for regional pricing
-export const pricingTierEnum = pgEnum('pricing_tier', [
-  'india',
-  'international'
-])
-
 // Main Exercises Table
 // @ts-ignore - Self-referencing FK causes circular type inference
 export const exercises = pgTable('exercises', {
@@ -200,12 +194,6 @@ export const users = pgTable('users', {
   
   isPremium: boolean('is_premium').default(false),
   subscriptionEndsAt: timestamp('subscription_ends_at'),
-  pendingPlanType: text('pending_plan_type'), // 'premium', 'premium-yearly', null
-  pendingPlanStartsAt: timestamp('pending_plan_starts_at'), // When pending plan activates
-
-  // Regional pricing fields
-  billingCountry: text('billing_country'), // e.g., 'IN', 'US', 'DE'
-  pricingTier: pricingTierEnum('pricing_tier'), // 'india' | 'international'
   
   // Email verification
   emailVerified: boolean('email_verified').default(false),
@@ -222,8 +210,38 @@ export const users = pgTable('users', {
   isAdmin: boolean('is_admin').default(false),
   adminRole: adminRoleEnum('admin_role'),
   
+  // User status management
+  status: text('status').default('active').notNull(), // 'active', 'blocked', 'deleted', 'suspended'
+  blockedAt: timestamp('blocked_at'),
+  blockedReason: text('blocked_reason'),
+  deletedAt: timestamp('deleted_at'),
+  deletedReason: text('deleted_reason'),
+  
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// Subscription History (track all subscription changes)
+export const subscriptionHistory = pgTable('subscription_history', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  
+  action: text('action').notNull(), // 'purchased', 'renewed', 'cancelled', 'upgraded', 'downgraded'
+  startDate: timestamp('start_date').notNull(),
+  endDate: timestamp('end_date'),
+  planName: text('plan_name'),
+  amount: integer('amount'), // in cents
+  currency: text('currency').default('INR'),
+  
+  cancellationReason: text('cancellation_reason'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancelledBy: text('cancelled_by'), // 'user' or admin email
+  
+  razorpayOrderId: text('razorpay_order_id'),
+  razorpaySubscriptionId: text('razorpay_subscription_id'),
+  
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
 })
 
 // Favorite Exercises (User's saved exercises)
@@ -404,20 +422,6 @@ export const aiUsageQuotas = pgTable('ai_usage_quotas', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
-// AI Response Cache (for cost optimization)
-export const aiResponseCache = pgTable('ai_response_cache', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  cacheKey: text('cache_key').notNull().unique(), // SHA-256 hash of request params
-  
-  feature: text('feature').notNull(), // 'planner', 'chat', 'insights', 'recommendations'
-  response: jsonb('response').notNull(), // Cached AI response
-  metadata: jsonb('metadata').$type<Record<string, any>>(), // Request params, model, etc.
-  
-  hitCount: integer('hit_count').default(0), // Track how many times cache was used
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  lastAccessedAt: timestamp('last_accessed_at').defaultNow(),
-})
-
 // Mobile Push Notification Tokens
 export const pushTokens = pgTable('push_tokens', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -440,24 +444,6 @@ export const pushTokens = pgTable('push_tokens', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
-// Refresh Tokens (for JWT refresh strategy)
-export const refreshTokens: any = pgTable('refresh_tokens', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  token: text('token').notNull().unique(),
-  expiresAt: timestamp('expires_at').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  revokedAt: timestamp('revoked_at'),
-  replacedBy: uuid('replaced_by').references((): any => refreshTokens.id, { onDelete: 'set null' }),
-  deviceInfo: jsonb('device_info').$type<{
-    userAgent?: string
-    platform?: string
-    deviceName?: string
-    appVersion?: string
-  }>(),
-  ipAddress: text('ip_address'),
-})
-
 // Export types
 export type Exercise = typeof exercises.$inferSelect
 export type NewExercise = typeof exercises.$inferInsert
@@ -472,7 +458,5 @@ export type ChatMessage = typeof chatMessages.$inferSelect
 export type AdminActivityLog = typeof adminActivityLogs.$inferSelect
 export type SystemMetric = typeof systemMetrics.$inferSelect
 export type AIUsageLog = typeof aiUsageLogs.$inferSelect
-export type AIResponseCache = typeof aiResponseCache.$inferSelect
 export type PushToken = typeof pushTokens.$inferSelect
-export type RefreshToken = typeof refreshTokens.$inferSelect
-export type NewRefreshToken = typeof refreshTokens.$inferInsert
+export type SubscriptionHistory = typeof subscriptionHistory.$inferSelect

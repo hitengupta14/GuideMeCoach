@@ -9,6 +9,27 @@ import { decidePricing } from '@/lib/pricing';
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
 
 /**
+ * Detect user's country from request headers
+ * Uses Vercel's x-vercel-ip-country header or other geo-location headers
+ * For local development, check for TEST_COUNTRY env var
+ */
+function detectCountryFromRequest(req: NextRequest): string | null {
+  // In development, allow overriding via environment variable
+  if (process.env.NODE_ENV === 'development' && process.env.TEST_COUNTRY) {
+    console.log('[Subscription] Using TEST_COUNTRY override:', process.env.TEST_COUNTRY);
+    return process.env.TEST_COUNTRY;
+  }
+  
+  // Vercel provides geolocation headers
+  const country = req.headers.get('x-vercel-ip-country') || 
+                  req.headers.get('cf-ipcountry') || // Cloudflare
+                  req.headers.get('x-country') ||
+                  null;
+  
+  return country?.toUpperCase() ?? null;
+}
+
+/**
  * Create Razorpay order for subscription
  * Step 1: Backend creates order
  * Step 2: Frontend shows Razorpay checkout
@@ -46,8 +67,6 @@ export async function POST(req: NextRequest) {
         name: users.name,
         email: users.email,
         isPremium: users.isPremium,
-        billingCountry: users.billingCountry,
-        pricingTier: users.pricingTier,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -60,12 +79,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Decide pricing on backend (authoritative)
+    // Detect user's real country from request
+    const detectedCountry = detectCountryFromRequest(req);
+    
+    // Decide pricing on backend based on REAL location
+    // displayRegion is only for UI preview, NOT for pricing
     const decision = decidePricing({
       planType: planType as PlanType,
-      billingCountry: user.billingCountry ?? null,
-      lockedTier: user.pricingTier ?? null,
+      billingCountry: detectedCountry,
+      lockedTier: null,
     })
+    
+    console.log('[Subscription] Pricing decision:', {
+      tier: decision.tier,
+      amount: decision.amountPaise,
+      currency: decision.currency,
+      reason: decision.reason
+    });
 
     // Create Razorpay order with server-decided amount/currency
     const order = await createRazorpayOrderWithPricing(
