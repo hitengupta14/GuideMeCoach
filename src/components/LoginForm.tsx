@@ -12,6 +12,7 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showRegisteredMessage, setShowRegisteredMessage] = useState(false)
+  const [redirectPath, setRedirectPath] = useState('/dashboard')
   const router = useRouter()
 
   useEffect(() => {
@@ -19,8 +20,20 @@ export default function LoginForm() {
     const params = new URLSearchParams(window.location.search)
     const registered = params.get('registered')
     const verify = params.get('verify')
+    const redirect = params.get('redirect')
+    
     if (registered || verify) {
       setShowRegisteredMessage(true)
+    }
+
+    // Store redirect path for after login
+    if (redirect) {
+      try {
+        const decodedPath = decodeURIComponent(redirect)
+        setRedirectPath(decodedPath)
+      } catch (e) {
+        setRedirectPath('/dashboard')
+      }
     }
   }, [])
 
@@ -60,6 +73,8 @@ export default function LoginForm() {
       console.log('[LoginForm] Login successful. Response data:', {
         hasToken: !!data.data?.token,
         tokenPreview: data.data?.token?.substring(0, 20),
+        isAdmin: data.data?.user?.isAdmin,
+        adminRole: data.data?.user?.adminRole,
       })
 
       // Save token to localStorage for API calls that need Bearer token
@@ -70,10 +85,17 @@ export default function LoginForm() {
         console.warn('[LoginForm] No token in response')
       }
 
-      // Cookie is set automatically via HTTP-only cookie
-      // Token is also in localStorage for use in Bearer headers
-      console.log('[LoginForm] Redirecting to dashboard')
-      router.push('/dashboard')
+      // Determine redirect path
+      let finalRedirect = redirectPath
+      
+      // If requested path was /admin but user is not admin, redirect to dashboard
+      if (redirectPath.includes('/admin') && !data.data?.user?.isAdmin) {
+        console.warn('[LoginForm] User not admin, redirecting to dashboard instead')
+        finalRedirect = '/dashboard'
+      }
+
+      console.log('[LoginForm] Redirecting to:', finalRedirect)
+      router.push(finalRedirect)
     } catch (err) {
       setError('Network error. Please try again.')
       console.error(err)

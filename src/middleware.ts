@@ -21,7 +21,12 @@ export function middleware(request: NextRequest) {
   ]
 
   // Check if path is public
-  const isPublicPath = publicPaths.some(path => pathname.startsWith(path))
+  const isPublicPath = publicPaths.some(path => {
+    if (path === '/') {
+      return pathname === '/'
+    }
+    return pathname.startsWith(path)
+  })
   
   // Get session cookie
   const session = request.cookies.get('session')

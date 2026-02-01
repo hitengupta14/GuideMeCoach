@@ -167,16 +167,26 @@ export async function POST(request: NextRequest) {
     )
 
     // Set HTTP-only cookie with JWT token (24 hours for better persistence)
+    const isProduction = process.env.NODE_ENV === 'production'
+    const cookieDomain = isProduction ? undefined : 'localhost'
+    
     response.cookies.set('session', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProduction, // true on Vercel (HTTPS enforced)
+      sameSite: 'lax', // Allows cross-site GET requests to include the cookie
       maxAge: 60 * 60 * 24, // 24 hours
-      path: '/',
-      domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost', // Let Vercel handle domain
+      path: '/', // Available to all paths
+      domain: cookieDomain, // undefined = use current domain (Vercel will use .vercel.app)
     })
 
-    console.log('[Login] Cookie set. NODE_ENV:', process.env.NODE_ENV, 'Secure:', process.env.NODE_ENV === 'production')
+    console.log('[Login] Cookie set:', {
+      NODE_ENV: process.env.NODE_ENV,
+      secure: isProduction,
+      domain: cookieDomain,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: '24h',
+    })
 
     logger.info('User login successful', { userId: foundUser.id })
     return response
