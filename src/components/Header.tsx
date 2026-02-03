@@ -48,6 +48,12 @@ export function Header() {
                   Dashboard
                 </Link>
                 <Link 
+                  href="/today" 
+                  className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  Today
+                </Link>
+                <Link 
                   href="/exercises" 
                   className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
@@ -167,6 +173,14 @@ export function Header() {
                       >
                         <span className="text-lg">📊</span>
                         <span>Dashboard</span>
+                      </Link>
+                      <Link 
+                        href="/today"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <span className="text-lg">📅</span>
+                        <span>Today</span>
                       </Link>
                       <Link 
                         href="/progress"

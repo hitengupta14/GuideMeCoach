@@ -17,6 +17,7 @@ export default function WorkoutsPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([])
   const [selectedExercises, setSelectedExercises] = useState<any[]>([])
+  const [workoutMeta, setWorkoutMeta] = useState<{ dayName?: string; planId?: string } | null>(null)
   const [showExerciseSelector, setShowExerciseSelector] = useState(true)
   const [showLogger, setShowLogger] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -42,12 +43,19 @@ export default function WorkoutsPage() {
     // Check if we have exercises from saved plan
     if (typeof window !== 'undefined') {
       const savedWorkout = sessionStorage.getItem('workoutExercises')
+      const savedMeta = sessionStorage.getItem('workoutMeta')
       if (savedWorkout) {
         try {
           const exercises = JSON.parse(savedWorkout)
           setSelectedExercises(exercises)
           setShowLogger(true)
           sessionStorage.removeItem('workoutExercises')
+          if (savedMeta) {
+            try {
+              setWorkoutMeta(JSON.parse(savedMeta))
+            } catch {}
+            sessionStorage.removeItem('workoutMeta')
+          }
         } catch (e) {
           console.error('Failed to parse saved workout', e)
         }
@@ -77,7 +85,7 @@ export default function WorkoutsPage() {
       const exists = prev.find((e) => e.id === exercise.id)
       if (exists) {
         return prev.filter((e) => e.id !== exercise.id)
-      } else {
+          } else {
         return [
           ...prev,
           {
@@ -85,6 +93,7 @@ export default function WorkoutsPage() {
             exerciseName: exercise.name,
             sets: 3,
             reps: '10',
+            restSeconds: 90,
           },
         ]
       }
@@ -127,12 +136,17 @@ export default function WorkoutsPage() {
             onClick={() => {
               setShowLogger(false)
               setShowExerciseSelector(true)
+              setWorkoutMeta(null)
             }}
             className="mb-4 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
           >
             ← Back to Exercise Selection
           </button>
-          <WorkoutLogger userId={user.id} planExercises={selectedExercises} />
+          <WorkoutLogger
+            planExercises={selectedExercises}
+            dayName={workoutMeta?.dayName}
+            planId={workoutMeta?.planId}
+          />
         </div>
       </div>
     )

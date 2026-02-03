@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { usePlanHistory } from '@/context/PlanContext'
+import { useRouter } from 'next/navigation'
 
 interface WorkoutPlan {
   planName: string
@@ -27,7 +27,7 @@ interface WorkoutPlan {
 }
 
 export default function AIPlannerForm() {
-  const { addToHistory, setPreviousPage } = usePlanHistory()
+  const router = useRouter()
   const [formData, setFormData] = useState({
     goal: 'muscle_gain',
     experienceLevel: 'intermediate',
@@ -39,6 +39,8 @@ export default function AIPlannerForm() {
 
   const [loading, setLoading] = useState(false)
   const [generatedPlan, setGeneratedPlan] = useState<WorkoutPlan | null>(null)
+  const [savedPlanId, setSavedPlanId] = useState<string | null>(null)
+  const [activating, setActivating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const equipmentOptions = [
@@ -61,6 +63,7 @@ export default function AIPlannerForm() {
     setLoading(true)
     setError(null)
     setGeneratedPlan(null)
+    setSavedPlanId(null)
 
     try {
       const response = await fetch('/api/planner/ai-generate', {
@@ -76,45 +79,9 @@ export default function AIPlannerForm() {
       }
 
       const data = await response.json()
-      
-      // Extract and save exercises from the AI plan
-      if (data.aiDetails?.weeklyStructure) {
-        try {
-          const exerciseResponse = await fetch('/api/planner/extract-and-save-exercises', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              weeklyStructure: data.aiDetails.weeklyStructure,
-            }),
-          })
-
-          if (exerciseResponse.ok) {
-            const exerciseData = await exerciseResponse.json()
-            console.log('Exercises processed:', exerciseData)
-          } else {
-            console.warn('Failed to process exercises for navigation')
-          }
-        } catch (exerciseError) {
-          console.warn('Error processing exercises:', exerciseError)
-          // Continue even if exercise processing fails
-        }
-      }
 
       setGeneratedPlan(data.aiDetails)
-      
-      // Add to plan history
-      const planName = `AI Plan - ${new Date().toLocaleDateString()}`
-      const goalLabel = goals.find(g => g.value === formData.goal)?.label || formData.goal
-      addToHistory({
-        name: planName,
-        description: `Generated for ${formData.experienceLevel} level with ${goalLabel} focus`,
-        isSaved: false,
-        type: 'ai',
-        details: data.aiDetails
-      }, 'ai')
-      
-      setPreviousPage('/planner/unified')
+      setSavedPlanId(data.plan?.id || null)
     } catch (err: any) {
       setError(err.message || 'Failed to generate workout plan')
     } finally {
@@ -343,16 +310,37 @@ export default function AIPlannerForm() {
             {/* Save Button */}
             <div className="mt-6 flex gap-3">
               <button
-                onClick={() => {
-                  // TODO: Implement save to user's plans
-                  alert('Save functionality coming soon!')
+                onClick={async () => {
+                  if (!savedPlanId) return
+                  try {
+                    setActivating(true)
+                    const res = await fetch(`/api/planner/plans/${savedPlanId}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ isActive: true }),
+                    })
+                    if (!res.ok) {
+                      const data = await res.json().catch(() => null)
+                      throw new Error(data?.error || 'Failed to activate plan')
+                    }
+                    router.push('/today')
+                  } catch (e) {
+                    alert(e instanceof Error ? e.message : 'Failed to activate plan')
+                  } finally {
+                    setActivating(false)
+                  }
                 }}
-                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+                disabled={!savedPlanId || activating}
+                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Save This Plan
+                {activating ? 'Activating…' : 'Activate & Start Today'}
               </button>
               <button
-                onClick={() => setGeneratedPlan(null)}
+                onClick={() => {
+                  setGeneratedPlan(null)
+                  setSavedPlanId(null)
+                }}
                 className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
               >
                 Generate New Plan

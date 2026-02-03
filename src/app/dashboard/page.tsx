@@ -84,7 +84,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-4 gap-6 mb-8">
+          <Link href="/today">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-gray-800">
+              <div className="text-4xl mb-4">📅</div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Today</h3>
+              <p className="text-gray-600 dark:text-gray-400">Your next workout, ready to go</p>
+            </div>
+          </Link>
           <Link href="/planner">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-gray-800">
               <div className="text-4xl mb-4">📋</div>
@@ -104,7 +111,7 @@ export default function DashboardPage() {
           <Link href="/workouts">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-gray-800">
               <div className="text-4xl mb-4">💪</div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Log Workout</h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Quick Log</h3>
               <p className="text-gray-600 dark:text-gray-400">Record your workout and track progress</p>
             </div>
           </Link>

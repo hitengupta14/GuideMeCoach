@@ -49,21 +49,25 @@ export interface MeasurementsData {
     age?: number
     gender?: string
   }
-  bmi?: string
+  bmi?: string | number
   weightProgress: {
     startWeight?: number
     currentWeight?: number
     targetWeight?: number
     totalToLose?: number
-    progress?: string
+    progress?: string | number
   }
-  history: any[]
+  history: Array<{ date: string; weight: number }>
+  smoothed?: Array<{ date: string; weight: number }>
 }
 
 export function useAnalytics() {
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutSession[]>([])
   const [streak, setStreak] = useState<StreakData | null>(null)
   const [measurements, setMeasurements] = useState<MeasurementsData | null>(null)
+  const [prs, setPrs] = useState<any>(null)
+  const [volume, setVolume] = useState<any>(null)
+  const [monthlySummary, setMonthlySummary] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -81,13 +85,37 @@ export function useAnalytics() {
           throw new Error('Failed to fetch analytics data')
         }
 
-        const historyData = await historyRes.json()
-        const streakData = await streakRes.json()
-        const measurementsData = await measurementsRes.json()
+        const [historyData, streakData, measurementsData] = await Promise.all([
+          historyRes.json(),
+          streakRes.json(),
+          measurementsRes.json(),
+        ])
 
         setWorkoutHistory(historyData.sessions)
         setStreak(streakData)
         setMeasurements(measurementsData)
+
+        // Optional analytics (don’t fail the whole page if these endpoints error)
+        try {
+          const prsRes = await fetch('/api/analytics/prs')
+          setPrs(prsRes.ok ? await prsRes.json() : null)
+        } catch {
+          setPrs(null)
+        }
+
+        try {
+          const volumeRes = await fetch('/api/analytics/volume')
+          setVolume(volumeRes.ok ? await volumeRes.json() : null)
+        } catch {
+          setVolume(null)
+        }
+
+        try {
+          const summaryRes = await fetch('/api/analytics/monthly-summary')
+          setMonthlySummary(summaryRes.ok ? await summaryRes.json() : null)
+        } catch {
+          setMonthlySummary(null)
+        }
         setError(null)
       } catch (err) {
         console.error('Analytics fetch error:', err)
@@ -125,6 +153,9 @@ export function useAnalytics() {
     workoutHistory,
     streak,
     measurements,
+    prs,
+    volume,
+    monthlySummary,
     loading,
     error,
     updateMeasurements,

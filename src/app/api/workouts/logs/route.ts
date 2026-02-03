@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { workoutLogs, workoutSessions } from '@/db/schema'
+import { exercises, workoutLogs, workoutSessions } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { verifySession } from '@/lib/auth-helpers'
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Workout session not found' }, { status: 404 })
     }
 
-    const newLog = await db
+    const [saved] = await db
       .insert(workoutLogs)
       .values({
         userId: authUserId,
@@ -59,10 +59,23 @@ export async function POST(request: NextRequest) {
         duration: duration || undefined,
         rpe: rpe || undefined,
         notes: notes || undefined,
+        performedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [workoutLogs.sessionId, workoutLogs.exerciseId],
+        set: {
+          completedSets: completedSets || undefined,
+          completedReps: completedReps || undefined,
+          weight: weight || undefined,
+          duration: duration || undefined,
+          rpe: rpe || undefined,
+          notes: notes || undefined,
+          performedAt: new Date(),
+        },
       })
       .returning()
 
-    return NextResponse.json(newLog[0], { status: 201 })
+    return NextResponse.json(saved, { status: 201 })
   } catch (error) {
     console.error('Error logging exercise:', error)
     return NextResponse.json({ error: 'Failed to log exercise' }, { status: 500 })
@@ -97,8 +110,24 @@ export async function GET(request: NextRequest) {
     }
 
     const logs = await db
-      .select()
+      .select({
+        id: workoutLogs.id,
+        sessionId: workoutLogs.sessionId,
+        exerciseId: workoutLogs.exerciseId,
+        exerciseName: exercises.name,
+        plannedSets: workoutLogs.plannedSets,
+        completedSets: workoutLogs.completedSets,
+        plannedReps: workoutLogs.plannedReps,
+        completedReps: workoutLogs.completedReps,
+        weight: workoutLogs.weight,
+        duration: workoutLogs.duration,
+        rpe: workoutLogs.rpe,
+        notes: workoutLogs.notes,
+        performedAt: workoutLogs.performedAt,
+        createdAt: workoutLogs.createdAt,
+      })
       .from(workoutLogs)
+      .innerJoin(exercises, eq(workoutLogs.exerciseId, exercises.id))
       .where(and(eq(workoutLogs.sessionId, sessionId), eq(workoutLogs.userId, authUserId)))
 
     return NextResponse.json(logs)

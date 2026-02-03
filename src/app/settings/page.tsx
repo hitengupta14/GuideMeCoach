@@ -17,6 +17,13 @@ export default function SettingsPage() {
     emailUpdates: false,
     dataPrivacy: 'private',
   })
+  const [notificationPrefs, setNotificationPrefs] = useState<{
+    pushEnabled: boolean
+    dailyWorkoutReminder: boolean
+    missedWorkoutNudges: boolean
+    streakReinforcement: boolean
+    renewalReminders: boolean
+  } | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showPasswordChange, setShowPasswordChange] = useState(false)
   const [passwordData, setPasswordData] = useState({
@@ -39,9 +46,47 @@ export default function SettingsPage() {
     }
   }, [])
 
-  const saveSettings = () => {
+  useEffect(() => {
+    const loadPrefs = async () => {
+      const { data, error } = await apiWrapper.get<{ preferences: any }>(
+        '/api/notifications/preferences'
+      )
+      if (error) {
+        // Preferences are optional — don’t block the settings page on failures.
+        console.warn('Failed to load notification preferences', error)
+        return
+      }
+      if (data?.preferences) {
+        setNotificationPrefs({
+          pushEnabled: Boolean(data.preferences.pushEnabled),
+          dailyWorkoutReminder: Boolean(data.preferences.dailyWorkoutReminder),
+          missedWorkoutNudges: Boolean(data.preferences.missedWorkoutNudges),
+          streakReinforcement: Boolean(data.preferences.streakReinforcement),
+          renewalReminders: Boolean(data.preferences.renewalReminders),
+        })
+      }
+    }
+
+    if (user) {
+      loadPrefs()
+    }
+  }, [user])
+
+  const saveSettings = async () => {
     localStorage.setItem('appSettings', JSON.stringify(settings))
-    alert('Settings saved successfully!')
+
+    if (notificationPrefs) {
+      const { error } = await apiWrapper.post<{ preferences: any }>(
+        '/api/notifications/preferences',
+        notificationPrefs
+      )
+      if (error) {
+        await handleError(error)
+        return
+      }
+    }
+
+    handleSuccess('Settings saved successfully!')
   }
 
   const handleChangePassword = async () => {
@@ -163,15 +208,69 @@ export default function SettingsPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Notifications</h2>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-700">Enable Notifications</label>
-                <input
-                  type="checkbox"
-                  checked={settings.notifications}
-                  onChange={(e) => setSettings({ ...settings, notifications: e.target.checked })}
-                  className="w-5 h-5 text-indigo-600"
-                />
-              </div>
+              {notificationPrefs ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700">Enable Push Notifications</label>
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.pushEnabled}
+                      onChange={(e) =>
+                        setNotificationPrefs({ ...notificationPrefs, pushEnabled: e.target.checked })
+                      }
+                      className="w-5 h-5 text-indigo-600"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700">Daily Workout Reminder</label>
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.dailyWorkoutReminder}
+                      onChange={(e) =>
+                        setNotificationPrefs({ ...notificationPrefs, dailyWorkoutReminder: e.target.checked })
+                      }
+                      className="w-5 h-5 text-indigo-600"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700">Missed Workout Nudges</label>
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.missedWorkoutNudges}
+                      onChange={(e) =>
+                        setNotificationPrefs({ ...notificationPrefs, missedWorkoutNudges: e.target.checked })
+                      }
+                      className="w-5 h-5 text-indigo-600"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700">Streak Reinforcement</label>
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.streakReinforcement}
+                      onChange={(e) =>
+                        setNotificationPrefs({ ...notificationPrefs, streakReinforcement: e.target.checked })
+                      }
+                      className="w-5 h-5 text-indigo-600"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700">Renewal Reminders</label>
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.renewalReminders}
+                      onChange={(e) =>
+                        setNotificationPrefs({ ...notificationPrefs, renewalReminders: e.target.checked })
+                      }
+                      className="w-5 h-5 text-indigo-600"
+                    />
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-600">
+                  Notification preferences will appear once your account is loaded (or if the DB migration is applied).
+                </p>
+              )}
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-gray-700">Email Updates</label>
                 <input
