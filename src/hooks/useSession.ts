@@ -57,12 +57,17 @@ export function useSession(options?: {
         credentials: 'include',
       })
 
+      // Treat "not logged in" as a non-error state so public pages can render.
+      if (response.status === 401) {
+        return null
+      }
+
       if (!response.ok) {
-        throw new Error('Not authenticated')
+        throw new Error('Failed to load session')
       }
 
       const result = await response.json()
-      return result.user as SessionUser
+      return (result.user ?? null) as SessionUser | null
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - balance freshness with performance
     gcTime: 10 * 60 * 1000, // 10 minutes
@@ -73,17 +78,20 @@ export function useSession(options?: {
 
   // Auto-redirect on authentication failure
   useEffect(() => {
-    if (required && error && !isLoading) {
+    const unauthenticated = !isLoading && !error && data === null
+    if (required && unauthenticated) {
       router.push(redirectTo)
     }
-  }, [error, isLoading, required, router, redirectTo])
+  }, [data, error, isLoading, required, router, redirectTo])
 
   return {
-    user: data || null,
+    user: data ?? null,
     isLoading,
     isAuthenticated: !!data,
     error: error as Error | null,
-    refetch,
+    refetch: () => {
+      void refetch()
+    },
   }
 }
 

@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
           const muscles = await db
             .select({
               muscleGroupId: exerciseMuscles.muscleGroupId,
-              muscleGroupName: muscleGroups.name,
+              muscleGroupName: muscleGroups.displayName,
               role: exerciseMuscles.role,
             })
             .from(exerciseMuscles)

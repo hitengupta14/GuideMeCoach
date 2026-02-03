@@ -3,7 +3,7 @@ import '@/lib/env.server'
 import './globals.css'
 import { Providers } from './providers'
 import { HeaderWrapper } from '@/components/HeaderWrapper'
-import { Footer } from '@/components/Footer'
+import { FooterWrapper } from '@/components/FooterWrapper'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export const metadata: Metadata = {
@@ -62,7 +62,7 @@ export default function RootLayout({
             <div className="min-h-screen">
               {children}
             </div>
-            <Footer />
+            <FooterWrapper />
           </Providers>
         </ErrorBoundary>
       </body>

@@ -21,14 +21,18 @@ async function getSession() {
     const token = sessionCookie?.value
 
     if (!token) {
-      return NextResponse.json({ user: null }, { status: 401 })
+      // Not logged in is not an error state for the web app; return a stable shape.
+      return NextResponse.json({ user: null }, { status: 200 })
     }
 
     // Verify JWT token
     const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
     if (!verified) {
       logger.warn('Invalid JWT token')
-      return NextResponse.json({ user: null }, { status: 401 })
+      const res = NextResponse.json({ user: null }, { status: 200 })
+      // Clear invalid cookie to prevent loops.
+      res.cookies.set('session', '', { httpOnly: true, path: '/', maxAge: 0 })
+      return res
     }
 
     const userId = verified.payload.userId as string
@@ -65,7 +69,9 @@ async function getSession() {
 
     if (!user) {
       logger.warn('User not found for JWT token')
-      return NextResponse.json({ user: null }, { status: 401 })
+      const res = NextResponse.json({ user: null }, { status: 200 })
+      res.cookies.set('session', '', { httpOnly: true, path: '/', maxAge: 0 })
+      return res
     }
 
     logger.info('Session validated', { userId: user.id })

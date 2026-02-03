@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { useSession } from "@/hooks/useSession";
 import { useAPIError } from "@/hooks/useAPIError";
@@ -54,11 +54,12 @@ const PLANS = {
 
 export default function SubscribePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const params = useParams();
   const { user, isLoading: isSessionLoading } = useSession({ required: true });
   const { handleError, handleSuccess, handleLoading, dismissToast } = useAPIError();
 
-  const planKey = (searchParams.get("plan") || "premium") as keyof typeof PLANS;
+  const planParam = Array.isArray((params as any).plan) ? (params as any).plan?.[0] : (params as any).plan;
+  const planKey = (planParam || "premium") as keyof typeof PLANS;
   const plan = PLANS[planKey] || PLANS.premium;
 
   const [selectedRegion, setSelectedRegion] = useState<

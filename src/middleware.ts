@@ -56,7 +56,8 @@ export async function middleware(request: NextRequest) {
   if (!isApiRoute && !isPublicPath && !sessionValid) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
-    url.searchParams.set('returnTo', request.nextUrl.pathname + request.nextUrl.search)
+    // Keep query param name consistent with the web auth screens.
+    url.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search)
     const res = NextResponse.redirect(url)
     res.headers.set('x-request-id', requestId)
     return res

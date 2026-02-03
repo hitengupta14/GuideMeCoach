@@ -5,6 +5,22 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from './ThemeProvider'
 import { useSession } from '@/hooks/useSession'
+import {
+  Bot,
+  Brain,
+  CalendarDays,
+  Dumbbell,
+  Heart,
+  HeartPulse,
+  LayoutDashboard,
+  LineChart,
+  LogOut,
+  Settings,
+  Shield,
+  Star,
+  Trophy,
+  Wrench,
+} from 'lucide-react'
 
 export function Header() {
   const { user, isLoading: loading, refetch } = useSession({ required: false })
@@ -160,7 +176,7 @@ export function Header() {
                       <p className="font-bold text-gray-900 dark:text-white">{user.name}</p>
                       <p className="text-xs text-gray-600 dark:text-gray-400">{user.email}</p>
                       {user.weight && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">📊 Weight: {user.weight} kg</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Weight: {user.weight} kg</p>
                       )}
                     </div>
 
@@ -171,7 +187,7 @@ export function Header() {
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">📊</span>
+                        <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
                         <span>Dashboard</span>
                       </Link>
                       <Link 
@@ -179,7 +195,7 @@ export function Header() {
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">📅</span>
+                        <CalendarDays className="h-5 w-5" aria-hidden="true" />
                         <span>Today</span>
                       </Link>
                       <Link 
@@ -187,23 +203,15 @@ export function Header() {
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">📈</span>
+                        <LineChart className="h-5 w-5" aria-hidden="true" />
                         <span>Progress</span>
-                      </Link>
-                      <Link 
-                        href="/progress-v2"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
-                        onClick={() => setShowMenu(false)}
-                      >
-                        <span className="text-lg">🎯</span>
-                        <span>Engagement</span>
                       </Link>
                       <Link 
                         href="/workouts"
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">💪</span>
+                        <Dumbbell className="h-5 w-5" aria-hidden="true" />
                         <span>Workouts</span>
                       </Link>
                       <Link 
@@ -211,7 +219,7 @@ export function Header() {
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">🏆</span>
+                        <Trophy className="h-5 w-5" aria-hidden="true" />
                         <span>Achievements</span>
                       </Link>
                       <Link 
@@ -219,7 +227,7 @@ export function Header() {
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">🧠</span>
+                        <Brain className="h-5 w-5" aria-hidden="true" />
                         <span>Planner</span>
                       </Link>
                       <Link 
@@ -227,7 +235,7 @@ export function Header() {
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">💚</span>
+                        <HeartPulse className="h-5 w-5" aria-hidden="true" />
                         <span>Recovery</span>
                       </Link>
                       <Link 
@@ -235,7 +243,7 @@ export function Header() {
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">🛠️</span>
+                        <Wrench className="h-5 w-5" aria-hidden="true" />
                         <span>Tools</span>
                       </Link>
                       <Link 
@@ -243,7 +251,7 @@ export function Header() {
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">🤖</span>
+                        <Bot className="h-5 w-5" aria-hidden="true" />
                         <span>AI Coach</span>
                       </Link>
                       <Link 
@@ -251,7 +259,7 @@ export function Header() {
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">❤️</span>
+                        <Heart className="h-5 w-5" aria-hidden="true" />
                         <span>Favorites</span>
                       </Link>
                     </div>
@@ -263,7 +271,7 @@ export function Header() {
                         className="flex items-center gap-3 px-4 py-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition font-semibold"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">⭐</span>
+                        <Star className="h-5 w-5" aria-hidden="true" />
                         <span>Upgrade to Premium</span>
                         <span className="ml-auto text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded">NEW</span>
                       </Link>
@@ -278,7 +286,7 @@ export function Header() {
                             className="flex items-center gap-3 px-4 py-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition font-semibold border-b border-gray-200 dark:border-gray-700"
                             onClick={() => setShowMenu(false)}
                           >
-                            <span className="text-lg">🛡️</span>
+                            <Shield className="h-5 w-5" aria-hidden="true" />
                             <span>Admin Panel</span>
                             <span className="ml-auto text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-1 rounded">NEW</span>
                           </Link>
@@ -289,14 +297,14 @@ export function Header() {
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <span className="text-lg">⚙️</span>
+                        <Settings className="h-5 w-5" aria-hidden="true" />
                         <span>Settings</span>
                       </Link>
                       <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
                       >
-                        <span className="text-lg">🚪</span>
+                        <LogOut className="h-5 w-5" aria-hidden="true" />
                         <span>Logout</span>
                       </button>
                     </div>

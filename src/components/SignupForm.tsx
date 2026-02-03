@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -11,6 +11,7 @@ export default function SignupForm() {
     password: '',
     confirmPassword: '',
   })
+  const [redirectPath, setRedirectPath] = useState('/dashboard')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -18,6 +19,20 @@ export default function SignupForm() {
   const [otpCode, setOtpCode] = useState('')
   const [verifying, setVerifying] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const redirect = params.get('redirect')
+    if (redirect) {
+      try {
+        const decoded = decodeURIComponent(redirect)
+        // Never redirect signups directly to admin routes.
+        setRedirectPath(decoded.startsWith('/admin') ? '/dashboard' : decoded)
+      } catch {
+        setRedirectPath('/dashboard')
+      }
+    }
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -135,7 +150,7 @@ export default function SignupForm() {
                     if (!resp.ok) {
                       setError(data.error || 'Invalid OTP')
                     } else {
-                      router.push('/dashboard')
+                      router.push(redirectPath)
                     }
                   } catch (e) {
                     setError('Network error while verifying OTP')

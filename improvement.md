@@ -1,146 +1,27 @@
-🚨 Critical Missing Features
-Both Web & Mobile:
-Error Boundary / Global Error Handling
+# GuideMeCoach – Backlog / Known Gaps
 
-❌ No React Error Boundaries implemented
-❌ App will crash completely on unhandled errors
-❌ No graceful error recovery
-Why critical: Production apps crash silently without this
-Production Monitoring & Error Tracking
+Last updated: February 3, 2026
 
-❌ Sentry/Datadog integration is commented out (TODO in logger.ts)
-❌ No real-time error tracking in production
-❌ No performance monitoring
-Why critical: You'll be blind to production issues
-Email Verification Flow
+## Recently fixed
+- Public browsing no longer forces login when unauthenticated (`/api/auth/session` returns `200` with `user: null`).
+- Exercise detail pages fetch reliably by slug (no pagination-related 404s).
+- Exercise search is server-side (works across all pages, not just current page).
+- Pricing is publicly viewable; upgrade CTAs route users through signup/login with redirect back.
+- Page titles/descriptions use Next.js Metadata (no `document.title`/DOM meta mutations).
+- Removed global `*` CSS transitions (reduces UI jank and improves performance).
 
-⚠️ Partially implemented but incomplete
-❌ Users can login without verifying email
-❌ No resend verification email feature
-Why critical: Security risk, spam accounts
-Password Reset Flow
+## Next high priority
+### Security / auth
+- Audit CSRF approach in `src/middleware.ts` (token issuance + verification for state-changing requests).
+- Ensure rate limiting is applied to auth endpoints (login/signup/OTP) and AI-heavy endpoints.
+- Add strict server-side file upload validation (type/size) anywhere uploads exist.
 
-⚠️ Basic endpoint exists but incomplete
-❌ No email sending integration (Resend is installed but not fully integrated)
-❌ Token expiration not enforced
-Why critical: Users get locked out permanently
-Rate Limiting on Critical Endpoints
+### UX / product
+- Replace remaining emoji icons in core UI with a consistent icon set.
+- Add real visuals on web (exercise thumbnails/body-map imagery) and configure Next Image remote patterns for your chosen CDN/storage.
+- Replace placeholder dashboard stats with real metrics (workouts, streaks, favorites, etc.).
 
-✅ Rate limit library exists
-❌ Not applied to all AI endpoints (expensive!)
-❌ Not applied to auth endpoints (brute force risk)
-Why critical: Cost explosion and security
-Mobile App Only:
-Push Notifications
+### Tech debt
+- Add tests for auth/session and exercise APIs (slug routing, pagination/search correctness).
+- Reduce in-memory filtering in `GET /api/exercises` (move equipment filtering into SQL where possible).
 
-✅ expo-notifications installed
-❌ Not implemented at all
-❌ No workout reminders
-❌ No achievement alerts
-Why critical: Core retention feature
-Biometric Authentication
-
-✅ expo-local-authentication installed
-⚠️ Basic implementation exists but
-❌ Not enforced on app launch
-❌ No fallback handling
-Why critical: Expected mobile feature
-Camera Permissions & Error Handling
-
-✅ Camera integration exists for video upload
-❌ No proper permission denied handling
-❌ No alternate flow if camera unavailable
-Why critical: App breaks on permission denial
-Deep Linking
-
-❌ No deep link handling for notifications
-❌ Can't share specific workouts/exercises
-Why critical: Poor user experience
-App State Management
-
-❌ No handling for app going to background mid-workout
-❌ Workout data could be lost
-Why critical: Data loss risk
-Web App Only:
-CSRF Protection
-
-❌ No CSRF tokens on forms
-❌ Session cookies vulnerable
-Why critical: Security vulnerability
-Session Expiry Handling
-
-❌ No auto-redirect when session expires
-❌ No token refresh mechanism
-❌ Users see cryptic errors
-Why critical: Poor UX, security issue
-File Upload Validation
-
-❌ No server-side file type validation
-❌ No file size limits enforced
-❌ Malicious file upload possible
-Why critical: Security + server costs
-Admin Audit Trail
-
-⚠️ Basic logging exists
-❌ No IP address logging
-❌ No rollback capability
-Why critical: Compliance, accountability
-⚠️ High Priority (Not Critical But Important)
-Pagination
-
-❌ Exercises list loads ALL exercises at once
-❌ Performance issue with scale
-Impact: Slow page loads, high bandwidth
-Image Optimization
-
-❌ No CDN
-❌ No image resizing/compression
-❌ Full-size images loaded everywhere
-Impact: Slow mobile experience, high costs
-Search Functionality
-
-❌ No search on exercises page
-❌ Must scroll through everything
-Impact: Poor UX at scale
-Loading States Consistency
-
-⚠️ Some screens have skeleton loaders
-❌ Many screens just show blank or spinner
-Impact: Feels unpolished
-Empty States
-
-❌ Many screens show nothing when no data
-❌ No guidance for new users
-Impact: Confusing for new users
-Optimistic Updates
-
-❌ All mutations wait for server
-❌ Feels slow (especially favorites, likes)
-Impact: App feels sluggish
-📊 Priority Order for Implementation:
-Ship Blockers (Do these first):
-Error Boundaries (1 day)
-Password Reset with Email (2 days)
-Rate Limiting on AI endpoints (1 day)
-Session Expiry Handling (1 day)
-Production Error Monitoring Setup (Sentry) (1 day)
-Week 1 Priorities:
-Push Notifications (Mobile) (3 days)
-File Upload Validation (1 day)
-CSRF Protection (1 day)
-Deep Linking (Mobile) (2 days)
-Email Verification Enforcement (2 days)
-Week 2 Priorities:
-Pagination on Exercises (2 days)
-Image Optimization (CDN setup) (2 days)
-Search Functionality (2 days)
-Empty States across all screens (2 days)
-Biometric Auth Enforcement (Mobile) (1 day)
-Total critical work: ~25 days to production-ready
-
-The biggest risks right now are:
-
-Security vulnerabilities (no CSRF, weak rate limiting)
-Cost explosion (unlimited AI calls, no rate limiting)
-Data loss (no error boundaries, poor session handling)
-User frustration (can't reset password, no email verification)

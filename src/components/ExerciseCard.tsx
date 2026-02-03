@@ -11,7 +11,7 @@ interface ExerciseCardProps {
 }
 
 export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) {
-  const { user } = useSession()
+  const { user } = useSession({ required: false })
   const [isFavorite, setIsFavorite] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -64,16 +64,22 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
     }
   }
 
-  const categoryIcon = categoryIcons[exercise.category as keyof typeof categoryIcons] || '💪'
-  const difficultyColor = difficultyColors[exercise.difficulty as keyof typeof difficultyColors] || 'bg-gray-100 text-gray-800'
-
   return (
     <Link href={`/exercises/${exercise.slug}`}>
       <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer h-full overflow-hidden border border-gray-100 hover:border-indigo-300">
         {/* Header with icon and category */}
         <div className="bg-gradient-to-r from-primary-500 to-primary-600 p-4 text-white relative">
           <div className="flex items-start justify-between">
-            <span className="text-3xl">{categoryIcons[exercise.category as string]}</span>
+            {exercise.thumbnailUrl ? (
+              <img
+                src={exercise.thumbnailUrl}
+                alt={exercise.name}
+                className="w-12 h-12 rounded-lg object-cover bg-white/10"
+                loading="lazy"
+              />
+            ) : (
+              <span className="text-3xl">{categoryIcons[exercise.category as string] || '💪'}</span>
+            )}
             <div className="flex items-center gap-2">
               <span className={`px-2 py-1 rounded text-xs font-semibold ${difficultyColors[exercise.difficulty as string]}`}>
                 {exercise.difficulty.charAt(0).toUpperCase() + exercise.difficulty.slice(1)}

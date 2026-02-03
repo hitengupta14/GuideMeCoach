@@ -3,6 +3,8 @@ import { db } from '@/db'
 import { muscleGroups, exerciseMuscles, exercises } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const allMuscleGroups = await db.select().from(muscleGroups)
