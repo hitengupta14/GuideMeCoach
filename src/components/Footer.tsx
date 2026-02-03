@@ -16,6 +16,9 @@ export function Footer() {
             <ul className="space-y-2 text-sm">
               <li><a href="/exercises" className="hover:text-white dark:hover:text-gray-200 transition">Exercise Library</a></li>
               <li><a href="/body-map" className="hover:text-white dark:hover:text-gray-200 transition">Body Map</a></li>
+              <li><a href="/terms" className="hover:text-white dark:hover:text-gray-200 transition">Terms</a></li>
+              <li><a href="/privacy" className="hover:text-white dark:hover:text-gray-200 transition">Privacy</a></li>
+              <li><a href="/medical-disclaimer" className="hover:text-white dark:hover:text-gray-200 transition">Medical Disclaimer</a></li>
             </ul>
           </div>
           

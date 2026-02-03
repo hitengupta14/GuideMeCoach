@@ -4,33 +4,14 @@ import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { verifyPassword, hashPassword } from '@/lib/auth'
 import { logger } from '@/lib/logger'
-import { jwtVerify } from 'jose'
-import { getJwtSecretKey } from '@/lib/jwt'
-
-const JWT_SECRET = getJwtSecretKey()
+import { verifySession } from '@/lib/auth-helpers'
 
 export async function POST(request: NextRequest) {
   try {
-    // Get token from Authorization header
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const userId = await verifySession(request)
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-
-    // Verify JWT token
-    let userId: string
-    try {
-      const { payload } = await jwtVerify(token, JWT_SECRET)
-      userId = payload.userId as string
-    } catch (error) {
-      logger.error('Invalid token', error as Error)
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
         { status: 401 }
       )
     }

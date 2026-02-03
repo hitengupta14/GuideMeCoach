@@ -5,10 +5,12 @@ import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { SignJWT } from 'jose';
 import { getJwtSecretKey } from '@/lib/jwt';
+import { getPremiumStatus } from '@/lib/entitlements';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
 const JWT_SECRET = getJwtSecretKey();
 
-export async function POST(req: NextRequest) {
+async function login(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
@@ -26,7 +28,6 @@ export async function POST(req: NextRequest) {
         email: users.email,
         name: users.name,
         passwordHash: users.passwordHash,
-        isPremium: users.isPremium,
         isAdmin: users.isAdmin,
       })
       .from(users)
@@ -64,6 +65,8 @@ export async function POST(req: NextRequest) {
       .set({ lastLoginAt: new Date() })
       .where(eq(users.id, user.id));
 
+    const premium = await getPremiumStatus(user.id);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
           id: user.id,
           email: user.email,
           name: user.name,
-          isPremium: user.isPremium,
+          isPremium: premium.isPremium,
           isAdmin: user.isAdmin,
         },
       },
@@ -85,3 +88,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withApiTelemetry(login, { name: 'v1.auth.login', includeUserId: false })

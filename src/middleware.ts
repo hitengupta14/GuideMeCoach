@@ -37,6 +37,14 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
+  const requestId =
+    request.headers.get('x-request-id') ||
+    (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
+
+  // Propagate request ID to downstream handlers (API routes, pages, etc.)
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-request-id', requestId)
+
   // Never redirect API routes from middleware; route handlers should own auth + error shapes.
   const isApiRoute = pathname.startsWith('/api/')
 
@@ -49,24 +57,29 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     url.searchParams.set('returnTo', request.nextUrl.pathname + request.nextUrl.search)
-    return NextResponse.redirect(url)
+    const res = NextResponse.redirect(url)
+    res.headers.set('x-request-id', requestId)
+    return res
   }
 
   // Redirect to dashboard if accessing auth pages with active session
   if (!isApiRoute && sessionValid && pathname.startsWith('/auth/')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    const res = NextResponse.redirect(url)
+    res.headers.set('x-request-id', requestId)
+    return res
   }
 
   // Add CSRF protection headers
-  const response = NextResponse.next()
+  const response = NextResponse.next({ request: { headers: requestHeaders } })
   
   // Set security headers
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('X-XSS-Protection', '1; mode=block')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  response.headers.set('x-request-id', requestId)
   
   // Add CSRF token to response for POST requests
   if (!isApiRoute && request.method !== 'GET' && !isPublicPath) {
@@ -75,10 +88,12 @@ export async function middleware(request: NextRequest) {
     
     // Verify CSRF token for state-changing requests
     if (!csrfToken || csrfToken.value !== headerCsrfToken) {
-      return NextResponse.json(
+      const res = NextResponse.json(
         { error: 'Invalid CSRF token' },
         { status: 403 }
       )
+      res.headers.set('x-request-id', requestId)
+      return res
     }
   }
 

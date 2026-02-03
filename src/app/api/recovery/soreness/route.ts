@@ -1,36 +1,38 @@
-import { NextRequest } from 'next/server'
 import { verifySession } from '@/lib/auth-helpers'
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/db'
+import { sorenessEntries } from '@/db/schema'
+import { and, desc, eq, gte } from 'drizzle-orm'
 
-// In-memory storage for demo (replace with database in production)
-const sorenessData: Record<string, Array<{
-  date: string
-  areas: Record<string, number>
-  notes?: string
-}>> = {}
+export const dynamic = 'force-dynamic'
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const nextReq = new NextRequest(req)
-    const userId = await verifySession(nextReq)
+    const userId = await verifySession(req)
     if (!userId) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     
-    const { days = '30' } = Object.fromEntries(new URL(req.url).searchParams)
-
-    const userSoreness = sorenessData[userId] || []
-    const recentDays = parseInt(days as string)
+    const daysParam = req.nextUrl.searchParams.get('days') || '30'
+    const recentDays = Math.max(1, Math.min(365, parseInt(daysParam)))
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - recentDays)
 
-    const filteredSoreness = userSoreness.filter(
-      entry => new Date(entry.date) >= cutoffDate
-    )
+    const filteredSoreness = await db
+      .select({
+        date: sorenessEntries.recordedAt,
+        areas: sorenessEntries.areas,
+        notes: sorenessEntries.notes,
+      })
+      .from(sorenessEntries)
+      .where(and(eq(sorenessEntries.userId, userId), gte(sorenessEntries.recordedAt, cutoffDate)))
+      .orderBy(desc(sorenessEntries.recordedAt))
+      .limit(200)
 
     // Calculate average soreness by body part
     const bodyPartAverages: Record<string, number[]> = {}
     filteredSoreness.forEach(entry => {
-      Object.entries(entry.areas).forEach(([part, level]) => {
+      Object.entries((entry.areas || {}) as Record<string, number>).forEach(([part, level]) => {
         if (!bodyPartAverages[part]) {
           bodyPartAverages[part] = []
         }
@@ -47,32 +49,35 @@ export async function GET(req: Request) {
       {} as Record<string, string>
     )
 
-    return Response.json({
-      soreness: filteredSoreness,
+    return NextResponse.json({
+      soreness: filteredSoreness.map((e) => ({
+        date: (e.date as Date).toISOString(),
+        areas: e.areas,
+        notes: e.notes || undefined,
+      })),
       averageSoreness,
       trend: 'stable', // Could be 'improving', 'worsening'
     })
   } catch (error) {
     console.error('Soreness fetch error:', error)
-    return Response.json(
+    return NextResponse.json(
       { error: 'Failed to fetch soreness data' },
       { status: 500 }
     )
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const nextReq = new NextRequest(req)
-    const userId = await verifySession(nextReq)
+    const userId = await verifySession(req)
     if (!userId) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     
     const { areas, notes } = await req.json()
 
     if (!areas || typeof areas !== 'object') {
-      return Response.json(
+      return NextResponse.json(
         { error: 'areas object is required (e.g., {chest: 5, shoulders: 3})' },
         { status: 400 }
       )
@@ -81,33 +86,39 @@ export async function POST(req: Request) {
     // Validate pain levels (1-10)
     for (const [_, level] of Object.entries(areas)) {
       if (typeof level !== 'number' || level < 0 || level > 10) {
-        return Response.json(
+        return NextResponse.json(
           { error: 'Pain levels must be between 0-10' },
           { status: 400 }
         )
       }
     }
 
-    if (!sorenessData[userId]) {
-      sorenessData[userId] = []
-    }
+    const [entry] = await db
+      .insert(sorenessEntries)
+      .values({
+        userId,
+        recordedAt: new Date(),
+        areas,
+        notes: typeof notes === 'string' ? notes : null,
+      })
+      .returning({
+        date: sorenessEntries.recordedAt,
+        areas: sorenessEntries.areas,
+        notes: sorenessEntries.notes,
+      })
 
-    const sorenessEntry = {
-      date: new Date().toISOString(),
-      areas,
-      notes,
-    }
-
-    sorenessData[userId].push(sorenessEntry)
-
-    return Response.json({
+    return NextResponse.json({
       success: true,
       message: 'Soreness recorded',
-      entry: sorenessEntry,
+      entry: {
+        date: (entry.date as Date).toISOString(),
+        areas: entry.areas,
+        notes: entry.notes || undefined,
+      },
     })
   } catch (error) {
     console.error('Soreness update error:', error)
-    return Response.json(
+    return NextResponse.json(
       { error: 'Failed to record soreness' },
       { status: 500 }
     )

@@ -70,9 +70,7 @@ function PricingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isLoading } = useSession({ required: false })
-  const { subscriptionStatus, isPremium, refetch } = useSubscriptionStatus(
-    typeof window !== 'undefined' ? localStorage.getItem('token') : null
-  )
+  const { subscriptionStatus, isPremium, refetch } = useSubscriptionStatus()
 
   // Refetch subscription status when pricing page comes into focus
   useEffect(() => {
@@ -100,11 +98,11 @@ function PricingContent() {
     setIsCancelling(true)
 
     try {
-      const response = await fetch('/api/subscription/cancel-renewal', {
+      const response = await fetch('/api/v1/subscription/cancel', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       })
 

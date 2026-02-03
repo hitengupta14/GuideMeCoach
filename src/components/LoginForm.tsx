@@ -70,21 +70,6 @@ export default function LoginForm() {
         return
       }
 
-      console.log('[LoginForm] Login successful. Response data:', {
-        hasToken: !!data.data?.token,
-        tokenPreview: data.data?.token?.substring(0, 20),
-        isAdmin: data.data?.user?.isAdmin,
-        adminRole: data.data?.user?.adminRole,
-      })
-
-      // Save token to localStorage for API calls that need Bearer token
-      if (data.data?.token) {
-        localStorage.setItem('token', data.data.token)
-        console.log('[LoginForm] Token saved to localStorage')
-      } else {
-        console.warn('[LoginForm] No token in response')
-      }
-
       // Determine redirect path
       let finalRedirect = redirectPath
       
@@ -94,7 +79,6 @@ export default function LoginForm() {
         finalRedirect = '/dashboard'
       }
 
-      console.log('[LoginForm] Redirecting to:', finalRedirect)
       router.push(finalRedirect)
     } catch (err) {
       setError('Network error. Please try again.')

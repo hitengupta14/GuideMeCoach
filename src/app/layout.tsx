@@ -1,12 +1,10 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import '@/lib/env.server'
 import './globals.css'
 import { Providers } from './providers'
 import { HeaderWrapper } from '@/components/HeaderWrapper'
 import { Footer } from '@/components/Footer'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: {
@@ -57,7 +55,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} min-h-screen bg-gray-50 dark:bg-gray-950`}>
+      <body className="font-sans min-h-screen bg-gray-50 dark:bg-gray-950">
         <ErrorBoundary>
           <Providers>
             <HeaderWrapper />

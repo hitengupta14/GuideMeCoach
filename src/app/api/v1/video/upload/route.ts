@@ -1,30 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { db } from '@/db';
-import { jwtVerify } from 'jose';
 import { validateFileBuffer, generateSecureFilename } from '@/lib/file-validation';
 import { logger } from '@/lib/logger';
-import { getJwtSecretKey } from '@/lib/jwt';
-
-const JWT_SECRET = getJwtSecretKey();
+import { verifySession } from '@/lib/auth-helpers';
 
 // This endpoint handles video upload
 // Videos are stored in a cloud storage service (AWS S3, Cloudinary, or Firebase)
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify JWT token
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const userId = await verifySession(req);
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid token' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    const token = authHeader.slice(7);
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    const userId = payload.userId as string;
 
     const formData = await req.formData();
     const file = formData.get('video') as File;
@@ -91,7 +82,7 @@ export async function POST(req: NextRequest) {
     // The actual upload would happen via a separate service
     
     // Generate a presigned URL for upload (client sends video directly to S3)
-    const s3PresignedUrl = generateS3PresignedUrl(videoId, userId, file.type);
+    const s3PresignedUrl = generateS3PresignedUrl(videoId, userId, file.type, secureFilename);
 
     return NextResponse.json({
       success: true,
@@ -110,11 +101,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function generateS3PresignedUrl(videoId: string, userId: string, fileType: string): string {
+function generateS3PresignedUrl(videoId: string, userId: string, fileType: string, secureFilename: string): string {
   // This would use AWS SDK to generate a presigned URL
   // For demo purposes, returning a placeholder
   const s3Endpoint = process.env.AWS_S3_ENDPOINT || 'https://your-bucket.s3.amazonaws.com';
-  const key = `videos/${userId}/${videoId}`;
+  const key = `videos/${userId}/${videoId}-${secureFilename}`;
   
   // In production: use AWS SDK to generate proper presigned URL
   return `${s3Endpoint}/${key}?x-amz-algorithm=AWS4-HMAC-SHA256&...`;

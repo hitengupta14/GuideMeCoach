@@ -1,14 +1,21 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, exerciseAlternatives, muscleGroups } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { verifySession } from '@/lib/auth-helpers'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const exerciseId = params.id
+
+    // Admins can view drafts; everyone else only sees approved content.
+    const sessionUserId = await verifySession(request)
+    const admin = sessionUserId ? await requireAdmin(request) : null
+    const isAdmin = admin && !(admin instanceof NextResponse)
     
     // Fetch exercise
     const exercise = await db.query.exercises.findFirst({
@@ -16,6 +23,13 @@ export async function GET(
     })
     
     if (!exercise) {
+      return NextResponse.json(
+        { error: 'Exercise not found' },
+        { status: 404 }
+      )
+    }
+
+    if (!isAdmin && exercise.reviewStatus !== 'approved') {
       return NextResponse.json(
         { error: 'Exercise not found' },
         { status: 404 }
@@ -62,13 +76,24 @@ export async function GET(
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const admin = await requireAdmin(request)
+    if (admin instanceof NextResponse) return admin
+
     const exerciseId = params.id
     const body = await request.json()
-    
+
+    // Prevent accidental updates of immutable/unsafe fields.
+    const disallowed = new Set(['id', 'createdAt'])
+    for (const key of Object.keys(body || {})) {
+      if (disallowed.has(key)) {
+        delete body[key]
+      }
+    }
+
     const updatedExercise = await db
       .update(exercises)
       .set({
@@ -96,10 +121,13 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const admin = await requireAdmin(request)
+    if (admin instanceof NextResponse) return admin
+
     const exerciseId = params.id
     
     await db.delete(exercises).where(eq(exercises.id, exerciseId))

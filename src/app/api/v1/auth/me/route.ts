@@ -1,30 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { getJwtSecretKey } from '@/lib/jwt';
+import { verifySession } from '@/lib/auth-helpers';
+import { getPremiumStatus } from '@/lib/entitlements';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-const JWT_SECRET = getJwtSecretKey();
+export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
+async function me(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const userId = await verifySession(req);
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid token' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    const token = authHeader.slice(7);
-    const { payload } = await jwtVerify(token, JWT_SECRET);
 
     // Get user from database
     const result = await db
       .select()
       .from(users)
-      .where(eq(users.id, payload.userId as string));
+      .where(eq(users.id, userId));
 
     if (result.length === 0) {
       return NextResponse.json(
@@ -34,6 +32,7 @@ export async function GET(req: NextRequest) {
     }
 
     const user = result[0];
+    const premium = await getPremiumStatus(userId);
 
     return NextResponse.json({
       success: true,
@@ -41,7 +40,7 @@ export async function GET(req: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
-        isPremium: user.isPremium,
+        isPremium: premium.isPremium,
         isAdmin: user.isAdmin,
         age: user.age,
         gender: user.gender,
@@ -59,3 +58,5 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const GET = withApiTelemetry(me, { name: 'v1.auth.me' })

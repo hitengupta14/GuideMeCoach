@@ -5,13 +5,19 @@ import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { getFormFeedback } from '@/lib/ai'
+import { aiRateLimiter } from '@/lib/rate-limit'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
-export async function POST(request: NextRequest) {
+async function formFeedback(request: NextRequest) {
   try {
     const userId = await verifySession(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const premium = await getPremiumStatus(userId)
 
     const body = await request.json()
     const { exerciseName, description, weight, reps } = body
@@ -37,6 +43,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    const userIsPremium = premium.isPremium
+
+    if (!userIsPremium) {
+      return NextResponse.json(
+        { error: 'Premium subscription required for AI form feedback' },
+        { status: 403 }
+      )
+    }
+
+    const quota = await checkQuota(userId, 'insights', userIsPremium)
+    if (!quota.allowed) {
+      return NextResponse.json(
+        {
+          error: 'AI quota exceeded',
+          quota: {
+            used: quota.used,
+            limit: quota.limit,
+            resetAt: quota.resetAt,
+          },
+        },
+        { status: 403 }
+      )
+    }
+
+    const rl = await aiRateLimiter(request)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many AI requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': rl.retryAfter?.toString() || '3600' } }
+      )
+    }
+
+    const startTime = Date.now()
+
     // Get form feedback with timeout
     let feedback
     try {
@@ -53,8 +93,27 @@ export async function POST(request: NextRequest) {
       })
 
       clearTimeout(timeout)
+
+      await decrementQuota(userId, 'insights', userIsPremium)
+      await logAIUsage({
+        userId,
+        feature: 'insights',
+        model: 'gpt-4',
+        responseTime: Date.now() - startTime,
+        success: true,
+      })
     } catch (aiError) {
       logger.error('AI call failed for form feedback', aiError as Error)
+
+      await logAIUsage({
+        userId,
+        feature: 'insights',
+        model: 'gpt-4',
+        responseTime: Date.now() - startTime,
+        success: false,
+        errorMessage: (aiError as Error).message,
+      })
+
       // Return fallback feedback if AI fails
       feedback = {
         commonMistakes: [
@@ -76,3 +135,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to generate feedback' }, { status: 500 })
   }
 }
+
+export const POST = withApiTelemetry(formFeedback, { name: 'exercises.form-feedback' })

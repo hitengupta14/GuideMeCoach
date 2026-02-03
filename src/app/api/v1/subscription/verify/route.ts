@@ -1,33 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { verifySession } from '@/lib/auth-helpers';
-import { db } from '@/db';
-import { users, aiUsageQuotas } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import { verifyRazorpaySignature } from '@/lib/razorpay';
-import { AI_FEATURE_LIMITS } from '@/lib/ai-quota';
+import { NextRequest, NextResponse } from 'next/server'
+import { verifySession } from '@/lib/auth-helpers'
+import { verifyRazorpaySignature } from '@/lib/razorpay'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
 /**
  * Verify Razorpay payment and activate subscription
  * Called after successful payment on frontend
  */
-export async function POST(req: NextRequest) {
+async function verifyPayment(req: NextRequest) {
   try {
-    const userId = await verifySession(req);
+    const userId = await verifySession(req)
     if (!userId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
-      );
+      )
     }
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planType } = await req.json();
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planType } = await req.json()
 
     // Validate required fields
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json(
         { success: false, error: 'Missing payment verification parameters' },
         { status: 400 }
-      );
+      )
     }
 
     // Verify signature
@@ -35,148 +32,34 @@ export async function POST(req: NextRequest) {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature
-    );
+    )
 
     if (!isValid) {
       return NextResponse.json(
         { success: false, error: 'Invalid payment signature' },
         { status: 400 }
-      );
+      )
     }
 
-    // Payment is valid - Update user to premium
-    const now = new Date();
-    const subscriptionEndsAt = planType === 'premium-yearly'
-      ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
-      : new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
-
-    console.log('[Verify API] Updating user to premium:', {
-      userId,
-      planType,
-      subscriptionEndsAt: subscriptionEndsAt.toISOString(),
-    });
-
-    // Check if user already has an active subscription
-    const [existingUser] = await db
-      .select({
-        id: users.id,
-        isPremium: users.isPremium,
-        subscriptionEndsAt: users.subscriptionEndsAt,
-        pendingPlanType: users.pendingPlanType,
-        pendingPlanStartsAt: users.pendingPlanStartsAt,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    const hasActiveSubscription = existingUser?.isPremium && 
-      existingUser?.subscriptionEndsAt && 
-      existingUser.subscriptionEndsAt.getTime() > now.getTime();
-
-    if (hasActiveSubscription && existingUser.subscriptionEndsAt) {
-      // User has active subscription - schedule new plan for after current expires
-      console.log('[Verify API] User has active subscription. Setting as pending plan.');
-      
-      const result = await db
-        .update(users)
-        .set({
-          pendingPlanType: planType,
-          pendingPlanStartsAt: existingUser.subscriptionEndsAt,
-          updatedAt: now,
-        })
-        .where(eq(users.id, userId));
-
-      console.log('[Verify API] Pending plan set:', result);
-
-      return NextResponse.json({
+    // NOTE:
+    // Do NOT grant entitlements based on this client-initiated verification call.
+    // The canonical source of truth is the Razorpay webhook, which is server-to-server.
+    // This endpoint only verifies the signature so the UI can show "processing".
+    return NextResponse.json(
+      {
         success: true,
-        message: 'Payment verified! Your new plan will activate when your current plan expires.',
+        message:
+          'Payment verified. Subscription activation is processing (webhook). Please refresh in a few seconds.',
         data: {
           paymentId: razorpay_payment_id,
           orderId: razorpay_order_id,
-          isPending: true,
-          activatesAt: existingUser.subscriptionEndsAt.toISOString(),
+          planType: planType === 'premium-yearly' ? 'premium-yearly' : 'premium',
         },
-      });
-    } else {
-      // No active subscription or expired - activate immediately
-      const result = await db
-        .update(users)
-        .set({
-          isPremium: true,
-          subscriptionEndsAt: subscriptionEndsAt,
-          pendingPlanType: null, // Clear any pending plans
-          pendingPlanStartsAt: null,
-          updatedAt: now,
-        })
-        .where(eq(users.id, userId));
-
-      console.log('[Verify API] Database update result:', result);
-    }
-
-    // Verify the update actually happened
-    const [updatedUser] = await db
-      .select({
-        id: users.id,
-        isPremium: users.isPremium,
-        subscriptionEndsAt: users.subscriptionEndsAt,
-        pendingPlanType: users.pendingPlanType,
-        pendingPlanStartsAt: users.pendingPlanStartsAt,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    console.log('[Verify API] Verified user after update:', {
-      userId: updatedUser?.id,
-      isPremium: updatedUser?.isPremium,
-      subscriptionEndsAt: updatedUser?.subscriptionEndsAt?.toISOString(),
-    });
-
-    // Initialize AI quotas for premium user
-    const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const features = ['planner', 'chat', 'insights', 'edits'] as const;
-
-    for (const feature of features) {
-      // Check if quota already exists
-      const existing = await db.query.aiUsageQuotas.findFirst({
-        where: (q, { and, eq }) => and(
-          eq(q.userId, userId),
-          eq(q.feature, feature)
-        ),
-      });
-
-      if (!existing) {
-        await db.insert(aiUsageQuotas).values({
-          userId,
-          feature,
-          usedCount: 0,
-          monthlyLimit: AI_FEATURE_LIMITS.paid[feature],
-          resetAt: resetDate,
-        });
-      } else {
-        // Update existing quota to premium limits
-        await db
-          .update(aiUsageQuotas)
-          .set({
-            monthlyLimit: AI_FEATURE_LIMITS.paid[feature],
-            updatedAt: now,
-          })
-          .where(eq(aiUsageQuotas.id, existing.id));
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Payment verified successfully. Welcome to Premium!',
-      data: {
-        paymentId: razorpay_payment_id,
-        orderId: razorpay_order_id,
-        subscriptionEndsAt: subscriptionEndsAt.toISOString(),
       },
-    });
+      { status: 202 }
+    )
   } catch (error: any) {
-    console.error('Payment verification error:', error);
+    console.error('Payment verification error:', error)
     
     return NextResponse.json(
       { 
@@ -185,6 +68,8 @@ export async function POST(req: NextRequest) {
         details: error.message 
       },
       { status: 500 }
-    );
+    )
   }
 }
+
+export const POST = withApiTelemetry(verifyPayment, { name: 'v1.subscription.verify' })

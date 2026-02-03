@@ -1,52 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { getJwtSecretKey } from '@/lib/jwt';
-
-const JWT_SECRET = getJwtSecretKey();
+import { verifySession } from '@/lib/auth-helpers';
+import { getPremiumStatus } from '@/lib/entitlements';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+import { logger } from '@/lib/logger';
 
 /**
  * Cancel user's subscription
  * Note: Does not revoke access immediately - user keeps premium until subscriptionEndsAt
  */
-export async function POST(req: NextRequest) {
+async function cancel(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const userId = await verifySession(req);
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid token' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.slice(7);
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    const userId = payload.userId as string;
-
     const now = new Date();
-
-    // Get current user data
-    const [user] = await db
-      .select({
-        id: users.id,
-        subscriptionEndsAt: users.subscriptionEndsAt,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      );
-    }
+    const premium = await getPremiumStatus(userId);
 
     // Cancel subscription:
     // 1. Clear pending plan if any
-    // 2. Keep isPremium and subscriptionEndsAt - access continues until expires
+    // 2. Keep premium entitlement until it expires
     await db
       .update(users)
       .set({
@@ -56,22 +36,24 @@ export async function POST(req: NextRequest) {
       })
       .where(eq(users.id, userId));
 
-    console.log(`[Cancel API] Subscription cancelled for user ${userId}`);
+    logger.info('Subscription cancellation requested', { userId });
 
     return NextResponse.json({
       success: true,
-      message: user.subscriptionEndsAt 
-        ? `Subscription cancelled. You'll keep premium access until ${user.subscriptionEndsAt.toLocaleDateString()}`
+      message: premium.subscriptionEndsAt
+        ? `Subscription cancelled. You'll keep premium access until ${premium.subscriptionEndsAt.toLocaleDateString()}`
         : 'Subscription cancelled successfully',
       data: {
-        accessUntil: user.subscriptionEndsAt?.toISOString(),
+        accessUntil: premium.subscriptionEndsAt?.toISOString(),
       },
     });
   } catch (error: any) {
-    console.error('Cancel subscription error:', error);
+    logger.error('Cancel subscription error', error as Error);
     return NextResponse.json(
       { success: false, error: 'Failed to cancel subscription' },
       { status: 500 }
     );
   }
 }
+
+export const POST = withApiTelemetry(cancel, { name: 'v1.subscription.cancel' })

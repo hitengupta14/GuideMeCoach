@@ -8,8 +8,10 @@ import { aiRateLimiter } from '@/lib/rate-limit'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
 import { verifySession } from '@/lib/auth-helpers'
 import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
-export async function POST(request: NextRequest) {
+async function generatePlan(request: NextRequest) {
   try {
     // Rate limiting - stricter for AI endpoints
     const rateLimitResult = await aiRateLimiter(request)
@@ -28,6 +30,8 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const premium = await getPremiumStatus(userId)
 
     const body = await request.json()
     const { goal, experienceLevel, daysPerWeek, equipment, medicalConditions, duration } = body
@@ -59,7 +63,6 @@ export async function POST(request: NextRequest) {
         goals: users.goals,
         availableEquipment: users.availableEquipment,
         preferredLocation: users.preferredLocation,
-        isPremium: users.isPremium,
         timeAvailability: users.timeAvailability,
         medicalConditions: users.medicalConditions,
         painAreas: users.painAreas,
@@ -96,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     // PHASE 1: Check AI quota BEFORE generating
-    const quota = await checkQuota(userId, 'planner', user.isPremium || false)
+    const quota = await checkQuota(userId, 'planner', premium.isPremium)
     
     if (!quota.allowed) {
       return NextResponse.json(
@@ -107,7 +110,7 @@ export async function POST(request: NextRequest) {
             limit: quota.limit,
             resetAt: quota.resetAt,
           },
-          message: user.isPremium 
+          message: premium.isPremium 
             ? `You've used all ${quota.limit} AI plans this month. Resets on ${new Date(quota.resetAt).toLocaleDateString()}`
             : 'Upgrade to Premium to access AI-powered workout plans (₹199-₹299/month)',
         },
@@ -141,7 +144,7 @@ export async function POST(request: NextRequest) {
       logger.info('Using cached AI workout plan', { cacheKey, userId })
       
       // Still decrement quota (user is using AI feature)
-      await decrementQuota(userId, 'planner', user.isPremium || false)
+      await decrementQuota(userId, 'planner', premium.isPremium)
       
       // Save the cached plan to user's account
       const [savedPlan] = await db
@@ -308,7 +311,7 @@ export async function POST(request: NextRequest) {
         .returning()
 
       // PHASE 1: Decrement quota AFTER successful generation
-      await decrementQuota(userId, 'planner', user.isPremium || false)
+      await decrementQuota(userId, 'planner', premium.isPremium)
 
       // Cache the AI response for future users
       await cacheAIResponse(cacheKey, 'planner', aiPlan, {
@@ -377,3 +380,5 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const POST = withApiTelemetry(generatePlan, { name: 'planner.ai-generate' })

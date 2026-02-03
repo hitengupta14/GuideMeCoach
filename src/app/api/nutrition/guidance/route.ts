@@ -5,6 +5,11 @@ import { eq } from 'drizzle-orm'
 import { verifySession } from '@/lib/auth-helpers'
 import { generateNutritionGuidance } from '@/lib/nutrition/guidance'
 import { getNutritionGuidance, isOpenAIConfigured } from '@/lib/ai'
+import { aiRateLimiter } from '@/lib/rate-limit'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { logger } from '@/lib/logger'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
 /**
  * GET/POST /api/nutrition/guidance
@@ -12,13 +17,15 @@ import { getNutritionGuidance, isOpenAIConfigured } from '@/lib/ai'
  */
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: NextRequest) {
-  return handleNutritionGuidance(request)
-}
+export const GET = withApiTelemetry(
+  async (request: NextRequest) => handleNutritionGuidance(request),
+  { name: 'nutrition.guidance.get' }
+)
 
-export async function POST(request: NextRequest) {
-  return handleNutritionGuidance(request)
-}
+export const POST = withApiTelemetry(
+  async (request: NextRequest) => handleNutritionGuidance(request),
+  { name: 'nutrition.guidance.post' }
+)
 
 async function handleNutritionGuidance(request: NextRequest) {
   try {
@@ -26,6 +33,8 @@ async function handleNutritionGuidance(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const premium = await getPremiumStatus(userId)
 
     // Support both GET (query params) and POST (body)
     let goal, activityLevel
@@ -51,8 +60,6 @@ async function handleNutritionGuidance(request: NextRequest) {
         medicalConditions: users.medicalConditions,
         experienceLevel: users.experienceLevel,
         availableEquipment: users.availableEquipment,
-        isPremium: users.isPremium,
-        subscriptionEndsAt: users.subscriptionEndsAt,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -91,11 +98,45 @@ async function handleNutritionGuidance(request: NextRequest) {
     }
 
     // Check if user is premium (has active subscription)
-    const userIsPremium = user.isPremium && user.subscriptionEndsAt && new Date(user.subscriptionEndsAt) > new Date()
+    const userIsPremium = premium.isPremium
 
     // Premium users get AI-powered guidance if OpenAI is configured
     if (userIsPremium && isOpenAIConfigured()) {
       try {
+        const rl = await aiRateLimiter(request)
+        if (!rl.allowed) {
+          return NextResponse.json(
+            { error: 'Too many AI requests. Please try again later.' },
+            { status: 429, headers: { 'Retry-After': rl.retryAfter?.toString() || '3600' } }
+          )
+        }
+
+        const quota = await checkQuota(userId, 'insights', userIsPremium)
+        if (!quota.allowed) {
+          // Fall back to formula guidance when quota is exhausted.
+          const guidance = generateNutritionGuidance({
+            weight: user.weight!,
+            height: user.height!,
+            age: user.age!,
+            gender: (user.gender as 'male' | 'female' | 'other') || 'other',
+            goal,
+            activityLevel: activityLevel || 'moderate',
+          })
+
+          return NextResponse.json({
+            guidance,
+            isPremium: true,
+            type: 'formula',
+            quota: {
+              used: quota.used,
+              remaining: quota.remaining,
+              limit: quota.limit,
+              resetAt: quota.resetAt,
+            },
+          })
+        }
+
+        const startTime = Date.now()
         const aiGuidance = await getNutritionGuidance({
           name: user.name || undefined,
           age: user.age!,
@@ -109,13 +150,22 @@ async function handleNutritionGuidance(request: NextRequest) {
           supplementsUsing: [], // Can be added to profile later
         })
 
+        await decrementQuota(userId, 'insights', userIsPremium)
+        await logAIUsage({
+          userId,
+          feature: 'insights',
+          model: 'gpt-4',
+          responseTime: Date.now() - startTime,
+          success: true,
+        })
+
         return NextResponse.json({ 
           guidance: aiGuidance,
           isPremium: true,
           type: 'ai'
         })
       } catch (aiError) {
-        console.error('AI nutrition guidance failed, falling back to formula-based:', aiError)
+        logger.error('AI nutrition guidance failed, falling back to formula-based', aiError as Error, { userId })
         // Fall back to formula-based if AI fails
       }
     }

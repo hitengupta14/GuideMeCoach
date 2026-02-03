@@ -10,10 +10,11 @@ import { z } from 'zod'
 import { SignJWT } from 'jose'
 import { createRefreshToken } from '@/lib/refresh-token'
 import { getJwtSecretKey } from '@/lib/jwt'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
 const JWT_SECRET = getJwtSecretKey()
 
-export async function POST(request: NextRequest) {
+async function login(request: NextRequest) {
   try {
     // Rate limiting
     const rateLimitResult = await authRateLimiter(request)
@@ -49,8 +50,6 @@ export async function POST(request: NextRequest) {
         goals: users.goals,
         isAdmin: users.isAdmin,
         adminRole: users.adminRole,
-        isPremium: users.isPremium,
-        subscriptionEndsAt: users.subscriptionEndsAt,
         lastLoginAt: users.lastLoginAt,
       })
       .from(users)
@@ -189,3 +188,5 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const POST = withApiTelemetry(login, { name: 'auth.login', includeUserId: false })

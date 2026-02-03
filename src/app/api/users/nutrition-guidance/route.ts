@@ -5,13 +5,19 @@ import { users, workoutSessions } from '@/db/schema'
 import { eq, and, gte, desc } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { getNutritionGuidance } from '@/lib/ai'
+import { aiRateLimiter } from '@/lib/rate-limit'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
-export async function GET(request: NextRequest) {
+async function nutritionGuidance(request: NextRequest) {
   try {
     const userId = await verifySession(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const premium = await getPremiumStatus(userId)
 
     // Get user profile
     const [user] = await db
@@ -30,6 +36,34 @@ export async function GET(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const userIsPremium = premium.isPremium
+
+    if (!userIsPremium) {
+      return NextResponse.json(
+        { error: 'Premium subscription required for AI nutrition guidance' },
+        { status: 403 }
+      )
+    }
+
+    const rl = await aiRateLimiter(request)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many AI requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': rl.retryAfter?.toString() || '3600' } }
+      )
+    }
+
+    const quota = await checkQuota(userId, 'insights', userIsPremium)
+    if (!quota.allowed) {
+      return NextResponse.json(
+        {
+          error: 'AI quota exceeded',
+          quota: { used: quota.used, limit: quota.limit, resetAt: quota.resetAt },
+        },
+        { status: 403 }
+      )
     }
 
     // Derive activity level from last 28 days of sessions
@@ -64,6 +98,7 @@ export async function GET(request: NextRequest) {
     // Get nutrition guidance with timeout
     let guidance
     try {
+      const startTime = Date.now()
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
@@ -81,8 +116,26 @@ export async function GET(request: NextRequest) {
       })
 
       clearTimeout(timeout)
+
+      await decrementQuota(userId, 'insights', userIsPremium)
+      await logAIUsage({
+        userId,
+        feature: 'insights',
+        model: 'gpt-4',
+        responseTime: Date.now() - startTime,
+        success: true,
+      })
     } catch (aiError) {
       logger.error('AI call failed', aiError as Error)
+
+      await logAIUsage({
+        userId,
+        feature: 'insights',
+        model: 'gpt-4',
+        success: false,
+        errorMessage: (aiError as Error).message,
+      })
+
       // Return fallback guidance if AI fails
       guidance = {
         tdeeEstimate: {
@@ -114,3 +167,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch nutrition guidance' }, { status: 500 })
   }
 }
+
+export const GET = withApiTelemetry(nutritionGuidance, { name: 'users.nutrition-guidance' })

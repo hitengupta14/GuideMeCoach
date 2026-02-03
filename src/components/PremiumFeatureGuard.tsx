@@ -16,7 +16,7 @@ export function PremiumFeatureGuard({
   showModal = true,
 }: PremiumFeatureGuardProps) {
   const router = useRouter()
-  const { isPremium, isLoading } = useSubscriptionStatus(typeof window !== 'undefined' ? localStorage.getItem('token') : null)
+  const { isPremium, isLoading } = useSubscriptionStatus()
 
   if (isLoading) {
     return <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded h-10" />

@@ -1,10 +1,20 @@
+import 'server-only'
+
 /**
- * Rate limiting middleware using in-memory LRU cache
- * For production, use Redis-based rate limiting
+ * Rate limiting helpers.
+ *
+ * IMPORTANT:
+ * - In-memory rate limiting is not reliable on serverless/multi-instance.
+ * - Primary backend here is Postgres (via Drizzle) so limits apply across instances.
+ * - We keep an in-memory fallback only to avoid hard-breaking environments where
+ *   the DB table isn't migrated yet (dev/preview). Production should migrate.
  */
 
 import { jwtVerify } from 'jose'
 import { getJwtSecretKey } from '@/lib/jwt'
+import { db } from '@/db'
+import { rateLimitEntries } from '@/db/schema'
+import { sql } from 'drizzle-orm'
 
 interface RateLimitState {
   count: number
@@ -30,39 +40,79 @@ export function createRateLimiter(
       ? await keyGenerator(request)
       : getClientIp(request) + ':' + new URL(request.url).pathname
 
-    const now = Date.now()
-    const current = rateLimitStore.get(key)
+    const nowMs = Date.now()
+    const nextResetAt = new Date(nowMs + windowMs)
 
-    // Initialize or reset if window expired
-    if (!current || now > current.reset) {
-      rateLimitStore.set(key, {
-        count: 1,
-        reset: now + windowMs,
-      })
+    // DB-backed limiter (preferred)
+    try {
+      const [row] = await db
+        .insert(rateLimitEntries)
+        .values({
+          key,
+          count: 1,
+          resetAt: nextResetAt,
+        })
+        .onConflictDoUpdate({
+          target: rateLimitEntries.key,
+          set: {
+            count: sql`CASE WHEN ${rateLimitEntries.resetAt} < now() THEN 1 ELSE ${rateLimitEntries.count} + 1 END`,
+            resetAt: sql`CASE WHEN ${rateLimitEntries.resetAt} < now() THEN ${nextResetAt} ELSE ${rateLimitEntries.resetAt} END`,
+            updatedAt: sql`now()`,
+          },
+        })
+        .returning({
+          count: rateLimitEntries.count,
+          resetAt: rateLimitEntries.resetAt,
+        })
+
+      const count = row?.count ?? 1
+      const resetAtMs = (row?.resetAt instanceof Date ? row.resetAt : nextResetAt).getTime()
+
+      if (count > maxRequests) {
+        const retryAfter = Math.max(1, Math.ceil((resetAtMs - nowMs) / 1000))
+        return { allowed: false, remaining: 0, retryAfter }
+      }
+
       return {
         allowed: true,
-        remaining: maxRequests - 1,
-        resetIn: windowMs,
+        remaining: Math.max(0, maxRequests - count),
+        resetIn: Math.max(0, resetAtMs - nowMs),
       }
-    }
+    } catch {
+      // Fall back to in-memory limiter if DB is unavailable or table is missing.
+      const current = rateLimitStore.get(key)
 
-    // Increment counter
-    current.count++
+      // Initialize or reset if window expired
+      if (!current || nowMs > current.reset) {
+        rateLimitStore.set(key, {
+          count: 1,
+          reset: nowMs + windowMs,
+        })
+        return {
+          allowed: true,
+          remaining: maxRequests - 1,
+          resetIn: windowMs,
+        }
+      }
 
-    // Check if exceeded
-    if (current.count > maxRequests) {
-      const retryAfter = Math.ceil((current.reset - now) / 1000)
+      // Increment counter
+      current.count++
+
+      // Check if exceeded
+      if (current.count > maxRequests) {
+        const retryAfter = Math.ceil((current.reset - nowMs) / 1000)
+        return {
+          allowed: false,
+          remaining: 0,
+          retryAfter,
+        }
+      }
+
       return {
-        allowed: false,
-        remaining: 0,
-        retryAfter,
+        allowed: true,
+        remaining: maxRequests - current.count,
+        resetIn: current.reset - nowMs,
       }
-    }
-
-    return {
-      allowed: true,
-      remaining: maxRequests - current.count,
-      resetIn: current.reset - now,
     }
   }
 }
@@ -176,6 +226,3 @@ export function cleanupRateLimitStore() {
 
   keysToDelete.forEach(key => rateLimitStore.delete(key))
 }
-
-// Run cleanup every 5 minutes
-setInterval(cleanupRateLimitStore, 5 * 60 * 1000)

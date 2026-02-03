@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { exercises, exerciseMuscles, muscleGroups, users } from '@/db/schema'
+import { exercises, exerciseMuscles, muscleGroups } from '@/db/schema'
 import { eq, ilike } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { generateChatResponse, isOpenAIConfigured } from '@/lib/ai'
@@ -19,6 +19,8 @@ import { apiRateLimiter } from '@/lib/rate-limit'
 import { verifySession } from '@/lib/auth-helpers'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
 import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
 // Extract exercise names from AI plan
 function extractExerciseNames(weeklyStructure: any[]): string[] {
@@ -188,6 +190,9 @@ async function addExerciseToDatabase(exerciseName: string): Promise<any> {
         equipment: ['barbell', 'dumbbell'],
         location: 'gym',
         movementPattern: ['push'],
+        source: 'ai_generated',
+        reviewStatus: 'draft',
+        confidenceScore: 60,
         description: knowledge.description || `${exerciseName} training exercise`,
         stepByStep: knowledge.stepByStep || [],
         breathingTechnique: knowledge.breathingTechnique || 'Standard breathing',
@@ -218,7 +223,7 @@ async function addExerciseToDatabase(exerciseName: string): Promise<any> {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function extractAndSaveExercises(request: NextRequest) {
   try {
     // Rate limiting
     const rateLimitResult = await apiRateLimiter(request)
@@ -238,6 +243,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const premium = await getPremiumStatus(userId)
+
     const { weeklyStructure } = await request.json()
 
     if (!weeklyStructure || !Array.isArray(weeklyStructure)) {
@@ -247,25 +254,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user premium status for quota check
-    const [user] = await db
-      .select({ isPremium: users.isPremium })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
     // Check AI quota before processing
-    const quota = await checkQuota(userId, 'planner', user.isPremium || false)
+    const quota = await checkQuota(userId, 'planner', premium.isPremium)
     
     if (!quota.allowed) {
       return NextResponse.json(
         { 
           error: 'AI quota exceeded',
-          message: user.isPremium 
+          message: premium.isPremium 
             ? `You've used all ${quota.limit} AI plans this month`
             : 'Upgrade to Premium to access AI exercise generation'
         },
@@ -317,15 +313,13 @@ export async function POST(request: NextRequest) {
     })
 
     // Decrement quota on successful exercise generation
-    if (user.isPremium) {
-      await decrementQuota(userId, 'planner', true)
-      await logAIUsage({
-        userId,
-        feature: 'planner',
-        model: 'gpt-4',
-        success: true,
-      })
-    }
+    await decrementQuota(userId, 'planner', premium.isPremium)
+    await logAIUsage({
+      userId,
+      feature: 'planner',
+      model: 'gpt-4',
+      success: true,
+    })
 
     return NextResponse.json({
       success: true,
@@ -345,3 +339,5 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const POST = withApiTelemetry(extractAndSaveExercises, { name: 'planner.extract-and-save-exercises' })

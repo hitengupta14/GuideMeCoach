@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { adminActivityLogs, users } from '@/db/schema'
 import { desc, eq } from 'drizzle-orm'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    // In a real app, verify admin authentication here
+    const admin = await requireAdmin(request)
+    if (admin instanceof NextResponse) return admin
 
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '20')
@@ -24,7 +26,7 @@ export async function GET(request: NextRequest) {
       .from(adminActivityLogs)
       .leftJoin(users, eq(adminActivityLogs.adminId, users.id))
       .orderBy(desc(adminActivityLogs.createdAt))
-      .limit(limit)
+      .limit(Math.min(Math.max(limit, 1), 100))
 
     const formattedActivities = activities.map(activity => ({
       id: activity.id,

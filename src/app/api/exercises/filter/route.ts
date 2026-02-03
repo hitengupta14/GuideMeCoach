@@ -1,6 +1,7 @@
 import { db } from '@/db'
 import { exercises, exerciseMuscles, exerciseJoints, joints } from '@/db/schema'
 import { eq, inArray, and, or } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
 
 export async function POST(req: Request) {
   try {
@@ -16,10 +17,8 @@ export async function POST(req: Request) {
       maxIntensity,
     } = await req.json()
 
-    let query = db.select().from(exercises).where(eq(exercises.reviewStatus, 'approved'))
-
     // Build where conditions
-    const conditions = []
+    const conditions: Array<SQL | undefined> = [eq(exercises.reviewStatus, 'approved')]
 
     if (difficulty) {
       conditions.push(eq(exercises.difficulty, difficulty))
@@ -37,15 +36,16 @@ export async function POST(req: Request) {
     }
 
     // Apply base filters
+    const whereClause = and(...conditions) ?? eq(exercises.reviewStatus, 'approved')
     let filteredExercises = await db
       .select()
       .from(exercises)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(whereClause)
 
     // Filter by equipment
     if (equipment && Array.isArray(equipment)) {
       filteredExercises = filteredExercises.filter(ex =>
-        equipment.some(eq => ex.equipment?.includes(eq))
+        equipment.some((item) => ex.equipment?.includes(item))
       )
     }
 
@@ -58,6 +58,21 @@ export async function POST(req: Request) {
 
     // Get joint involvement for each exercise
     const exerciseIds = filteredExercises.map(ex => ex.id)
+    if (exerciseIds.length === 0) {
+      return Response.json({
+        total: 0,
+        exercises: [],
+        appliedFilters: {
+          difficulty,
+          equipment,
+          location,
+          category,
+          movementPattern,
+          excludeJoints,
+          targetMuscles,
+        },
+      })
+    }
     const exerciseJointData = await db
       .select({
         exerciseId: exerciseJoints.exerciseId,

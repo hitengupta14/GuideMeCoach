@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
-import { getJwtSecretKey } from '@/lib/jwt';
+import { verifySession } from '@/lib/auth-helpers';
 
-const JWT_SECRET = getJwtSecretKey();
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    // Placeholder data endpoint. Gate in production until real wearable storage exists.
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_WEARABLES !== 'true') {
+      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+    }
+
+    const userId = await verifySession(req);
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid token' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    const token = authHeader.slice(7);
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    const userId = payload.userId as string;
 
     const days = req.nextUrl.searchParams.get('days') || '7';
     const provider = req.nextUrl.searchParams.get('provider');

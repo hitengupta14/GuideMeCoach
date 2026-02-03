@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Script from "next/script";
 import { useSession } from "@/hooks/useSession";
@@ -61,25 +61,12 @@ export default function SubscribePage() {
   const planKey = (searchParams.get("plan") || "premium") as keyof typeof PLANS;
   const plan = PLANS[planKey] || PLANS.premium;
 
-  const [token, setToken] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<
     "india" | "international"
   >("india");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
-  // Get auth token from localStorage on mount
-  useEffect(() => {
-    const getToken = async () => {
-      if (typeof window !== 'undefined') {
-        const savedToken: string | null = localStorage.getItem('token');
-        setToken(savedToken);
-      }
-    };
-    
-    getToken();
-  }, [user?.id]);
 
   const handleSubscribe = async () => {
     if (!user?.id) return;
@@ -95,8 +82,7 @@ export default function SubscribePage() {
         {
           displayRegion: selectedRegion,
           planType: planKey,
-        },
-        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+        }
       );
 
       dismissToast(toastId);
@@ -136,30 +122,53 @@ export default function SubscribePage() {
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
                 planType: planKey,
-              },
-              token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+              }
             );
 
             dismissToast(verifyToastId);
 
-            if (verifyError) {
-              await handleError(verifyError);
-              setIsProcessing(false);
-              return;
-            }
+              if (verifyError) {
+                await handleError(verifyError);
+                setIsProcessing(false);
+                return;
+              }
 
-            handleSuccess("Payment successful! You're now premium.");
-            setSuccess(true);
+              // Webhook is the canonical source of truth; verification just confirms signature.
+              // Poll subscription status briefly so the user doesn't land on Pricing before activation.
+              const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+              const waitForPremium = async (timeoutMs = 20000) => {
+                const start = Date.now();
+                while (Date.now() - start < timeoutMs) {
+                  try {
+                    const res = await fetch("/api/user/subscription/status", {
+                      credentials: "include",
+                    });
+                    if (res.ok) {
+                      const json = await res.json();
+                      if (json?.data?.isPremium) return true;
+                    }
+                  } catch {
+                    // ignore transient errors while waiting
+                  }
+                  await sleep(1500);
+                }
+                return false;
+              };
 
-            // Redirect back to pricing to see updated status
-            setTimeout(() => {
+              handleSuccess("Payment verified. Activating your subscription...");
+              setSuccess(true);
+
+              const activated = await waitForPremium();
+              if (activated) {
+                handleSuccess("Subscription activated! You're now premium.");
+              }
+
               router.push("/pricing?from=payment");
-            }, 2000);
-          },
-          modal: {
-            ondismiss: function () {
-              setIsProcessing(false);
-              setError("Payment cancelled");
+            },
+            modal: {
+              ondismiss: function () {
+                setIsProcessing(false);
+                setError("Payment cancelled");
             },
           },
         };

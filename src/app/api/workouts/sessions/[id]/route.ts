@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { workoutSessions } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
+import { verifySession } from '@/lib/auth-helpers'
 
 // Update a workout session (duration, completion time)
 export async function PUT(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const userId = await verifySession(request)
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { id } = params
-    const body = await _request.json()
+    const body = await request.json()
     const { duration, completedAt } = body
 
     if (!id) {
@@ -23,7 +29,7 @@ export async function PUT(
         duration: duration ?? undefined,
         completedAt: completedAt ? new Date(completedAt) : new Date(),
       })
-      .where(eq(workoutSessions.id, id))
+      .where(and(eq(workoutSessions.id, id), eq(workoutSessions.userId, userId)))
       .returning()
 
     if (updated.length === 0) {

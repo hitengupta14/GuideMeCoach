@@ -6,12 +6,14 @@ import { eq } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { jwtVerify } from 'jose'
 import { getJwtSecretKey } from '@/lib/jwt'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
 export const dynamic = 'force-dynamic'
 
 const JWT_SECRET = getJwtSecretKey()
 
-export async function GET() {
+async function getSession() {
   try {
     const cookieStore = await cookies()
     const sessionCookie = cookieStore.get('session')
@@ -30,6 +32,8 @@ export async function GET() {
     }
 
     const userId = verified.payload.userId as string
+
+    const premium = await getPremiumStatus(userId)
 
     // Find user by ID from token
     const [user] = await db
@@ -51,8 +55,6 @@ export async function GET() {
         painAreas: users.painAreas,
         currentWeight: users.currentWeight,
         targetWeight: users.targetWeight,
-        isPremium: users.isPremium,
-        subscriptionEndsAt: users.subscriptionEndsAt,
         emailVerified: users.emailVerified,
         isAdmin: users.isAdmin,
         adminRole: users.adminRole,
@@ -69,9 +71,17 @@ export async function GET() {
     logger.info('Session validated', { userId: user.id })
 
     // Do not return the raw JWT. Web clients should rely on HTTP-only cookies.
-    return NextResponse.json({ user })
+    return NextResponse.json({
+      user: {
+        ...user,
+        isPremium: premium.isPremium,
+        subscriptionEndsAt: premium.subscriptionEndsAt,
+      },
+    })
   } catch (error) {
     logger.error('Session validation error', error as Error)
     return NextResponse.json({ user: null }, { status: 500 })
   }
 }
+
+export const GET = withApiTelemetry(getSession, { name: 'auth.session' })

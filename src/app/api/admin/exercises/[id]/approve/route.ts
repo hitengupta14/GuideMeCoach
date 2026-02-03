@@ -1,29 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth-helpers'
 import { db } from '@/db'
-import { exercises, adminActivityLogs, users } from '@/db/schema'
+import { exercises, adminActivityLogs } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const userId = await verifySession(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user is admin
-    const [user] = await db
-      .select({ isAdmin: users.isAdmin })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-
-    if (!user?.isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 })
-    }
+    const admin = await requireAdmin(request)
+    if (admin instanceof NextResponse) return admin
+    const { userId } = admin
 
     const { reviewStatus } = await request.json()
 

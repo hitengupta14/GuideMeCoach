@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, muscleGroups } from '@/db/schema'
 import { eq, ilike, and } from 'drizzle-orm'
@@ -6,8 +6,9 @@ import { exerciseFilterSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 import { apiRateLimiter } from '@/lib/rate-limit'
 import { z } from 'zod'
+import { requireAdmin } from '@/lib/admin-auth'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     // Rate limiting
     const rateLimitResult = await apiRateLimiter(request)
@@ -135,8 +136,11 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const admin = await requireAdmin(request)
+    if (admin instanceof NextResponse) return admin
+
     const body = await request.json()
     
     // Validate required fields
@@ -151,8 +155,28 @@ export async function POST(request: Request) {
     const slug = body.name.toLowerCase().replace(/\s+/g, '-')
     
     const newExercise = await db.insert(exercises).values({
-      ...body,
       slug,
+      name: body.name,
+      category: body.category,
+      difficulty: body.difficulty,
+      equipment: body.equipment,
+      location: body.location,
+      movementPattern: body.movementPattern,
+      description: body.description,
+      stepByStep: body.stepByStep,
+      breathingTechnique: body.breathingTechnique,
+      tempo: body.tempo,
+      commonMistakes: body.commonMistakes,
+      injuryRisks: body.injuryRisks,
+      benefits: body.benefits,
+      medicalFlags: body.medicalFlags,
+      videos: body.videos,
+      thumbnailUrl: body.thumbnailUrl,
+      baseExerciseId: body.baseExerciseId,
+      source: body.source,
+      confidenceScore: body.confidenceScore,
+      // New content should go through the approval workflow.
+      reviewStatus: 'draft',
     }).returning()
     
     return NextResponse.json({ exercise: newExercise[0] }, { status: 201 })

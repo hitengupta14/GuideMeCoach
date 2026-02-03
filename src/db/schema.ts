@@ -7,6 +7,7 @@ import {
   boolean,
   jsonb,
   pgEnum,
+  uniqueIndex,
   type PgTableWithColumns
 } from 'drizzle-orm/pg-core'
 
@@ -251,6 +252,30 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+// Feature entitlements (canonical access control flags)
+export const entitlements = pgTable(
+  'entitlements',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    feature: text('feature').notNull(), // e.g., 'premium'
+    source: text('source').notNull(), // e.g., 'razorpay_webhook', 'admin', 'promo', 'legacy'
+    startsAt: timestamp('starts_at').defaultNow().notNull(),
+    endsAt: timestamp('ends_at'), // null = no expiry
+    metadata: jsonb('metadata').$type<Record<string, any>>(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    userFeatureUnique: uniqueIndex('entitlements_user_feature_unique').on(
+      t.userId,
+      t.feature
+    ),
+  })
+)
+
 // Subscription History (track all subscription changes)
 export const subscriptionHistory = pgTable('subscription_history', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -447,6 +472,23 @@ export const systemMetrics = pgTable('system_metrics', {
   recordedAt: timestamp('recorded_at').defaultNow(),
 })
 
+// Metrics Counters (DB-backed, aggregated counters)
+export const metricsCounters = pgTable('metrics_counters', {
+  key: text('key').primaryKey(),
+  count: integer('count').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+// Rate Limit Entries (DB-backed fixed-window counters)
+export const rateLimitEntries = pgTable('rate_limit_entries', {
+  key: text('key').primaryKey(),
+  count: integer('count').default(0).notNull(),
+  resetAt: timestamp('reset_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // AI Usage Tracking
 export const aiUsageLogs = pgTable('ai_usage_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -531,6 +573,17 @@ export const userMedicalHistory = pgTable('user_medical_history', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+// Recovery: Daily Soreness Check-ins
+export const sorenessEntries = pgTable('soreness_entries', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+  areas: jsonb('areas').$type<Record<string, number>>().notNull(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
 // Export types
 export type Exercise = typeof exercises.$inferSelect
 export type NewExercise = typeof exercises.$inferInsert
@@ -544,10 +597,14 @@ export type ChatConversation = typeof chatConversations.$inferSelect
 export type ChatMessage = typeof chatMessages.$inferSelect
 export type AdminActivityLog = typeof adminActivityLogs.$inferSelect
 export type SystemMetric = typeof systemMetrics.$inferSelect
+export type RateLimitEntry = typeof rateLimitEntries.$inferSelect
 export type AIUsageLog = typeof aiUsageLogs.$inferSelect
 export type PushToken = typeof pushTokens.$inferSelect
 export type SubscriptionHistory = typeof subscriptionHistory.$inferSelect
+export type Entitlement = typeof entitlements.$inferSelect
 export type AIResponseCache = typeof aiResponseCache.$inferSelect
 export type RefreshToken = typeof refreshTokens.$inferSelect
 export type JointInvolvement = typeof jointInvolvement.$inferSelect
 export type UserMedicalHistory = typeof userMedicalHistory.$inferSelect
+export type SorenessEntry = typeof sorenessEntries.$inferSelect
+export type MetricsCounter = typeof metricsCounters.$inferSelect
