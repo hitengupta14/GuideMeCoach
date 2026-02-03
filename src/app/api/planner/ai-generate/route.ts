@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { users, workoutPlans, aiResponseCache } from '@/db/schema'
+import { users, workoutPlans, aiResponseCache, userMedicalHistory } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { generateWorkoutPlan, isOpenAIConfigured } from '@/lib/ai'
@@ -177,6 +177,22 @@ export async function POST(request: NextRequest) {
     let aiError: string | undefined
     let aiPlan: any
 
+    // Get user's medical conditions to pass to AI
+    const [medicalData] = await db
+      .select()
+      .from(userMedicalHistory)
+      .where(eq(userMedicalHistory.userId, userId))
+      .limit(1)
+
+    const userMedicalConditions = medicalData?.medicalConditions || []
+    const affectedJoints = medicalData?.affectedJoints || []
+
+    logger.info('Medical conditions for AI plan', {
+      userId,
+      conditions: userMedicalConditions,
+      affectedJoints,
+    })
+
     // Retry logic for AI generation (max 2 attempts)
     const MAX_RETRIES = 1
     let attempt = 0
@@ -192,7 +208,8 @@ export async function POST(request: NextRequest) {
           experienceLevel,
           daysPerWeek,
           equipment: equipment || [],
-          medicalConditions: medicalConditions || [],
+          medicalConditions: userMedicalConditions.length > 0 ? userMedicalConditions : medicalConditions || [],
+          affectedJoints,
           duration: duration || 60,
           userProfile: {
             name: user.name || undefined,

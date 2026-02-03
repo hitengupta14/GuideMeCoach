@@ -58,6 +58,23 @@ export const adminRoleEnum = pgEnum('admin_role', [
   'support_admin'
 ])
 
+export const jointEnum = pgEnum('joint', [
+  'knee',
+  'lower_back',
+  'shoulder',
+  'elbow',
+  'wrist',
+  'hip',
+  'ankle',
+  'neck'
+])
+
+export const jointInvolvementLevelEnum = pgEnum('joint_involvement_level', [
+  'low',
+  'medium',
+  'high'
+])
+
 export const pricingTierEnum = pgEnum('pricing_tier', [
   'india',
   'international'
@@ -482,6 +499,38 @@ export const pushTokens = pgTable('push_tokens', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+// Joint Involvement (Exercise → Joint mapping with severity level)
+export const jointInvolvement = pgTable('joint_involvement', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  exerciseId: uuid('exercise_id').references(() => exercises.id, { onDelete: 'cascade' }).notNull(),
+  joint: jointEnum('joint').notNull(),
+  involvementLevel: jointInvolvementLevelEnum('involvement_level').default('medium').notNull(),
+  
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// User Medical History (User's medical conditions and affected joints)
+export const userMedicalHistory = pgTable('user_medical_history', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Medical conditions
+  medicalConditions: jsonb('medical_conditions').$type<string[]>().default([]).notNull(), // ['lower_back_pain', 'knee_pain']
+  affectedJoints: jsonb('affected_joints').$type<string[]>().default([]).notNull(), // ['knee', 'lower_back']
+  severity: text('severity').default('mild').notNull(), // 'mild', 'moderate', 'severe'
+  
+  excludeHighImpactActivities: boolean('exclude_high_impact_activities').default(false),
+  excludeHeavyLifting: boolean('exclude_heavy_lifting').default(false),
+  excludeOverheadMovements: boolean('exclude_overhead_movements').default(false),
+  
+  notes: text('notes'),
+  lastUpdatedAt: timestamp('last_updated_at').defaultNow(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
 // Export types
 export type Exercise = typeof exercises.$inferSelect
 export type NewExercise = typeof exercises.$inferInsert
@@ -500,3 +549,5 @@ export type PushToken = typeof pushTokens.$inferSelect
 export type SubscriptionHistory = typeof subscriptionHistory.$inferSelect
 export type AIResponseCache = typeof aiResponseCache.$inferSelect
 export type RefreshToken = typeof refreshTokens.$inferSelect
+export type JointInvolvement = typeof jointInvolvement.$inferSelect
+export type UserMedicalHistory = typeof userMedicalHistory.$inferSelect

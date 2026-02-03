@@ -42,6 +42,9 @@ export default function CustomPlannerComponent() {
   const [planName, setPlanName] = useState('')
   const [durationWeeks, setDurationWeeks] = useState(4)
   const [saving, setSaving] = useState(false)
+  const [searchExercise, setSearchExercise] = useState('')
+  const [showExerciseModal, setShowExerciseModal] = useState(false)
+  const [currentDay, setCurrentDay] = useState<{ weekIdx: number; dayIdx: number } | null>(null)
   const router = useRouter()
   const { addToHistory, setPreviousPage } = usePlanHistory()
 
@@ -50,7 +53,7 @@ export default function CustomPlannerComponent() {
   }, [])
 
   const fetchExercises = async () => {
-    const { data, error } = await apiWrapper.get<{ exercises: Exercise[] }>('/api/exercises')
+    const { data, error } = await apiWrapper.get<{ exercises: Exercise[] }>('/api/exercises?limit=1000')
 
     if (error) {
       await handleError(error)
@@ -200,16 +203,17 @@ export default function CustomPlannerComponent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8">
-      <div className="max-w-6xl mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 py-8">
+      <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Build Your Custom Plan</h1>
-          <p className="text-gray-600">Select exercises and create your personalized workout plan</p>
+        <div className="mb-10">
+          <h1 className="text-5xl font-bold text-gray-900 mb-3">🎯 Build Your Custom Plan</h1>
+          <p className="text-xl text-gray-600">Hand-pick exercises week-by-week and create your personalized workout routine</p>
         </div>
 
         {/* Plan Info Section */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="bg-white rounded-xl shadow-lg p-8 mb-8 border border-gray-100">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Plan Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Plan Name</label>
@@ -218,7 +222,7 @@ export default function CustomPlannerComponent() {
                 value={planName}
                 onChange={e => setPlanName(e.target.value)}
                 placeholder="e.g., My Strength Plan"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:border-indigo-300 transition-colors"
               />
             </div>
 
@@ -230,7 +234,7 @@ export default function CustomPlannerComponent() {
                 max="12"
                 value={durationWeeks}
                 onChange={e => setDurationWeeks(parseInt(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:border-indigo-300 transition-colors"
               />
             </div>
           </div>
@@ -239,15 +243,15 @@ export default function CustomPlannerComponent() {
         {/* Weeks Builder */}
         <div className="space-y-6">
           {weeks.map((week, weekIdx) => (
-            <div key={weekIdx} className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Week {week.week}</h2>
+            <div key={weekIdx} className="bg-white rounded-xl shadow-lg p-8 border border-gray-100">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Week {week.week}</h2>
 
               {/* Days */}
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {week.days.map((day, dayIdx) => (
-                  <div key={dayIdx} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <div key={dayIdx} className="border-2 border-indigo-100 rounded-xl p-6 bg-gradient-to-br from-indigo-50 to-purple-50 hover:shadow-md transition-shadow">
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2">{day.day}</h3>
+                      <h3 className="text-lg font-bold text-gray-900 mb-3">{day.day}</h3>
                       <input
                         type="text"
                         value={day.focusMuscle}
@@ -259,100 +263,86 @@ export default function CustomPlannerComponent() {
                           })
                         }}
                         placeholder="Focus muscle (e.g., Chest)"
-                        className="px-3 py-1 border border-gray-300 rounded text-sm"
+                        className="px-4 py-2 border-2 border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
 
                     {/* Selected Exercises */}
-                    <div className="mb-4 space-y-3">
-                      {day.exercises.map((ex, exIdx) => (
-                        <div key={exIdx} className="bg-white p-3 rounded border border-indigo-200">
-                          <div className="flex justify-between items-start mb-2">
-                            <Link 
-                              href={`/exercises/${ex.exerciseName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')}`}
-                              className="font-semibold text-indigo-600 hover:text-indigo-700"
-                            >
-                              {ex.exerciseName}
-                            </Link>
-                            <button
-                              onClick={() => removeExerciseFromDay(weekIdx, dayIdx, exIdx)}
-                              className="text-red-500 hover:text-red-700 text-sm font-semibold"
-                            >
-                              Remove
-                            </button>
-                          </div>
+                    <div className="mb-5 space-y-3">
+                      {day.exercises.length === 0 ? (
+                        <p className="text-gray-500 italic py-3">No exercises added yet</p>
+                      ) : (
+                        day.exercises.map((ex, exIdx) => (
+                          <div key={exIdx} className="bg-white p-4 rounded-lg border-2 border-indigo-200 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start mb-3">
+                              <Link 
+                                href={`/exercises/${ex.exerciseName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')}`}
+                                className="font-bold text-indigo-600 hover:text-indigo-700 text-lg"
+                              >
+                                {ex.exerciseName}
+                              </Link>
+                              <button
+                                onClick={() => removeExerciseFromDay(weekIdx, dayIdx, exIdx)}
+                                className="text-red-600 hover:text-red-800 text-sm font-bold hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                              >
+                                ✕ Remove
+                              </button>
+                            </div>
 
-                          <div className="grid grid-cols-3 gap-2 text-sm">
-                            <div>
-                              <label className="block text-xs text-gray-600">Sets</label>
-                              <input
-                                type="number"
-                                min="1"
-                                max="10"
-                                value={ex.sets}
-                                onChange={e =>
-                                  updateExerciseDetail(weekIdx, dayIdx, exIdx, 'sets', parseInt(e.target.value))
-                                }
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-center"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-600">Reps</label>
-                              <input
-                                type="text"
-                                value={ex.reps}
-                                onChange={e =>
-                                  updateExerciseDetail(weekIdx, dayIdx, exIdx, 'reps', e.target.value)
-                                }
-                                placeholder="e.g., 8-12"
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-center"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-600">Rest</label>
-                              <input
-                                type="text"
-                                value={ex.rest}
-                                onChange={e =>
-                                  updateExerciseDetail(weekIdx, dayIdx, exIdx, 'rest', e.target.value)
-                                }
-                                placeholder="e.g., 90s"
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-center"
-                              />
+                            <div className="grid grid-cols-3 gap-3 text-sm">
+                              <div>
+                                <label className="block text-xs text-gray-600 font-semibold">Sets</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  value={ex.sets}
+                                  onChange={e =>
+                                    updateExerciseDetail(weekIdx, dayIdx, exIdx, 'sets', parseInt(e.target.value))
+                                  }
+                                  className="w-full px-2 py-1 border-2 border-gray-200 rounded text-center font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-600 font-semibold">Reps</label>
+                                <input
+                                  type="text"
+                                  value={ex.reps}
+                                  onChange={e =>
+                                    updateExerciseDetail(weekIdx, dayIdx, exIdx, 'reps', e.target.value)
+                                  }
+                                  placeholder="8-12"
+                                  className="w-full px-2 py-1 border-2 border-gray-200 rounded text-center font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-600 font-semibold">Rest</label>
+                                <input
+                                  type="text"
+                                  value={ex.rest}
+                                  onChange={e =>
+                                    updateExerciseDetail(weekIdx, dayIdx, exIdx, 'rest', e.target.value)
+                                  }
+                                  placeholder="90s"
+                                  className="w-full px-2 py-1 border-2 border-gray-200 rounded text-center font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
 
-                    {/* Add Exercise Dropdown */}
-                    <div className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <label className="block text-xs text-gray-600 mb-1">Add Exercise</label>
-                        <select
-                          onChange={e => {
-                            const exerciseId = e.target.value
-                            if (exerciseId) {
-                              const exercise = availableExercises.find(ex => ex.id === exerciseId)
-                              if (exercise) {
-                                addExerciseToDay(weekIdx, dayIdx, exercise)
-                                e.target.value = ''
-                              }
-                            }
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-sm"
-                        >
-                          <option value="">Select an exercise...</option>
-                          {availableExercises
-                            .filter(ex => !day.exercises.some(e => e.exerciseId === ex.id))
-                            .map(ex => (
-                              <option key={ex.id} value={ex.id}>
-                                {ex.name} ({ex.category})
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
+                    {/* Add Exercise Button */}
+                    <button
+                      onClick={() => {
+                        setCurrentDay({ weekIdx, dayIdx })
+                        setShowExerciseModal(true)
+                      }}
+                      className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-bold shadow-md hover:shadow-lg"
+                    >
+                      + Add Exercise
+                    </button>
                   </div>
                 ))}
               </div>
@@ -360,13 +350,70 @@ export default function CustomPlannerComponent() {
           ))}
         </div>
 
+        {/* Exercise Selection Modal */}
+        {showExerciseModal && currentDay && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-96 overflow-hidden flex flex-col">
+              <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white p-4 flex items-center justify-between">
+                <h3 className="text-lg font-bold">Select Exercise</h3>
+                <button
+                  onClick={() => {
+                    setShowExerciseModal(false)
+                    setCurrentDay(null)
+                    setSearchExercise('')
+                  }}
+                  className="text-2xl hover:bg-white/20 p-1 rounded transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="p-4 border-b border-gray-200">
+                <input
+                  type="text"
+                  placeholder="Search exercises..."
+                  value={searchExercise}
+                  onChange={(e) => setSearchExercise(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="overflow-y-auto flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-4">
+                  {availableExercises
+                    .filter(ex => 
+                      !weeks[currentDay.weekIdx].days[currentDay.dayIdx].exercises.some(e => e.exerciseId === ex.id) &&
+                      ex.name.toLowerCase().includes(searchExercise.toLowerCase())
+                    )
+                    .slice(0, 50)
+                    .map(ex => (
+                      <button
+                        key={ex.id}
+                        onClick={() => {
+                          addExerciseToDay(currentDay.weekIdx, currentDay.dayIdx, ex)
+                          setShowExerciseModal(false)
+                          setCurrentDay(null)
+                          setSearchExercise('')
+                        }}
+                        className="text-left p-3 border border-gray-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-400 transition"
+                      >
+                        <p className="font-semibold text-gray-900">{ex.name}</p>
+                        <p className="text-sm text-gray-600">{ex.category}</p>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="mt-8 flex gap-4">
           <button
             onClick={addWeek}
             className="px-6 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
           >
-            Add Week
+            + Add Week
           </button>
 
           <button

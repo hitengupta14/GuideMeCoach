@@ -183,6 +183,7 @@ export async function generateWorkoutPlan(input: {
   daysPerWeek: number
   equipment?: string[]
   medicalConditions?: string[]
+  affectedJoints?: string[]
   duration?: number
   userProfile?: {
     name?: string
@@ -203,6 +204,7 @@ REQUIREMENTS:
 - Days per Week: ${input.daysPerWeek}
 - Available Equipment: ${input.equipment?.join(', ') || 'Full gym access'}
 - Medical Conditions: ${input.medicalConditions?.join(', ') || 'None'}
+${input.affectedJoints && input.affectedJoints.length > 0 ? `- Affected Joints to Protect: ${input.affectedJoints.join(', ')}` : ''}
 - Session Duration: ${input.duration || 60} minutes
 ${input.userProfile ? `- User: ${input.userProfile.age}yo, ${input.userProfile.weight}kg, ${input.userProfile.height}cm` : ''}
 
@@ -236,10 +238,16 @@ IMPORTANT:
 1. Use ONLY exercises that exist in a standard gym
 2. Include warm-up exercises
 3. Progressive overload built-in
-4. Consider medical conditions for exercise selection
+4. CRITICAL: Avoid exercises that stress affected joints or medical conditions
 5. Balance muscle groups across the week
 6. Include rest/recovery days
 7. Provide RPE (Rate of Perceived Exertion) guidance
+${input.affectedJoints && input.affectedJoints.length > 0 ? `
+MEDICAL SAFETY PRIORITY:
+- EXCLUDE any exercises that heavily involve: ${input.affectedJoints.join(', ')}
+- Prioritize low-impact alternatives for affected joints
+- Suggest modifications for any recommended exercise if it involves protected areas
+` : ''}
 
 Generate the plan now:`
 

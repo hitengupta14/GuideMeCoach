@@ -69,28 +69,28 @@ export default function ExercisesPage() {
   )
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white py-12">
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white py-16">
         <div className="container mx-auto px-4">
-          <h1 className="text-4xl font-bold mb-2">Exercise Library</h1>
-          <p className="text-primary-100">Explore our comprehensive collection of exercises</p>
+          <h1 className="text-5xl font-bold mb-3">💪 Exercise Library</h1>
+          <p className="text-indigo-100 text-xl">Discover our comprehensive collection of 100+ exercises</p>
         </div>
       </div>
 
       {/* Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-12">
         {/* Search Bar */}
         <div className="mb-8">
-          <div className="relative">
+          <div className="relative max-w-2xl mx-auto">
             <input
               type="text"
               placeholder="Search exercises by name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-6 py-4 pl-14 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg shadow-sm hover:border-indigo-300 transition-colors"
             />
-            <span className="absolute left-4 top-3 text-gray-400">🔍</span>
+            <span className="absolute left-5 top-4 text-2xl">🔍</span>
           </div>
         </div>
 
@@ -130,29 +130,29 @@ export default function ExercisesPage() {
             ) : (
               <>
                 {/* Results Count */}
-                <div className="mb-6 flex items-center justify-between">
-                  <p className="text-gray-600">
-                    Showing <span className="font-semibold text-primary-600">{filteredExercises.length}</span> of{' '}
-                    <span className="font-semibold text-primary-600">{total}</span> exercises
+                <div className="mb-8 flex flex-col md:flex-row items-center justify-between gap-4 bg-white rounded-xl p-4 shadow-sm">
+                  <p className="text-gray-600 font-medium">
+                    Showing <span className="text-indigo-600 font-bold">{filteredExercises.length}</span> of{' '}
+                    <span className="text-indigo-600 font-bold">{total}</span> exercises
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
-                      className="px-3 py-2 border rounded disabled:opacity-50"
+                      className="px-4 py-2 border-2 border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 disabled:opacity-50 transition-all font-medium"
                       disabled={page <= 1}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                     >
                       ← Prev
                     </button>
-                    <span className="text-gray-700">Page {page}</span>
+                    <span className="text-gray-700 font-semibold px-3">Page {page}</span>
                     <button
-                      className="px-3 py-2 border rounded disabled:opacity-50"
+                      className="px-4 py-2 border-2 border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 disabled:opacity-50 transition-all font-medium"
                       disabled={page * limit >= total}
                       onClick={() => setPage((p) => p + 1)}
                     >
                       Next →
                     </button>
                     <select
-                      className="ml-2 px-2 py-2 border rounded"
+                      className="ml-2 px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       value={limit}
                       onChange={(e) => {
                         setLimit(Number(e.target.value));
@@ -167,7 +167,7 @@ export default function ExercisesPage() {
                 </div>
 
                 {/* Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredExercises.map((exercise: Exercise) => (
                     <ExerciseCard key={exercise.id} exercise={exercise} />
                   ))}
