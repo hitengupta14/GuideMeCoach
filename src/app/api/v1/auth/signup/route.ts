@@ -4,8 +4,9 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { SignJWT } from 'jose';
+import { getJwtSecretKey } from '@/lib/jwt';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+const JWT_SECRET = getJwtSecretKey();
 
 export async function POST(req: NextRequest) {
   try {

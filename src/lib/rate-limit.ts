@@ -3,6 +3,9 @@
  * For production, use Redis-based rate limiting
  */
 
+import { jwtVerify } from 'jose'
+import { getJwtSecretKey } from '@/lib/jwt'
+
 interface RateLimitState {
   count: number
   reset: number
@@ -19,12 +22,12 @@ const rateLimitStore = new Map<string, RateLimitState>()
 export function createRateLimiter(
   windowMs = 60 * 1000, // 1 minute
   maxRequests = 30,
-  keyGenerator?: (request: Request) => string
+  keyGenerator?: (request: Request) => string | Promise<string>
 ) {
-  return (request: Request) => {
+  return async (request: Request) => {
     // Generate cache key
     const key = keyGenerator
-      ? keyGenerator(request)
+      ? await keyGenerator(request)
       : getClientIp(request) + ':' + new URL(request.url).pathname
 
     const now = Date.now()
@@ -87,12 +90,7 @@ export const apiRateLimiter = createRateLimiter(
 export const aiRateLimiter = createRateLimiter(
   60 * 60 * 1000, // 1 hour
   20, // 20 AI requests per hour per user
-  (request) => {
-    // Rate limit per user ID if authenticated, otherwise per IP
-    const authHeader = request.headers.get('authorization')
-    const userId = authHeader ? authHeader.split(' ')[1] : null
-    return userId || getClientIp(request)
-  }
+  async (request) => (await getVerifiedUserId(request)) || getClientIp(request)
 )
 
 /**
@@ -101,11 +99,7 @@ export const aiRateLimiter = createRateLimiter(
 export const chatRateLimiter = createRateLimiter(
   60 * 1000, // 1 minute
   10, // 10 messages per minute
-  (request) => {
-    const authHeader = request.headers.get('authorization')
-    const userId = authHeader ? authHeader.split(' ')[1] : null
-    return userId || getClientIp(request)
-  }
+  async (request) => (await getVerifiedUserId(request)) || getClientIp(request)
 )
 
 /**
@@ -117,6 +111,53 @@ function getClientIp(request: Request): string {
     request.headers.get('x-real-ip') ||
     'unknown'
   )
+}
+
+function getCookieValue(request: Request, name: string): string | null {
+  const cookieHeader = request.headers.get('cookie')
+  if (!cookieHeader) return null
+
+  // Simple cookie parser (sufficient for our needs here).
+  for (const part of cookieHeader.split(';')) {
+    const [rawKey, ...rawValueParts] = part.trim().split('=')
+    if (!rawKey) continue
+    if (rawKey === name) {
+      return rawValueParts.join('=') || ''
+    }
+  }
+
+  return null
+}
+
+async function getVerifiedUserId(request: Request): Promise<string | null> {
+  let jwtSecret: Uint8Array
+  try {
+    jwtSecret = getJwtSecretKey()
+  } catch {
+    // If JWT isn't configured, we can't derive a stable userId. Fall back to IP-based limiting.
+    return null
+  }
+
+  // 1) Bearer token (mobile / API clients)
+  const authHeader = request.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.substring(7)
+    const verified = await jwtVerify(token, jwtSecret).catch(() => null)
+    if (verified?.payload?.userId) {
+      return String(verified.payload.userId)
+    }
+  }
+
+  // 2) Session cookie (web clients)
+  const sessionCookie = getCookieValue(request, 'session')
+  if (sessionCookie) {
+    const verified = await jwtVerify(sessionCookie, jwtSecret).catch(() => null)
+    if (verified?.payload?.userId) {
+      return String(verified.payload.userId)
+    }
+  }
+
+  return null
 }
 
 /**

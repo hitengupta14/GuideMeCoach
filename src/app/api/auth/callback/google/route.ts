@@ -3,8 +3,9 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { SignJWT, createRemoteJWKSet, jwtVerify } from 'jose'
+import { getJwtSecretKey } from '@/lib/jwt'
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+const JWT_SECRET = getJwtSecretKey()
 
 export async function GET(request: NextRequest) {
   try {

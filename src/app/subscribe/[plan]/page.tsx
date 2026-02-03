@@ -73,26 +73,7 @@ export default function SubscribePage() {
   useEffect(() => {
     const getToken = async () => {
       if (typeof window !== 'undefined') {
-        let savedToken: string | null = localStorage.getItem('token');
-        
-        // If no token in localStorage but user exists, try to get it from session
-        if (!savedToken && user?.id) {
-          try {
-            const response = await fetch('/api/auth/session');
-            if (response.ok) {
-              const data = await response.json();
-              if (data.token) {
-                savedToken = data.token;
-              }
-            }
-          } catch (err) {
-            console.error('Failed to fetch token from session:', err);
-          }
-        }
-        
-        if (savedToken) {
-          localStorage.setItem('token', savedToken);
-        }
+        const savedToken: string | null = localStorage.getItem('token');
         setToken(savedToken);
       }
     };
@@ -101,11 +82,7 @@ export default function SubscribePage() {
   }, [user?.id]);
 
   const handleSubscribe = async () => {
-    if (!token || !user?.id) {
-      await handleError({ error: "Please log in first", statusCode: 401 });
-      router.push("/auth/login?redirect=/pricing");
-      return;
-    }
+    if (!user?.id) return;
 
     const toastId = handleLoading("Creating payment order...");
     setIsProcessing(true);
@@ -119,7 +96,7 @@ export default function SubscribePage() {
           displayRegion: selectedRegion,
           planType: planKey,
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
       );
 
       dismissToast(toastId);
@@ -160,7 +137,7 @@ export default function SubscribePage() {
                 razorpay_signature: response.razorpay_signature,
                 planType: planKey,
               },
-              { headers: { Authorization: `Bearer ${token}` } }
+              token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
             );
 
             dismissToast(verifyToastId);

@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { workoutLogs } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { workoutLogs, workoutSessions } from '@/db/schema'
+import { and, eq } from 'drizzle-orm'
+import { verifySession } from '@/lib/auth-helpers'
 
 // Log an exercise during a workout
 export async function POST(request: NextRequest) {
   try {
+    const authUserId = await verifySession(request)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const {
-      userId,
       sessionId,
       exerciseId,
       plannedSets,
@@ -21,17 +26,29 @@ export async function POST(request: NextRequest) {
       notes,
     } = body
 
-    if (!userId || !sessionId || !exerciseId) {
+    if (!sessionId || !exerciseId) {
       return NextResponse.json(
-        { error: 'userId, sessionId, and exerciseId are required' },
+        { error: 'sessionId and exerciseId are required' },
         { status: 400 }
       )
+    }
+
+    // Ownership check: session must belong to the authenticated user.
+    const session = await db
+      .select({ id: workoutSessions.id })
+      .from(workoutSessions)
+      .where(and(eq(workoutSessions.id, sessionId), eq(workoutSessions.userId, authUserId)))
+      .limit(1)
+      .then((rows) => rows[0])
+
+    if (!session) {
+      return NextResponse.json({ error: 'Workout session not found' }, { status: 404 })
     }
 
     const newLog = await db
       .insert(workoutLogs)
       .values({
-        userId,
+        userId: authUserId,
         sessionId,
         exerciseId,
         plannedSets: plannedSets || undefined,
@@ -55,6 +72,11 @@ export async function POST(request: NextRequest) {
 // Get logs for a session
 export async function GET(request: NextRequest) {
   try {
+    const authUserId = await verifySession(request)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const sessionId = searchParams.get('sessionId')
 
@@ -62,10 +84,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'sessionId is required' }, { status: 400 })
     }
 
+    // Ownership check: session must belong to the authenticated user.
+    const session = await db
+      .select({ id: workoutSessions.id })
+      .from(workoutSessions)
+      .where(and(eq(workoutSessions.id, sessionId), eq(workoutSessions.userId, authUserId)))
+      .limit(1)
+      .then((rows) => rows[0])
+
+    if (!session) {
+      return NextResponse.json({ error: 'Workout session not found' }, { status: 404 })
+    }
+
     const logs = await db
       .select()
       .from(workoutLogs)
-      .where(eq(workoutLogs.sessionId, sessionId))
+      .where(and(eq(workoutLogs.sessionId, sessionId), eq(workoutLogs.userId, authUserId)))
 
     return NextResponse.json(logs)
   } catch (error) {
@@ -77,6 +111,11 @@ export async function GET(request: NextRequest) {
 // Update a log entry
 export async function PUT(request: NextRequest) {
   try {
+    const authUserId = await verifySession(request)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { logId, ...updateData } = body
 
@@ -84,12 +123,36 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'logId is required' }, { status: 400 })
     }
 
+    // Only allow updating safe fields (prevent changing ownership/relationships).
+    const allowedKeys = [
+      'plannedSets',
+      'completedSets',
+      'plannedReps',
+      'completedReps',
+      'weight',
+      'duration',
+      'rpe',
+      'notes',
+      'performedAt',
+    ] as const
+
+    const safeUpdate: Record<string, unknown> = {}
+    for (const key of allowedKeys) {
+      if (Object.prototype.hasOwnProperty.call(updateData, key)) {
+        safeUpdate[key] = updateData[key]
+      }
+    }
+
+    if (Object.keys(safeUpdate).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
     const updated = await db
       .update(workoutLogs)
       .set({
-        ...updateData,
+        ...safeUpdate,
       })
-      .where(eq(workoutLogs.id, logId))
+      .where(and(eq(workoutLogs.id, logId), eq(workoutLogs.userId, authUserId)))
       .returning()
 
     if (updated.length === 0) {

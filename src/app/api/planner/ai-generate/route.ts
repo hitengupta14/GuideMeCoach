@@ -12,7 +12,7 @@ import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-ca
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting - stricter for AI endpoints
-    const rateLimitResult = aiRateLimiter(request)
+    const rateLimitResult = await aiRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many AI workout generation requests. Please try again later.' },

@@ -5,24 +5,20 @@ import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { jwtVerify } from 'jose'
+import { getJwtSecretKey } from '@/lib/jwt'
 
 export const dynamic = 'force-dynamic'
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+const JWT_SECRET = getJwtSecretKey()
 
 export async function GET() {
   try {
     const cookieStore = await cookies()
     const sessionCookie = cookieStore.get('session')
-    
-    console.log('[Session] Checking for session cookie')
-    console.log('[Session] Available cookies:', Array.from(cookieStore.getAll()).map(c => c.name))
-    console.log('[Session] Session cookie:', sessionCookie ? 'Found' : 'Not found')
-    
+
     const token = sessionCookie?.value
 
     if (!token) {
-      console.log('[Session] No token found in cookie')
       return NextResponse.json({ user: null }, { status: 401 })
     }
 
@@ -30,12 +26,10 @@ export async function GET() {
     const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
     if (!verified) {
       logger.warn('Invalid JWT token')
-      console.log('[Session] JWT verification failed')
       return NextResponse.json({ user: null }, { status: 401 })
     }
 
     const userId = verified.payload.userId as string
-    console.log('[Session] JWT verified for user:', userId)
 
     // Find user by ID from token
     const [user] = await db
@@ -73,9 +67,9 @@ export async function GET() {
     }
 
     logger.info('Session validated', { userId: user.id })
-    console.log('[Session] User found and verified')
-    
-    return NextResponse.json({ user, token })
+
+    // Do not return the raw JWT. Web clients should rely on HTTP-only cookies.
+    return NextResponse.json({ user })
   } catch (error) {
     logger.error('Session validation error', error as Error)
     return NextResponse.json({ user: null }, { status: 500 })

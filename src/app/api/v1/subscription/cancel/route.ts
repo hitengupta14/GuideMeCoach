@@ -3,8 +3,9 @@ import { jwtVerify } from 'jose';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { getJwtSecretKey } from '@/lib/jwt';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+const JWT_SECRET = getJwtSecretKey();
 
 /**
  * Cancel user's subscription

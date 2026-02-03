@@ -5,8 +5,9 @@ import { eq } from 'drizzle-orm'
 import { verifyPassword, hashPassword } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { jwtVerify } from 'jose'
+import { getJwtSecretKey } from '@/lib/jwt'
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+const JWT_SECRET = getJwtSecretKey()
 
 export async function POST(request: NextRequest) {
   try {

@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { workoutSessions, workoutLogs } from '@/db/schema'
+import { workoutSessions } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { verifySession } from '@/lib/auth-helpers'
 
 // Start a new workout session
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { userId, dayName, planId } = body
+    const authUserId = await verifySession(request)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!userId || !dayName) {
+    const body = await request.json()
+    const { dayName, planId } = body
+
+    if (!dayName) {
       return NextResponse.json(
-        { error: 'userId and dayName are required' },
+        { error: 'dayName is required' },
         { status: 400 }
       )
     }
@@ -19,7 +25,7 @@ export async function POST(request: NextRequest) {
     const newSession = await db
       .insert(workoutSessions)
       .values({
-        userId,
+        userId: authUserId,
         dayName,
         planId: planId || undefined,
         duration: 0, // Will be updated when session ends
@@ -37,17 +43,15 @@ export async function POST(request: NextRequest) {
 // Get user's workout sessions
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    const authUserId = await verifySession(request)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const sessions = await db
       .select()
       .from(workoutSessions)
-      .where(eq(workoutSessions.userId, userId))
+      .where(eq(workoutSessions.userId, authUserId))
 
     return NextResponse.json(sessions)
   } catch (error) {

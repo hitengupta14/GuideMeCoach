@@ -10,7 +10,7 @@ import { verifySession } from '@/lib/auth-helpers'
 export async function GET(request: NextRequest) {
   try {
     // Rate limiting for AI insights
-    const rateLimitResult = aiRateLimiter(request)
+    const rateLimitResult = await aiRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many AI insight requests. Please try again later.' },

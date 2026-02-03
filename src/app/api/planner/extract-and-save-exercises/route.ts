@@ -221,7 +221,7 @@ async function addExerciseToDatabase(exerciseName: string): Promise<any> {
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
-    const rateLimitResult = apiRateLimiter(request)
+    const rateLimitResult = await apiRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many requests' },

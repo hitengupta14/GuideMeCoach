@@ -37,19 +37,19 @@ export const newPasswordSchema = z.object({
 export const userProfileSchema = z.object({
   name: z.string().min(2).max(100).optional().nullable(),
   height: z.number().min(100).max(300).optional().nullable(), // in cm
-  weight: z.number().min(20).max(500).optional().nullable(), // in kg (legacy field)
+  weight: z.number().min(20).max(500).optional().nullable(), // in kg
   age: z.number().min(13).max(120).optional().nullable(),
   gender: z.enum(['male', 'female', 'other']).optional().nullable(),
-  currentWeight: z.number().min(20).max(500).optional().nullable(), // in kg
-  targetWeight: z.number().min(20).max(500).optional().nullable(), // in kg
   experienceLevel: z.enum(['beginner', 'intermediate', 'advanced']).optional().nullable(),
   goals: z.array(z.string()).optional().nullable(),
   medicalConditions: z.array(z.string()).optional().nullable(),
   availableEquipment: z.array(z.string()).optional().nullable(),
-  timeAvailability: z.number().min(10).max(480).optional().nullable(), // minutes per session
-  preferredLocation: z.string().optional().nullable(),
+  timeAvailability: z.number().min(0).optional().nullable(), // minutes per session
+  preferredLocation: z.enum(['home', 'gym', 'both']).optional().nullable(),
   weakAreas: z.array(z.string()).optional().nullable(),
   painAreas: z.array(z.string()).optional().nullable(),
+  currentWeight: z.number().min(20).max(500).optional().nullable(), // in kg
+  targetWeight: z.number().min(20).max(500).optional().nullable(), // in kg
   bio: z.string().max(500).optional().nullable(),
 })
 

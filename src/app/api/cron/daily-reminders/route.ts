@@ -22,7 +22,12 @@ const expo = new Expo()
 // Verify cron secret
 function verifyCronSecret(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET || 'your-secret-key-here'
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    // Fail closed if misconfigured.
+    logger.error('CRON_SECRET is not set; rejecting cron request')
+    return false
+  }
   
   return authHeader === `Bearer ${cronSecret}`
 }

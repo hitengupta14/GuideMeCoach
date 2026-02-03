@@ -9,7 +9,7 @@
     "lint": "next lint",
     "db:generate": "drizzle-kit generate:pg",
     "db:push": "drizzle-kit push:pg",
-    "db:push:prod": "DATABASE_URL=postgresql://postgres.pezjeesjrnzqabwrssyb:guidemecoach@0705@aws-1-ap-south-1.pooler.supabase.com:6543/postgres drizzle-kit push:pg",
+    "db:push:prod": "bash scripts/push-schema-production.sh",
     "db:migrate": "drizzle-kit push:pg",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",

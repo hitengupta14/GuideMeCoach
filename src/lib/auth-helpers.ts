@@ -8,10 +8,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
+import { getJwtSecretKey } from '@/lib/jwt'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'fallback-secret'
-)
+const JWT_SECRET = getJwtSecretKey()
 
 /**
  * Verify JWT session from either Bearer token or HTTP-only cookie

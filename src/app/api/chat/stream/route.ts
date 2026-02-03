@@ -10,7 +10,7 @@ import { verifySession } from '@/lib/auth-helpers'
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting for chat messages
-    const rateLimitResult = chatRateLimiter(request)
+    const rateLimitResult = await chatRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return new Response(
         JSON.stringify({ error: 'Too many messages. Please slow down.' }),

@@ -2,22 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { hashPassword, generateToken } from '@/lib/auth'
+import { hashPassword } from '@/lib/auth'
 import { signupSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 import { authRateLimiter } from '@/lib/rate-limit'
 import { sendEmail, getVerificationEmailHtml } from '@/lib/email'
 import { z } from 'zod'
 import crypto from 'crypto'
-import { SignJWT } from 'jose'
-import { createRefreshToken } from '@/lib/refresh-token'
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
 
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
-    const rateLimitResult = authRateLimiter(request)
+    const rateLimitResult = await authRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many signup attempts. Please try again later.' },
@@ -81,40 +77,13 @@ export async function POST(request: NextRequest) {
       text,
     })
 
-    // Generate JWT access token (short-lived: 1 hour)
-    const token = await new SignJWT({ userId: newUser[0].id })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('1h')
-      .sign(JWT_SECRET)
-
-    // Create refresh token (long-lived: 30 days)
-    const userAgent = request.headers.get('user-agent') || undefined
-    const platform = request.headers.get('x-platform') || undefined
-    const deviceName = request.headers.get('x-device-name') || undefined
-    const appVersion = request.headers.get('x-app-version') || undefined
-    const ipAddress = request.ip || request.headers.get('x-forwarded-for') || undefined
-
-    const refreshToken = await createRefreshToken(
-      newUser[0].id,
-      {
-        userAgent,
-        platform,
-        deviceName,
-        appVersion,
-      },
-      ipAddress
-    )
-
-    // Create response
+    // Do NOT create an authenticated session until the email is verified.
+    // This prevents unverified accounts from accessing protected areas.
     const response = NextResponse.json(
       {
         success: true,
-        message: 'Account created successfully. Please check your email to verify your account.',
+        message: 'Account created successfully. Please verify your email to continue.',
         data: {
-          token,
-          refreshToken: refreshToken.token,
-          refreshTokenExpiresAt: refreshToken.expiresAt.toISOString(),
           user: {
             id: newUser[0].id,
             email: newUser[0].email,
@@ -125,15 +94,6 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     )
-
-    // Set HTTP-only cookie with JWT token (1 hour)
-    response.cookies.set('session', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60, // 1 hour
-      path: '/',
-    })
 
     logger.info('User signup successful', { userId: newUser[0].id })
     return response

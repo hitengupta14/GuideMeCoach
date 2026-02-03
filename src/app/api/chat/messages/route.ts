@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
-    const rateLimitResult = apiRateLimiter(request)
+    const rateLimitResult = await apiRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many requests. Please try again later.' },
@@ -368,4 +368,3 @@ Progress takes time - be patient and consistent! What lift are you working on?`
 
 What would you like to know?`
 }
-

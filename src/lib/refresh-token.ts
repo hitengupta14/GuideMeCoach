@@ -10,10 +10,9 @@ import { refreshTokens, users } from '@/db/schema'
 import { eq, and, gt, lt, isNull } from 'drizzle-orm'
 import { SignJWT } from 'jose'
 import crypto from 'crypto'
+import { getJwtSecretKey } from '@/lib/jwt'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'fallback-secret'
-)
+const JWT_SECRET = getJwtSecretKey()
 
 // Token lifetimes
 const ACCESS_TOKEN_EXPIRY = '1h' // Short-lived access token

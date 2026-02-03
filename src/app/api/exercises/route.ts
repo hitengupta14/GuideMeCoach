@@ -10,7 +10,7 @@ import { z } from 'zod'
 export async function GET(request: Request) {
   try {
     // Rate limiting
-    const rateLimitResult = apiRateLimiter(request)
+    const rateLimitResult = await apiRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many requests' },

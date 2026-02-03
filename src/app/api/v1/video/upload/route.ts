@@ -4,8 +4,9 @@ import { db } from '@/db';
 import { jwtVerify } from 'jose';
 import { validateFileBuffer, generateSecureFilename } from '@/lib/file-validation';
 import { logger } from '@/lib/logger';
+import { getJwtSecretKey } from '@/lib/jwt';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+const JWT_SECRET = getJwtSecretKey();
 
 // This endpoint handles video upload
 // Videos are stored in a cloud storage service (AWS S3, Cloudinary, or Firebase)
