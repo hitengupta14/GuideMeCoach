@@ -115,13 +115,19 @@ export async function rotateRefreshToken(
 
   // Verify user still exists
   const user = await db
-    .select({ id: users.id })
+    .select({ id: users.id, status: users.status })
     .from(users)
     .where(eq(users.id, tokenRecord.userId))
     .limit(1)
     .then((res) => res[0])
 
   if (!user) {
+    return null
+  }
+
+  // Enforce user status so blocked/deleted accounts cannot refresh.
+  if (user.status !== 'active') {
+    await revokeAllUserTokens(tokenRecord.userId)
     return null
   }
 

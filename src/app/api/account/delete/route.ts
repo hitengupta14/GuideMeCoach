@@ -122,6 +122,8 @@ async function deleteAccount(request: NextRequest) {
     // Clear session cookie
     const cookieStore = await cookies()
     cookieStore.delete('session')
+    cookieStore.delete('refresh_token')
+    cookieStore.delete('csrf-token')
 
     logger.info('User account deleted (soft)', { userId })
 

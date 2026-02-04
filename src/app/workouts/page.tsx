@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import WorkoutLogger from '@/components/WorkoutLogger'
 import { useSession } from '@/hooks/useSession'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface Exercise {
   id: string
@@ -104,7 +105,7 @@ export default function WorkoutsPage() {
     if (!user) return
 
     try {
-      await fetch(`/api/users/${user.id}/favorites`, {
+      await csrfFetch(`/api/users/${user.id}/favorites`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exerciseId }),

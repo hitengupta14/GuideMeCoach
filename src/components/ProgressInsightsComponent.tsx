@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Loader, TrendingUp, AlertCircle, CheckCircle, Zap } from 'lucide-react'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface WorkoutStat {
   totalWorkouts: number
@@ -91,10 +92,9 @@ export default function ProgressInsightsComponent({ userId }: { userId: string }
   const sendEmailSummary = async () => {
     try {
       setEmailSending(true)
-      const response = await fetch('/api/analytics/email-insights', {
+      const response = await csrfFetch('/api/analytics/email-insights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ userId, weeksBack }),
       })
 

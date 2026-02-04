@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { workoutLogs } from '@/db/schema'
-import { eq, and, gte, desc } from 'drizzle-orm'
+import { exercises, workoutLogs, workoutSets } from '@/db/schema'
+import { eq, and, gte, desc, isNotNull } from 'drizzle-orm'
 import { verifySession } from '@/lib/auth-helpers'
 
 export async function GET(request: NextRequest) {
@@ -84,8 +84,44 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get personal records (placeholder - would need exercise logs to calculate)
+    // Personal records: max weight per exercise in the time range (from set-by-set logs)
+    const setRows = await db
+      .select({
+        exerciseId: workoutSets.exerciseId,
+        exerciseName: exercises.name,
+        weight: workoutSets.weight,
+        performedAt: workoutSets.performedAt,
+      })
+      .from(workoutSets)
+      .leftJoin(exercises, eq(exercises.id, workoutSets.exerciseId))
+      .where(
+        and(
+          eq(workoutSets.userId, userId),
+          gte(workoutSets.performedAt, startDate),
+          isNotNull(workoutSets.weight)
+        )
+      )
+      .orderBy(desc(workoutSets.weight), desc(workoutSets.performedAt))
+      .limit(2000)
+
+    const seenExercises = new Set<string>()
     const personalRecords: Array<{ exercise: string; weight: number; date: string }> = []
+
+    for (const row of setRows) {
+      const exId = row.exerciseId
+      if (!exId || seenExercises.has(exId)) continue
+      seenExercises.add(exId)
+
+      if (row.weight === null || row.weight === undefined) continue
+
+      personalRecords.push({
+        exercise: row.exerciseName || exId,
+        weight: row.weight,
+        date: row.performedAt ? new Date(row.performedAt).toISOString() : new Date().toISOString(),
+      })
+
+      if (personalRecords.length >= 10) break
+    }
 
     return NextResponse.json({
       totalWorkouts,

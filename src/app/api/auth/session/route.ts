@@ -83,6 +83,7 @@ async function getSession(request: NextRequest) {
           emailVerified: users.emailVerified,
           isAdmin: users.isAdmin,
           adminRole: users.adminRole,
+          status: users.status,
         })
         .from(users)
         .where(eq(users.id, userId))
@@ -90,6 +91,14 @@ async function getSession(request: NextRequest) {
 
       if (!user) {
         logger.warn('User not found after refresh')
+        const res = NextResponse.json({ user: null }, { status: 200 })
+        res.cookies.set('session', '', { httpOnly: true, path: '/', maxAge: 0 })
+        res.cookies.set('refresh_token', '', { httpOnly: true, path: '/', maxAge: 0 })
+        return res
+      }
+
+      if (user.status !== 'active') {
+        logger.warn('Inactive user attempted session refresh', { userId: user.id, status: user.status })
         const res = NextResponse.json({ user: null }, { status: 200 })
         res.cookies.set('session', '', { httpOnly: true, path: '/', maxAge: 0 })
         res.cookies.set('refresh_token', '', { httpOnly: true, path: '/', maxAge: 0 })
@@ -149,6 +158,7 @@ async function getSession(request: NextRequest) {
         emailVerified: users.emailVerified,
         isAdmin: users.isAdmin,
         adminRole: users.adminRole,
+        status: users.status,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -156,6 +166,14 @@ async function getSession(request: NextRequest) {
 
     if (!user) {
       logger.warn('User not found for JWT token')
+      const res = NextResponse.json({ user: null }, { status: 200 })
+      res.cookies.set('session', '', { httpOnly: true, path: '/', maxAge: 0 })
+      res.cookies.set('refresh_token', '', { httpOnly: true, path: '/', maxAge: 0 })
+      return res
+    }
+
+    if (user.status !== 'active') {
+      logger.warn('Inactive user session detected', { userId: user.id, status: user.status })
       const res = NextResponse.json({ user: null }, { status: 200 })
       res.cookies.set('session', '', { httpOnly: true, path: '/', maxAge: 0 })
       res.cookies.set('refresh_token', '', { httpOnly: true, path: '/', maxAge: 0 })

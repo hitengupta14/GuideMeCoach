@@ -12,7 +12,7 @@ import { verifySession } from '@/lib/auth-helpers'
 import { logger } from '@/lib/logger'
 import { db } from '@/db'
 import { refreshTokens } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq, gt, isNull } from 'drizzle-orm'
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,6 +25,24 @@ export async function GET(request: NextRequest) {
     // Get all active tokens for the user
     const activeSessions = await getUserActiveTokens(userId)
 
+    // Mark the current session by matching the refresh token cookie.
+    const refreshCookie = request.cookies.get('refresh_token')?.value
+    const currentSessionId = refreshCookie
+      ? await db
+          .select({ id: refreshTokens.id })
+          .from(refreshTokens)
+          .where(
+            and(
+              eq(refreshTokens.userId, userId),
+              eq(refreshTokens.token, refreshCookie),
+              isNull(refreshTokens.revokedAt),
+              gt(refreshTokens.expiresAt, new Date())
+            )
+          )
+          .limit(1)
+          .then((rows) => rows[0]?.id ?? null)
+      : null
+
     // Format response
     const sessions = activeSessions.map((session) => ({
       id: session.id,
@@ -32,7 +50,7 @@ export async function GET(request: NextRequest) {
       expiresAt: session.expiresAt,
       device: session.deviceInfo,
       ipAddress: session.ipAddress,
-      current: false, // TODO: Detect current session
+      current: currentSessionId ? session.id === currentSessionId : false,
     }))
 
     return NextResponse.json({

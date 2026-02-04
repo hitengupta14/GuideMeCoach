@@ -5,12 +5,28 @@
  * Provides consistent authentication logic
  */
 
+import 'server-only'
+
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 import { getJwtSecretKey } from '@/lib/jwt'
+import { db } from '@/db'
+import { users } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 const JWT_SECRET = getJwtSecretKey()
+
+type UserStatus = 'active' | 'blocked' | 'deleted' | 'suspended' | (string & {})
+
+async function isUserActive(userId: string): Promise<boolean> {
+  const [user] = await db
+    .select({ status: users.status })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
+  return (user?.status as UserStatus | undefined) === 'active'
+}
 
 /**
  * Verify JWT session from either Bearer token or HTTP-only cookie
@@ -20,30 +36,47 @@ export async function verifySession(
   request: NextRequest
 ): Promise<string | null> {
   try {
+    let userId: string | null = null
+
     // Check Bearer token first (for mobile/API clients)
     const authHeader = request.headers.get('authorization')
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.substring(7)
       const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
       if (verified) {
-        return verified.payload.userId as string
+        const id = verified.payload.userId
+        userId = typeof id === 'string' && id.length > 0 ? id : null
       }
     }
 
     // Fall back to session cookie (for web clients)
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('session')?.value
+    if (!userId) {
+      const sessionToken = request.cookies.get('session')?.value
 
-    if (!sessionToken) {
+      if (!sessionToken) {
+        return null
+      }
+
+      const verified = await jwtVerify(sessionToken, JWT_SECRET).catch(() => null)
+      if (!verified) {
+        return null
+      }
+
+      const id = verified.payload.userId
+      userId = typeof id === 'string' && id.length > 0 ? id : null
+    }
+
+    if (!userId) {
       return null
     }
 
-    const verified = await jwtVerify(sessionToken, JWT_SECRET).catch(() => null)
-    if (!verified) {
+    // Enforce user status so blocked/deleted accounts cannot authenticate.
+    const active = await isUserActive(userId).catch(() => false)
+    if (!active) {
       return null
     }
 
-    return verified.payload.userId as string
+    return userId
   } catch (error) {
     return null
   }

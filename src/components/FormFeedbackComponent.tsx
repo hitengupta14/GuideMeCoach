@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { AlertCircle, CheckCircle, Loader, Sparkles, MessageCircle } from 'lucide-react'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface FormCorrection {
   area: string
@@ -47,10 +48,9 @@ export default function FormFeedbackComponent({ defaultExerciseName = '' }: Form
       setLoading(true)
       setError(null)
 
-      const response = await fetch('/api/exercises/form-feedback', {
+      const response = await csrfFetch('/api/exercises/form-feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           exerciseName,
           description,
@@ -80,14 +80,13 @@ export default function FormFeedbackComponent({ defaultExerciseName = '' }: Form
       { role: 'user' as const, content: consultationInput },
     ]
     setConsultationMessages(newMessages)
-    setConsultationInput('')
+      setConsultationInput('')
 
     try {
       setStreamingConsultation(true)
-      const response = await fetch('/api/exercises/form-consultation/stream', {
+      const response = await csrfFetch('/api/exercises/form-consultation/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           exerciseName,
           messages: newMessages,

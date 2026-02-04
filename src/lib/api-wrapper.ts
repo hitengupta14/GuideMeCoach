@@ -8,6 +8,7 @@
  */
 
 import { parseAPIError, getErrorMessage, getErrorAction, type APIError } from './error-handler'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface ApiWrapperOptions {
   credentials?: RequestCredentials
@@ -31,7 +32,7 @@ async function fetchWithErrorHandling<T>(
   const { skipErrorToast, credentials = 'include', ...fetchOptions } = options
 
   try {
-    const response = await fetch(url, {
+    const response = await csrfFetch(url, {
       ...fetchOptions,
       credentials,
       headers: {

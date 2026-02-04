@@ -4,6 +4,25 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+function sanitizeRedirectPath(raw: string | null): string | null {
+  if (!raw) return null
+  const candidate = raw.trim()
+  if (!candidate) return null
+  if (candidate.includes('\\')) return null
+
+  try {
+    const url = new URL(candidate, window.location.origin)
+    if (url.origin !== window.location.origin) return null
+
+    const path = url.pathname + url.search + url.hash
+    if (!path.startsWith('/')) return null
+    if (path.startsWith('//')) return null
+    return path
+  } catch {
+    return null
+  }
+}
+
 export default function SignupForm() {
   const [formData, setFormData] = useState({
     name: '',
@@ -21,15 +40,10 @@ export default function SignupForm() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const redirect = params.get('redirect')
+    const redirect = sanitizeRedirectPath(params.get('redirect'))
     if (redirect) {
-      try {
-        const decoded = decodeURIComponent(redirect)
-        // Never redirect signups directly to admin routes.
-        setRedirectPath(decoded.startsWith('/admin') ? '/dashboard' : decoded)
-      } catch {
-        setRedirectPath('/dashboard')
-      }
+      // Never redirect signups directly to admin routes.
+      setRedirectPath(redirect.startsWith('/admin') ? '/dashboard' : redirect)
     }
   }, [])
 

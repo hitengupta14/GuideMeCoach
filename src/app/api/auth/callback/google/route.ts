@@ -5,12 +5,26 @@ import { eq } from 'drizzle-orm'
 import { SignJWT, createRemoteJWKSet, jwtVerify } from 'jose'
 import { getJwtSecretKey } from '@/lib/jwt'
 import { createRefreshToken } from '@/lib/refresh-token'
+import { getGlobalAppSettings } from '@/lib/app-settings'
 
 const JWT_SECRET = getJwtSecretKey()
 
 export async function GET(request: NextRequest) {
   try {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const appSettings = await getGlobalAppSettings()
+    if (!appSettings.enableSocialAuth) {
+      const response = NextResponse.redirect(`${appUrl}/auth/login?error=social_auth_disabled`)
+      response.cookies.set('google_oauth_state', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/',
+      })
+      return response
+    }
+
     const code = request.nextUrl.searchParams.get('code')
     const state = request.nextUrl.searchParams.get('state')
     const expectedState = request.cookies.get('google_oauth_state')?.value
@@ -111,6 +125,7 @@ export async function GET(request: NextRequest) {
         email: users.email,
         name: users.name,
         emailVerified: users.emailVerified,
+        status: users.status,
       })
       .from(users)
       .where(eq(users.email, email))
@@ -129,6 +144,18 @@ export async function GET(request: NextRequest) {
         .returning()
       userRecord = inserted[0]
     } else {
+      if (userRecord.status && userRecord.status !== 'active') {
+        const response = NextResponse.redirect(`${appUrl}/auth/login?error=account_inactive`)
+        response.cookies.set('google_oauth_state', '', {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 0,
+          path: '/',
+        })
+        return response
+      }
+
       // Update verification and name if needed
       await db
         .update(users)

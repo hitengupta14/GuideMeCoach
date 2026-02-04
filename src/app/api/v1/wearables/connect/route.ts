@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession } from '@/lib/auth-helpers';
+import { db } from '@/db'
+import { wearableConnections } from '@/db/schema-mobile'
+import { and, eq } from 'drizzle-orm'
+import { randomUUID } from 'crypto'
 
 export async function POST(req: NextRequest) {
   try {
@@ -114,15 +118,86 @@ export async function POST(req: NextRequest) {
         break;
     }
 
-    // In production: Store encrypted tokens in database
-    // await db.insert(wearableConnections).values({...})
+    const now = new Date()
+
+    const accessToken =
+      provider === 'apple-health'
+        ? (typeof refreshToken === 'string' && refreshToken.length > 0 ? refreshToken : randomUUID())
+        : typeof processedTokens?.access_token === 'string'
+          ? processedTokens.access_token
+          : typeof processedTokens?.accessToken === 'string'
+            ? processedTokens.accessToken
+            : null
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { success: false, error: 'Provider did not return an access token' },
+        { status: 502 }
+      )
+    }
+
+    const providerRefreshToken =
+      typeof processedTokens?.refresh_token === 'string'
+        ? processedTokens.refresh_token
+        : typeof processedTokens?.refreshToken === 'string'
+          ? processedTokens.refreshToken
+          : typeof refreshToken === 'string'
+            ? refreshToken
+            : undefined
+
+    const expiresIn =
+      typeof processedTokens?.expires_in === 'number'
+        ? processedTokens.expires_in
+        : typeof processedTokens?.expires_in === 'string'
+          ? Number(processedTokens.expires_in)
+          : undefined
+
+    const expiresAt =
+      typeof expiresIn === 'number' && Number.isFinite(expiresIn)
+        ? new Date(Date.now() + expiresIn * 1000)
+        : null
+
+    // Keep only one active connection per user/provider.
+    await db
+      .update(wearableConnections)
+      .set({ isActive: 'false', updatedAt: now })
+      .where(
+        and(
+          eq(wearableConnections.userId, userId),
+          eq(wearableConnections.provider, provider),
+          eq(wearableConnections.isActive, 'true')
+        )
+      )
+
+    const [connection] = await db
+      .insert(wearableConnections)
+      .values({
+        userId,
+        provider,
+        accessToken,
+        refreshToken: providerRefreshToken,
+        expiresAt,
+        connectedAt: now,
+        lastSyncedAt: null,
+        isActive: 'true',
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning({
+        id: wearableConnections.id,
+        provider: wearableConnections.provider,
+        connectedAt: wearableConnections.connectedAt,
+        expiresAt: wearableConnections.expiresAt,
+      })
 
     return NextResponse.json({
       success: true,
       data: {
         provider,
         message: `${provider} connected successfully`,
-        connectedAt: new Date().toISOString(),
+        connectedAt: (connection?.connectedAt ? new Date(connection.connectedAt) : now).toISOString(),
+        connectionId: connection?.id,
+        expiresAt: connection?.expiresAt ? new Date(connection.expiresAt).toISOString() : null,
       },
     });
   } catch (error) {

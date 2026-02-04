@@ -90,7 +90,7 @@ export default function DashboardPage() {
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 border border-gray-200 dark:border-gray-800">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">💡 Exercise Recommendations</h3>
-              <ExerciseRecommender userId={user.id} lastExercises={[]} availableEquipment={user.availableEquipment || []} onSelectExercise={(name) => console.log('Selected:', name)} />
+              <ExerciseRecommender userId={user.id} lastExercises={[]} availableEquipment={user.availableEquipment || []} onSelectExercise={() => {}} />
             </div>
           </div>
         </div>

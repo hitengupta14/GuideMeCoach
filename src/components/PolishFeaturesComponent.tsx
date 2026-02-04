@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { useTheme } from './ThemeProvider'
+import { csrfFetch } from '@/lib/csrf-client'
 
 export default function PolishFeaturesComponent() {
   const [activeTab, setActiveTab] = useState<'export' | 'filter' | 'joints' | 'theme'>('export')
@@ -18,9 +19,8 @@ export default function PolishFeaturesComponent() {
 
   const handleExport = async () => {
     try {
-      const res = await fetch('/api/export/workouts', {
+      const res = await csrfFetch('/api/export/workouts', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           format: exportFormat,
@@ -62,9 +62,8 @@ export default function PolishFeaturesComponent() {
 
   const handleFilterExercises = async () => {
     try {
-      const res = await fetch('/api/exercises/filter', {
+      const res = await csrfFetch('/api/exercises/filter', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(filterCriteria),
       })

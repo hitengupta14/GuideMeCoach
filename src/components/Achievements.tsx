@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface Badge {
   id: string
@@ -27,7 +28,7 @@ export default function Achievements({ userId }: AchievementsProps) {
     setLoading(true)
     try {
       // First check for new badges
-      await fetch('/api/badges/check', {
+      await csrfFetch('/api/badges/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),

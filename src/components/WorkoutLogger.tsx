@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { csrfFetch } from '@/lib/csrf-client'
 
 const QUEUE_KEY = 'workoutSyncQueue:v1'
 const LOCAL_SUMMARY_KEY_PREFIX = 'workoutLocalSummary:v1:'
@@ -193,10 +194,9 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
 
     for (const item of q) {
       try {
-        const res = await fetch(item.url, {
+        const res = await csrfFetch(item.url, {
           method: item.method,
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify(item.body),
         })
         if (!res.ok) {
@@ -315,10 +315,9 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
       }
 
       try {
-        const response = await fetch('/api/workouts/sessions', {
+        const response = await csrfFetch('/api/workouts/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify(body),
         })
         const data = await response.json().catch(() => null)
@@ -538,10 +537,9 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
 
     try {
       markSaving(setIdx, true)
-      const res = await fetch('/api/workouts/sets', {
+      const res = await csrfFetch('/api/workouts/sets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(payload),
       })
       const data = await res.json().catch(() => null)
@@ -608,10 +606,9 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
     }
 
     try {
-      const res = await fetch('/api/workouts/logs', {
+      const res = await csrfFetch('/api/workouts/logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(payload),
       })
       if (!res.ok) {
@@ -673,10 +670,9 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
       // Ensure any offline-created session gets created before we attempt to finish it.
       await flushQueue()
 
-      const res = await fetch(finishUrl, {
+      const res = await csrfFetch(finishUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(payload),
       })
 
@@ -764,10 +760,9 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
     try {
       setSuggestLoading(true)
       setSuggestions(null)
-      const response = await fetch('/api/exercises/recommendations', {
+      const response = await csrfFetch('/api/exercises/recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           lastExercises: getLastExercises(),
           sessionId,

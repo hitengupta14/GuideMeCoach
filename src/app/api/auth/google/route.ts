@@ -8,6 +8,7 @@ import { getJwtSecretKey } from '@/lib/jwt'
 import { createRefreshToken } from '@/lib/refresh-token'
 import { getPremiumStatus } from '@/lib/entitlements'
 import { logger } from '@/lib/logger'
+import { getGlobalAppSettings } from '@/lib/app-settings'
 
 const JWT_SECRET = getJwtSecretKey()
 
@@ -15,6 +16,14 @@ const JWT_SECRET = getJwtSecretKey()
 // Mobile apps use expo-auth-session which gets the ID token directly from Google
 export async function POST(request: NextRequest) {
   try {
+    const appSettings = await getGlobalAppSettings()
+    if (!appSettings.enableSocialAuth) {
+      return NextResponse.json(
+        { success: false, error: 'Social login is currently disabled' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const { idToken } = body
 
@@ -72,6 +81,25 @@ export async function POST(request: NextRequest) {
 
       user = newUser
     } else {
+      if (user.status && user.status !== 'active') {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              user.status === 'blocked'
+                ? 'Your account is blocked. Please contact support.'
+                : 'Your account is not active.',
+            code:
+              user.status === 'blocked'
+                ? 'ACCOUNT_BLOCKED'
+                : user.status === 'deleted'
+                  ? 'ACCOUNT_DELETED'
+                  : 'ACCOUNT_INACTIVE',
+          },
+          { status: 403 }
+        )
+      }
+
       // Keep user record fresh.
       await db
         .update(users)

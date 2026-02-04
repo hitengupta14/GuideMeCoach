@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { getGlobalAppSettings } from '@/lib/app-settings'
 
 export async function GET() {
+  const appSettings = await getGlobalAppSettings()
   const clientId = process.env.GOOGLE_CLIENT_ID
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+  if (!appSettings.enableSocialAuth) {
+    return NextResponse.redirect(`${appUrl}/auth/login?error=social_auth_disabled`)
+  }
 
   if (!clientId) {
     return NextResponse.json({ error: 'Google OAuth not configured' }, { status: 500 })

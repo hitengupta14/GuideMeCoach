@@ -119,29 +119,33 @@ export default function ExerciseDetailClientPage() {
     cardio: '❤️',
   }
 
+  // Prevent the extremely rare but real case where user-provided content contains `</script>`
+  // which can prematurely terminate the tag.
+  const jsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'ExerciseAction',
+    name: exercise.name,
+    description: exercise.description,
+    exerciseType: exercise.category,
+    intensityLevel: exercise.difficulty,
+    instructions: exercise.stepByStep,
+    video: exercise.videos?.demoVideo
+      ? {
+          '@type': 'VideoObject',
+          name: `How to perform ${exercise.name}`,
+          description: exercise.description,
+          contentUrl: exercise.videos.demoVideo,
+        }
+      : undefined,
+  }).replace(/</g, '\\u003c')
+
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* SEO: Structured Data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'ExerciseAction',
-            name: exercise.name,
-            description: exercise.description,
-            exerciseType: exercise.category,
-            intensityLevel: exercise.difficulty,
-            instructions: exercise.stepByStep,
-            video: exercise.videos?.demoVideo
-              ? {
-                  '@type': 'VideoObject',
-                  name: `How to perform ${exercise.name}`,
-                  description: exercise.description,
-                  contentUrl: exercise.videos.demoVideo,
-                }
-              : undefined,
-          }),
+          __html: jsonLd,
         }}
       />
 

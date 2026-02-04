@@ -1,26 +1,59 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { csrfFetch } from '@/lib/csrf-client'
+
+type Settings = {
+  maintenanceMode: boolean
+  apiRateLimit: number
+  maxUploadSize: number
+  enableRegistration: boolean
+  enableSocialAuth: boolean
+}
+
+const DEFAULT_SETTINGS: Settings = {
+  maintenanceMode: false,
+  apiRateLimit: 1000,
+  maxUploadSize: 100,
+  enableRegistration: true,
+  enableSocialAuth: true,
+}
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState({
-    maintenanceMode: false,
-    apiRateLimit: 1000,
-    maxUploadSize: 10,
-    enableRegistration: true,
-    enableSocialAuth: true,
-  })
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [saved, setSaved] = useState(false)
 
-  const handleToggle = (key: string) => {
+  useEffect(() => {
+    void (async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await fetch('/api/admin/settings', { credentials: 'include' })
+        const data = await res.json().catch(() => null)
+        if (!res.ok) {
+          throw new Error(data?.error || 'Failed to load settings')
+        }
+        setSettings((data?.settings as Settings) || DEFAULT_SETTINGS)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load settings')
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [])
+
+  const handleToggle = (key: keyof Settings) => {
     setSettings(prev => ({
       ...prev,
-      [key]: !prev[key as keyof typeof settings]
+      [key]: !prev[key]
     }))
   }
 
-  const handleChange = (key: string, value: any) => {
+  const handleChange = (key: keyof Settings, value: Settings[keyof Settings]) => {
     setSettings(prev => ({
       ...prev,
       [key]: value
@@ -28,8 +61,26 @@ export default function SettingsPage() {
   }
 
   const handleSave = async () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    try {
+      setSaving(true)
+      setError(null)
+      const res = await csrfFetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to save settings')
+      }
+      setSettings((data?.settings as Settings) || settings)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -43,13 +94,28 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
+
       {saved && (
         <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 px-4 py-3 rounded-lg">
           ✅ Settings saved successfully!
         </div>
       )}
 
-      <div className="space-y-6">
+      {loading ? (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
         {/* System Settings */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
@@ -133,9 +199,13 @@ export default function SettingsPage() {
               </label>
               <input
                 type="number"
+                min={1}
                 value={settings.apiRateLimit}
                 onChange={(e) =>
-                  handleChange('apiRateLimit', parseInt(e.target.value))
+                  handleChange(
+                    'apiRateLimit',
+                    Math.max(1, Number.parseInt(e.target.value, 10) || 1)
+                  )
                 }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
               />
@@ -150,9 +220,13 @@ export default function SettingsPage() {
               </label>
               <input
                 type="number"
+                min={1}
                 value={settings.maxUploadSize}
                 onChange={(e) =>
-                  handleChange('maxUploadSize', parseInt(e.target.value))
+                  handleChange(
+                    'maxUploadSize',
+                    Math.max(1, Number.parseInt(e.target.value, 10) || 1)
+                  )
                 }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
               />
@@ -166,11 +240,13 @@ export default function SettingsPage() {
         {/* Save Button */}
         <button
           onClick={handleSave}
-          className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+          disabled={saving}
+          className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
         >
-          Save Settings
+          {saving ? 'Saving…' : 'Save Settings'}
         </button>
       </div>
+      )}
     </div>
   )
 }

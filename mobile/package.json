@@ -10,7 +10,7 @@
     "ios": "expo run:ios",
     "eject": "expo eject",
     "test": "jest",
-    "lint": "eslint .",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

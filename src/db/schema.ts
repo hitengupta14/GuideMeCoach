@@ -509,6 +509,42 @@ export const adminActivityLogs = pgTable('admin_activity_logs', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+// Global app settings (single row keyed by "global")
+export const appSettings = pgTable('app_settings', {
+  key: text('key').primaryKey(), // e.g., 'global'
+  value: jsonb('value').$type<{
+    maintenanceMode: boolean
+    apiRateLimit: number
+    maxUploadSize: number
+    enableRegistration: boolean
+    enableSocialAuth: boolean
+  }>().notNull(),
+  updatedByAdminId: uuid('updated_by_admin_id').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+// Admin email campaigns (broadcast emails)
+export const emailCampaigns = pgTable('email_campaigns', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  createdByAdminId: uuid('created_by_admin_id').references(() => users.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  subject: text('subject').notNull(),
+  content: text('content').notNull(), // stored as plain text; rendered to HTML for sending
+  audience: jsonb('audience').$type<{
+    segment: 'all' | 'premium' | 'inactive' | 'new_users'
+    days?: number
+  }>().notNull(),
+  status: text('status').default('draft').notNull(), // draft | sending | sent | failed
+  recipientCount: integer('recipient_count').default(0).notNull(),
+  sentCount: integer('sent_count').default(0).notNull(),
+  failedCount: integer('failed_count').default(0).notNull(),
+  lastError: text('last_error'),
+  sentAt: timestamp('sent_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // System Metrics (for monitoring)
 export const systemMetrics = pgTable('system_metrics', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -700,3 +736,5 @@ export type PainEntry = typeof painEntries.$inferSelect
 export type SorenessEntry = typeof sorenessEntries.$inferSelect
 export type MeasurementEntry = typeof measurementEntries.$inferSelect
 export type MetricsCounter = typeof metricsCounters.$inferSelect
+export type AppSettings = typeof appSettings.$inferSelect
+export type EmailCampaign = typeof emailCampaigns.$inferSelect

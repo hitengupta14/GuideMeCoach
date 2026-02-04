@@ -4,6 +4,25 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+function sanitizeRedirectPath(raw: string | null): string | null {
+  if (!raw) return null
+  const candidate = raw.trim()
+  if (!candidate) return null
+  if (candidate.includes('\\')) return null
+
+  try {
+    const url = new URL(candidate, window.location.origin)
+    if (url.origin !== window.location.origin) return null
+
+    const path = url.pathname + url.search + url.hash
+    if (!path.startsWith('/')) return null
+    if (path.startsWith('//')) return null
+    return path
+  } catch {
+    return null
+  }
+}
+
 export default function LoginForm() {
   const [formData, setFormData] = useState({
     email: '',
@@ -21,7 +40,7 @@ export default function LoginForm() {
     const params = new URLSearchParams(window.location.search)
     const registered = params.get('registered')
     const verify = params.get('verify')
-    const redirect = params.get('redirect')
+    const redirect = sanitizeRedirectPath(params.get('redirect'))
     
     if (verify) {
       setBanner({
@@ -37,12 +56,7 @@ export default function LoginForm() {
 
     // Store redirect path for after login
     if (redirect) {
-      try {
-        const decodedPath = decodeURIComponent(redirect)
-        setRedirectPath(decodedPath)
-      } catch (e) {
-        setRedirectPath('/dashboard')
-      }
+      setRedirectPath(redirect)
     }
   }, [])
 

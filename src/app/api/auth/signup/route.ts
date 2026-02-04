@@ -7,6 +7,7 @@ import { signupSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 import { authRateLimiter } from '@/lib/rate-limit'
 import { sendEmail, getVerificationEmailHtml } from '@/lib/email'
+import { getGlobalAppSettings } from '@/lib/app-settings'
 import { z } from 'zod'
 import crypto from 'crypto'
 
@@ -21,14 +22,22 @@ export async function POST(request: NextRequest) {
           status: 429,
           headers: { 'Retry-After': String(rateLimitResult.retryAfter) },
         }
+	      )
+	    }
+
+    const appSettings = await getGlobalAppSettings()
+    if (!appSettings.enableRegistration) {
+      return NextResponse.json(
+        { error: 'User registration is currently disabled' },
+        { status: 403 }
       )
     }
 
-    const body = await request.json()
+	    const body = await request.json()
 
-    // Validate input with Zod
-    const validated = signupSchema.parse(body)
-    const { email, password, name } = validated
+	    // Validate input with Zod
+	    const validated = signupSchema.parse(body)
+	    const { email, password, name } = validated
 
     // Check if user already exists
     const existingUser = await db

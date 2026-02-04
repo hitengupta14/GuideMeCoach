@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface Achievement {
   id: string
@@ -64,7 +65,7 @@ export default function UserEngagementComponent() {
 
   const handleProfileUpdate = async (field: string, value: any) => {
     try {
-      const res = await fetch('/api/engagement/profile-completion', {
+      const res = await csrfFetch('/api/engagement/profile-completion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [field]: value }),

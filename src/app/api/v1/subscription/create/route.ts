@@ -16,7 +16,7 @@ import { logger } from '@/lib/logger';
 function detectCountryFromRequest(req: NextRequest): string | null {
   // In development, allow overriding via environment variable
   if (process.env.NODE_ENV === 'development' && process.env.TEST_COUNTRY) {
-    console.log('[Subscription] Using TEST_COUNTRY override:', process.env.TEST_COUNTRY);
+    logger.info('[Subscription] Using TEST_COUNTRY override', { testCountry: process.env.TEST_COUNTRY });
     return process.env.TEST_COUNTRY;
   }
   

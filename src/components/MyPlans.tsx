@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { WeeklyPlan } from '@/lib/planner/types'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface PlanSummary {
   id: string
@@ -45,7 +46,7 @@ export default function MyPlans({ userId }: { userId: string }) {
   const deletePlan = async (planId: string) => {
     if (!confirm('Delete this plan?')) return
     try {
-      const res = await fetch(`/api/planner/plans/${planId}`, { method: 'DELETE' })
+      const res = await csrfFetch(`/api/planner/plans/${planId}`, { method: 'DELETE' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to delete plan')
       await fetchPlans()

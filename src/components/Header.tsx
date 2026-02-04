@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from './ThemeProvider'
 import { useSession } from '@/hooks/useSession'
+import { csrfFetch } from '@/lib/csrf-client'
 import {
   Bot,
   BookOpen,
@@ -56,9 +57,8 @@ export function Header() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
+      await csrfFetch('/api/auth/logout', {
         method: 'POST',
-        credentials: 'include',
       })
       await refetch()
       setShowMenu(false)

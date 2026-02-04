@@ -51,6 +51,7 @@ async function login(request: NextRequest) {
         isAdmin: users.isAdmin,
         adminRole: users.adminRole,
         lastLoginAt: users.lastLoginAt,
+        status: users.status,
       })
       .from(users)
       .where(eq(users.email, email.toLowerCase()))
@@ -65,6 +66,26 @@ async function login(request: NextRequest) {
     }
 
     const foundUser = user[0]
+    // Enforce account status (blocked/deleted users cannot log in).
+    if (foundUser.status && foundUser.status !== 'active') {
+      logger.warn('Login attempt for non-active account', { userId: foundUser.id, status: foundUser.status })
+      return NextResponse.json(
+        {
+          error:
+            foundUser.status === 'blocked'
+              ? 'Your account is blocked. Please contact support.'
+              : 'Your account is not active.',
+          code:
+            foundUser.status === 'blocked'
+              ? 'ACCOUNT_BLOCKED'
+              : foundUser.status === 'deleted'
+                ? 'ACCOUNT_DELETED'
+                : 'ACCOUNT_INACTIVE',
+        },
+        { status: 403 }
+      )
+    }
+
     // Check if email is verified
     if (!foundUser.emailVerified) {
       logger.warn('Login attempt with unverified email', { userId: foundUser.id })

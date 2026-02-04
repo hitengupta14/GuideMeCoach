@@ -8,6 +8,7 @@ import { authRateLimiter } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 import { hashPassword } from '@/lib/auth';
 import { sendEmail, getVerificationEmailHtml } from '@/lib/email';
+import { getGlobalAppSettings } from '@/lib/app-settings';
 import { z } from 'zod';
 import crypto from 'crypto';
 
@@ -19,6 +20,14 @@ async function signup(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Too many signup attempts. Please try again later.' },
         { status: 429, headers: { 'Retry-After': String(rateLimitResult.retryAfter) } }
+      );
+    }
+
+    const appSettings = await getGlobalAppSettings();
+    if (!appSettings.enableRegistration) {
+      return NextResponse.json(
+        { success: false, error: 'User registration is currently disabled' },
+        { status: 403 }
       );
     }
 

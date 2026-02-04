@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useSession } from '@/hooks/useSession'
 import { useAPIError } from '@/hooks/useAPIError'
 import { apiWrapper } from '@/lib/api-wrapper'
+import { csrfFetch } from '@/lib/csrf-client'
 
 export default function SettingsPage() {
   const { isLoading, user } = useSession({ required: true })
@@ -135,9 +136,8 @@ export default function SettingsPage() {
 
     try {
       // Soft-delete account and clear sessions
-      const res = await fetch('/api/account/delete', {
+      const res = await csrfFetch('/api/account/delete', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ confirm: true }),
       })

@@ -26,7 +26,9 @@ export async function getCurrentUser() {
       where: eq(users.id, userId),
     })
 
-    return user || null
+    if (!user) return null
+    if (user.status !== 'active') return null
+    return user
   } catch (error) {
     return null
   }
@@ -66,7 +68,7 @@ export async function getCurrentAdminUserFromRequest(request?: any) {
           where: eq(users.id, userId),
         })
 
-        if (user?.isAdmin) {
+        if (user?.isAdmin && user.status === 'active') {
           return user
         }
       }

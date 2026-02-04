@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import { useRouter } from 'next/navigation'
+import { csrfFetch } from '@/lib/csrf-client'
 
 type SavedPlan = {
   id: string
@@ -94,10 +95,9 @@ export default function AIPlannerForm() {
         throw new Error('Please enter a valid weight in kg (or leave it blank).')
       }
 
-      const response = await fetch('/api/planner/ai-generate', {
+      const response = await csrfFetch('/api/planner/ai-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           goal: formData.goal,
           experienceLevel: formData.experienceLevel,
@@ -420,10 +420,9 @@ export default function AIPlannerForm() {
                   if (!savedPlanId) return
                   try {
                     setActivating(true)
-                    const res = await fetch(`/api/planner/plans/${savedPlanId}`, {
+                    const res = await csrfFetch(`/api/planner/plans/${savedPlanId}`, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
                       body: JSON.stringify({ isActive: true }),
                     })
                     if (!res.ok) {

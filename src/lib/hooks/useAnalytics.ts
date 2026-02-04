@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { csrfFetch } from '@/lib/csrf-client'
 
 export interface WorkoutSession {
   id: string
@@ -130,7 +131,7 @@ export function useAnalytics() {
 
   const updateMeasurements = async (data: Partial<MeasurementsData['current']>) => {
     try {
-      const res = await fetch('/api/analytics/measurements', {
+      const res = await csrfFetch('/api/analytics/measurements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

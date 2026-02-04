@@ -13,6 +13,7 @@ import {
   XCircleIcon,
 } from '@heroicons/react/24/outline'
 import { Exercise } from '@/db/schema'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface ExerciseWithMuscles extends Exercise {
   muscles: string
@@ -48,7 +49,7 @@ export default function ExerciseManagementTable({
       setIsUpdating(exerciseId)
       const newStatus = currentStatus === 'approved' ? 'draft' : 'approved'
       
-      const response = await fetch(`/api/admin/exercises/${exerciseId}/approve`, {
+      const response = await csrfFetch(`/api/admin/exercises/${exerciseId}/approve`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reviewStatus: newStatus }),
@@ -62,6 +63,29 @@ export default function ExerciseManagementTable({
     } catch (error) {
       console.error('Error updating exercise:', error)
       alert('Error updating exercise')
+    } finally {
+      setIsUpdating(null)
+    }
+  }
+
+  const handleDelete = async (exerciseId: string) => {
+    if (!confirm('Delete this exercise? This cannot be undone.')) return
+
+    try {
+      setIsUpdating(exerciseId)
+      const response = await csrfFetch(`/api/exercises/${exerciseId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        router.refresh()
+      } else {
+        const data = await response.json().catch(() => null)
+        alert(data?.error || 'Failed to delete exercise')
+      }
+    } catch (error) {
+      console.error('Error deleting exercise:', error)
+      alert('Error deleting exercise')
     } finally {
       setIsUpdating(null)
     }
@@ -284,12 +308,15 @@ export default function ExerciseManagementTable({
                     </button>
                     <button
                       onClick={() => router.push(`/admin/exercises/${exercise.id}`)}
+                      disabled={isUpdating === exercise.id}
                       className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                       title="Edit exercise"
                     >
                       <PencilIcon className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => handleDelete(exercise.id)}
+                      disabled={isUpdating === exercise.id}
                       className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                       title="Delete exercise"
                     >

@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { User } from '@/db/schema'
 import { formatDistanceToNow } from 'date-fns'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface UserWithStats extends User {
   recentWorkouts: number
@@ -95,7 +96,7 @@ export default function UserManagementTable({
           break
       }
 
-      const response = await fetch(url, {
+      const response = await csrfFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Sparkles, AlertCircle, CheckCircle, Loader } from 'lucide-react'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface Suggestion {
   exerciseName: string
@@ -55,10 +56,9 @@ export default function ExerciseRecommender({
       setLoading(true)
       setError(null)
 
-      const response = await fetch('/api/exercises/recommendations', {
+      const response = await csrfFetch('/api/exercises/recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           lastExercises: lastExercisesStable,
           availableEquipment: availableEquipmentStable,

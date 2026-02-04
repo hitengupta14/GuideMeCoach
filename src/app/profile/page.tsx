@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { MedicalConditionsSection } from '@/components/MedicalConditionsSection'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface User {
   id: string
@@ -91,10 +92,9 @@ export default function ProfilePage() {
     if (!user) return
 
     try {
-      const response = await fetch(`/api/users/${user.id}/profile`, {
+      const response = await csrfFetch(`/api/users/${user.id}/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(formData),
       })
 
@@ -348,10 +348,9 @@ export default function ProfilePage() {
           <MedicalConditionsSection
             userId={user.id}
             onSave={async (data) => {
-              const response = await fetch(`/api/users/${user.id}/medical-history`, {
+              const response = await csrfFetch(`/api/users/${user.id}/medical-history`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
                 body: JSON.stringify(data),
               })
 

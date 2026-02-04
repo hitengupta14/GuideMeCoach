@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useSession } from '@/hooks/useSession'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface Favorite {
   id: string
@@ -38,7 +39,7 @@ export default function FavoritesPage() {
     if (!user?.id) return
 
     try {
-      const response = await fetch(`/api/users/${user.id}/favorites`, {
+      const response = await csrfFetch(`/api/users/${user.id}/favorites`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exerciseId }),

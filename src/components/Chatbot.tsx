@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface Message {
   id: string
@@ -59,10 +60,9 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
     setLoading(true)
 
     try {
-      const response = await fetch('/api/chat/conversations', {
+      const response = await csrfFetch('/api/chat/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           topic: selectedTopic,
           title: `${selectedTopic} Discussion`,
@@ -102,10 +102,9 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
 
     try {
       // Try streaming first
-      const streamResponse = await fetch('/api/chat/stream', {
+      const streamResponse = await csrfFetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           conversationId,
           content: userMessage,
@@ -164,10 +163,9 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
         setStreamingMessage('')
       } else {
         // Fallback to non-streaming
-        const response = await fetch('/api/chat/messages', {
+        const response = await csrfFetch('/api/chat/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify({
             conversationId,
             content: userMessage,
@@ -202,10 +200,9 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
   // Helper to save streamed message to DB
   const saveStreamedMessage = async (conversationId: string, userContent: string, assistantContent: string) => {
     try {
-      const response = await fetch('/api/chat/messages', {
+      const response = await csrfFetch('/api/chat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           conversationId,
           content: userContent,

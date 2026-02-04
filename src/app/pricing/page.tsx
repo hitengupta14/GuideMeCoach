@@ -7,6 +7,7 @@ import { CheckIcon, XMarkIcon } from '@heroicons/react/24/solid'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import { useSession } from '@/hooks/useSession'
 import { PricingRegionSelector } from '@/components/PricingRegionSelector'
+import { csrfFetch } from '@/lib/csrf-client'
 
 const PRICING_PLANS = [
   {
@@ -98,9 +99,8 @@ function PricingContent() {
     setIsCancelling(true)
 
     try {
-      const response = await fetch('/api/user/subscription/cancel', {
+      const response = await csrfFetch('/api/user/subscription/cancel', {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },

@@ -9,6 +9,7 @@ import {
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { formatDistanceToNow } from 'date-fns'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface SubscriptionUser {
   id: string
@@ -53,7 +54,7 @@ export default function SubscriptionManagementTable({ users }: Props) {
 
     setIsLoading(true)
     try {
-      const response = await fetch(
+      const response = await csrfFetch(
         `/api/admin/users/${actionModal.userId}/cancel-subscription`,
         {
           method: 'POST',

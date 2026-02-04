@@ -6,6 +6,7 @@ import { QuestionnaireForm } from '@/components/QuestionnaireForm'
 import PlanDisplay from '@/components/PlanDisplay'
 import MyPlans from '@/components/MyPlans'
 import type { UserPreferences, WeeklyPlan } from '@/lib/planner/types'
+import { csrfFetch } from '@/lib/csrf-client'
 
 type PageState = 'questionnaire' | 'loading' | 'display' | 'error'
 
@@ -21,7 +22,7 @@ export default function PlannerPageClient() {
     setError(null)
 
     try {
-      const response = await fetch('/api/planner/generate', {
+      const response = await csrfFetch('/api/planner/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -57,7 +58,7 @@ export default function PlannerPageClient() {
       return
     }
     try {
-      const response = await fetch('/api/planner/plans', {
+      const response = await csrfFetch('/api/planner/plans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

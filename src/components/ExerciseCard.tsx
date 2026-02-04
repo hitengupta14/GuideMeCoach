@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useState } from 'react'
 import { Exercise } from '@/db/schema'
 import { useSession } from '@/hooks/useSession'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface ExerciseCardProps {
   exercise: Exercise
@@ -41,13 +42,13 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
     setIsLoading(true)
     try {
       if (isFavorite) {
-        await fetch(`/api/users/${user.id}/favorites`, {
+        await csrfFetch(`/api/users/${user.id}/favorites`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ exerciseId: exercise.id }),
         })
       } else {
-        await fetch(`/api/users/${user.id}/favorites`, {
+        await csrfFetch(`/api/users/${user.id}/favorites`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ exerciseId: exercise.id }),

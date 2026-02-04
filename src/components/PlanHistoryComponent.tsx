@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { csrfFetch } from '@/lib/csrf-client'
 
 type PlanSummary = {
   id: string
@@ -47,10 +48,9 @@ export default function PlanHistoryComponent() {
   const activatePlan = async (planId: string) => {
     try {
       setBusyPlanId(planId)
-      const res = await fetch(`/api/planner/plans/${planId}`, {
+      const res = await csrfFetch(`/api/planner/plans/${planId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ isActive: true }),
       })
       const data = await res.json().catch(() => null)
@@ -67,9 +67,8 @@ export default function PlanHistoryComponent() {
     if (!confirm('Delete this plan? This cannot be undone.')) return
     try {
       setBusyPlanId(planId)
-      const res = await fetch(`/api/planner/plans/${planId}`, {
+      const res = await csrfFetch(`/api/planner/plans/${planId}`, {
         method: 'DELETE',
-        credentials: 'include',
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.error || 'Failed to delete plan')
@@ -226,4 +225,3 @@ export default function PlanHistoryComponent() {
     </div>
   )
 }
-

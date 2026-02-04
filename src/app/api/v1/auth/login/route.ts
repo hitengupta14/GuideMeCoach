@@ -40,6 +40,7 @@ async function login(req: NextRequest) {
         emailVerified: users.emailVerified,
         isAdmin: users.isAdmin,
         adminRole: users.adminRole,
+        status: users.status,
       })
       .from(users)
       .where(eq(users.email, email.toLowerCase()))
@@ -50,6 +51,25 @@ async function login(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Invalid credentials' },
         { status: 401 }
+      );
+    }
+
+    if (user.status && user.status !== 'active') {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            user.status === 'blocked'
+              ? 'Your account is blocked. Please contact support.'
+              : 'Your account is not active.',
+          code:
+            user.status === 'blocked'
+              ? 'ACCOUNT_BLOCKED'
+              : user.status === 'deleted'
+                ? 'ACCOUNT_DELETED'
+                : 'ACCOUNT_INACTIVE',
+        },
+        { status: 403 }
       );
     }
 

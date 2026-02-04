@@ -78,8 +78,7 @@ export function getErrorAction(error: APIError): ErrorDisplayOptions['action'] |
     return {
       label: 'Complete Profile',
       onPress: () => {
-        // This will be implemented by the UI layer
-        console.log('Navigate to profile')
+        // Implemented by the UI layer (navigation hook / router)
       },
     }
   }
@@ -89,7 +88,6 @@ export function getErrorAction(error: APIError): ErrorDisplayOptions['action'] |
     return {
       label: 'View Plans',
       onPress: () => {
-        console.log('Navigate to pricing')
       },
     }
   }
@@ -99,7 +97,6 @@ export function getErrorAction(error: APIError): ErrorDisplayOptions['action'] |
     return {
       label: 'Log In',
       onPress: () => {
-        console.log('Navigate to login')
       },
     }
   }

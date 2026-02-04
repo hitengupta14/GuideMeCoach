@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import type { WeeklyPlan, WorkoutDay } from '@/lib/planner/types'
+import { csrfFetch } from '@/lib/csrf-client'
 
 interface ViewPlanComponentProps {
   planId: string
@@ -118,10 +119,9 @@ export default function ViewPlanComponent({ planId }: ViewPlanComponentProps) {
     if (!plan) return
     try {
       setBusy(true)
-      const res = await fetch(`/api/planner/plans/${plan.id}`, {
+      const res = await csrfFetch(`/api/planner/plans/${plan.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ isActive: true }),
       })
       const data = await res.json().catch(() => null)

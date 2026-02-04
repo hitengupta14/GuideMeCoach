@@ -18,9 +18,9 @@ const publicPaths = [
 ]
 
 function isPublicPathname(pathname: string): boolean {
-  return publicPaths.some(path => {
+  return publicPaths.some((path) => {
     if (path === '/') return pathname === '/'
-    return pathname.startsWith(path)
+    return pathname === path || pathname.startsWith(`${path}/`)
   })
 }
 
@@ -52,6 +52,7 @@ export async function middleware(request: NextRequest) {
 
   // Never redirect API routes from middleware; route handlers should own auth + error shapes.
   const isApiRoute = pathname.startsWith('/api/')
+  const isStateChangingMethod = !['GET', 'HEAD', 'OPTIONS'].includes(request.method)
 
   const isPublicPath = isPublicPathname(pathname)
   
@@ -80,7 +81,29 @@ export async function middleware(request: NextRequest) {
     return res
   }
 
-  // Add CSRF protection headers
+  // CSRF protection for cookie-authenticated API requests.
+  // - Only enforce on state-changing requests.
+  // - Only enforce when the browser is using the session cookie (not Bearer auth).
+  if (isApiRoute && isStateChangingMethod) {
+    const authHeader = request.headers.get('authorization') || ''
+    const hasBearer = authHeader.startsWith('Bearer ')
+    const hasSessionCookie = Boolean(request.cookies.get('session')?.value)
+
+    if (hasSessionCookie && !hasBearer) {
+      const csrfCookie = request.cookies.get('csrf-token')?.value
+      const csrfHeader = request.headers.get('x-csrf-token')
+
+      if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
+        const res = NextResponse.json(
+          { error: 'Invalid CSRF token' },
+          { status: 403 }
+        )
+        res.headers.set('x-request-id', requestId)
+        return res
+      }
+    }
+  }
+
   const response = NextResponse.next({ request: { headers: requestHeaders } })
   
   // Set security headers
@@ -89,22 +112,6 @@ export async function middleware(request: NextRequest) {
   response.headers.set('X-XSS-Protection', '1; mode=block')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.headers.set('x-request-id', requestId)
-  
-  // Add CSRF token to response for POST requests
-  if (!isApiRoute && request.method !== 'GET' && !isPublicPath) {
-    const csrfToken = request.cookies.get('csrf-token')
-    const headerCsrfToken = request.headers.get('x-csrf-token')
-    
-    // Verify CSRF token for state-changing requests
-    if (!csrfToken || csrfToken.value !== headerCsrfToken) {
-      const res = NextResponse.json(
-        { error: 'Invalid CSRF token' },
-        { status: 403 }
-      )
-      res.headers.set('x-request-id', requestId)
-      return res
-    }
-  }
 
   return response
 }

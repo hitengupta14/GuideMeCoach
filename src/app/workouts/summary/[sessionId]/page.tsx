@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { useSession } from '@/hooks/useSession'
+import { csrfFetch } from '@/lib/csrf-client'
 
 type Session = {
   id: string
@@ -585,10 +586,9 @@ export default function WorkoutSummaryPage() {
                     .filter(([, v]) => v)
                     .map(([k]) => k)
 
-                  const res = await fetch('/api/recovery/pain', {
+                  const res = await csrfFetch('/api/recovery/pain', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
                     body: JSON.stringify({
                       sessionId,
                       joints: pain,

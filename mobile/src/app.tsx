@@ -39,7 +39,7 @@ export default function App() {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [token]);
+  }, [token, user?.id]);
 
   // App state listeners: pause/resume queries and lightweight refresh on foreground
   useEffect(() => {
