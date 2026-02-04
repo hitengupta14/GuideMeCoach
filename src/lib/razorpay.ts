@@ -34,7 +34,7 @@ export const RAZORPAY_PLANS = {
   premium: {
     id: 'premium_monthly',
     name: 'Premium Monthly',
-    amount: 24900, // ₹249 in paise
+    amount: 29900, // ₹299 in paise
     currency: 'INR',
     period: 'monthly',
     interval: 1,
@@ -50,7 +50,7 @@ export const RAZORPAY_PLANS = {
   'premium-yearly': {
     id: 'premium_yearly',
     name: 'Premium Yearly',
-    amount: 249000, // ₹2,490 in paise
+    amount: 249900, // ₹2,499 in paise
     currency: 'INR',
     period: 'yearly',
     interval: 1,
@@ -59,7 +59,7 @@ export const RAZORPAY_PLANS = {
       'All AI features',
       'Priority support',
       'Early access to new features',
-      'Save ₹3,478/year vs monthly',
+      'Save ₹1,089/year vs monthly',
     ],
   },
 } as const

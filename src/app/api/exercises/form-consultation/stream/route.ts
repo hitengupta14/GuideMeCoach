@@ -4,7 +4,7 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-import { streamFormConsultation } from '@/lib/ai'
+import { getOpenAIModel, streamFormConsultation } from '@/lib/ai'
 import { chatRateLimiter } from '@/lib/rate-limit'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
 import { getPremiumStatus } from '@/lib/entitlements'
@@ -84,7 +84,7 @@ async function streamConsultation(request: NextRequest) {
     await logAIUsage({
       userId,
       feature: 'chat',
-      model: 'gpt-4',
+      model: getOpenAIModel(),
       responseTime: Date.now() - startTime,
       success: true,
     })

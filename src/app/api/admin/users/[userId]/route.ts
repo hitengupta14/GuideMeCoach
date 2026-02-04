@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: { userId: string } }
 ) {
   try {
-    const admin = await requireAdmin(request)
+    const admin = await requireAdmin(request, { permission: 'canManageUsers' })
     if (admin instanceof NextResponse) return admin
 
     // Get user details

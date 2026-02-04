@@ -1,7 +1,7 @@
-export const dynamic = 'force-dynamic'
+const LAST_UPDATED = '2026-02-04'
 
 export default function PrivacyPage() {
-  const lastUpdated = new Date().toISOString().slice(0, 10)
+  const lastUpdated = LAST_UPDATED
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 py-12 px-4">
@@ -65,4 +65,3 @@ export default function PrivacyPage() {
     </div>
   )
 }
-

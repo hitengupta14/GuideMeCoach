@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, muscleGroups } from '@/db/schema'
-import { eq, ilike, and, or } from 'drizzle-orm'
+import { eq, ilike, and, or, inArray, sql, asc } from 'drizzle-orm'
 import { exerciseFilterSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 import { apiRateLimiter } from '@/lib/rate-limit'
@@ -43,10 +43,9 @@ export async function GET(request: NextRequest) {
     // If legacy offset is provided, map it to page
     const pageFromOffset = Number.isFinite(offsetParam) && offsetParam >= 0 ? (Math.floor(offsetParam / limit) + 1) : null
     const page = pageFromOffset ?? (Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1)
+    const start = (page - 1) * limit
 
-    const conditions = [
-      eq(exercises.reviewStatus, 'approved') // Only show approved exercises
-    ]
+    const conditions: any[] = [eq(exercises.reviewStatus, 'approved')] // Only show approved exercises
     
     if (filters.category) {
       conditions.push(eq(exercises.category, filters.category as any))
@@ -57,13 +56,20 @@ export async function GET(request: NextRequest) {
     }
     
     if (filters.location) {
-      // Interpret location as "where you can do it":
-      // - home => include {home, both}
-      // - gym  => include {gym, both}
-      // - both => only {both}
       if (filters.location === 'home') {
-        // Apply location filtering after fetching so we can fall back to "home-friendly" equipment
-        // even if older seed data marked an exercise as gym.
+        // Home: include {home, both} PLUS exercises that are "home-friendly" by equipment.
+        // Home-friendly means the exercise equipment is a subset of:
+        // ['none','dumbbell','resistance_band','kettlebell','pull_up_bar','bench']
+        conditions.push(
+          or(
+            eq(exercises.location, 'home'),
+            eq(exercises.location, 'both'),
+            and(
+              eq(exercises.location, 'gym'),
+              sql`${exercises.equipment} <@ ARRAY['none','dumbbell','resistance_band','kettlebell','pull_up_bar','bench']::equipment[]`
+            )
+          )
+        )
       } else if (filters.location === 'gym') {
         const gymCondition = or(eq(exercises.location, 'gym'), eq(exercises.location, 'both'))
         if (gymCondition) conditions.push(gymCondition)
@@ -76,68 +82,65 @@ export async function GET(request: NextRequest) {
       conditions.push(ilike(exercises.name, `%${filters.search}%`))
     }
 
-    let query = db.select().from(exercises)
-    
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any
-    }
-    
-    let results = await query
-
-    // Apply location filter that supports legacy data:
-    // - Home: include {home, both} PLUS exercises that are "home-friendly" by equipment.
-    if (filters.location === 'home') {
-      const homeFriendly = new Set([
-        'none',
-        'dumbbell',
-        'resistance_band',
-        'kettlebell',
-        'pull_up_bar',
-        'bench',
-      ])
-      results = results.filter((ex: any) => {
-        if (ex.location === 'home' || ex.location === 'both') return true
-        if (ex.location !== 'gym') return false
-        if (!Array.isArray(ex.equipment)) return false
-        return ex.equipment.every((eq: string) => homeFriendly.has(eq))
-      })
-    }
-
-    // Filter by equipment (array contains)
     if (filters.equipment) {
-      results = results.filter((ex: any) => 
-        Array.isArray(ex.equipment) && ex.equipment.includes(filters.equipment)
-      )
-    }
-    
-    // Add muscle groups if requested
-    let enrichedResults = results
-    if (filters.includeMuscles) {
-      enrichedResults = await Promise.all(
-        results.map(async (exercise) => {
-          const muscles = await db
-            .select({
-              muscleGroupId: exerciseMuscles.muscleGroupId,
-              muscleGroupName: muscleGroups.displayName,
-              role: exerciseMuscles.role,
-            })
-            .from(exerciseMuscles)
-            .leftJoin(muscleGroups, eq(exerciseMuscles.muscleGroupId, muscleGroups.id))
-            .where(eq(exerciseMuscles.exerciseId, exercise.id))
-          
-          return {
-            ...exercise,
-            muscles,
-          }
-        })
+      // Postgres: equipment @> ARRAY['dumbbell']::equipment[]
+      conditions.push(
+        sql`${exercises.equipment} @> ARRAY[${filters.equipment}]::equipment[]`
       )
     }
 
-    // Apply pagination after all filters (including equipment and optional muscle enrichment)
-    const total = enrichedResults.length
-    const start = (page - 1) * limit
-    const end = start + limit
-    const items = enrichedResults.slice(start, end)
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined
+
+    // Total count for pagination
+    const totalRow = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(exercises)
+      .where(whereClause as any)
+      .limit(1)
+      .then((rows) => rows[0])
+    const total = Number(totalRow?.count || 0)
+
+    // Fetch page (DB-level pagination)
+    const baseItems = await db
+      .select()
+      .from(exercises)
+      .where(whereClause as any)
+      .orderBy(asc(exercises.name))
+      .limit(limit)
+      .offset(start)
+
+    let items: any[] = baseItems as any[]
+
+    // Add muscle groups if requested (single query; no N+1)
+    if (filters.includeMuscles && baseItems.length > 0) {
+      const ids = baseItems.map((e: any) => e.id)
+      const muscleRows = await db
+        .select({
+          exerciseId: exerciseMuscles.exerciseId,
+          muscleGroupId: exerciseMuscles.muscleGroupId,
+          muscleGroupName: muscleGroups.displayName,
+          role: exerciseMuscles.role,
+        })
+        .from(exerciseMuscles)
+        .leftJoin(muscleGroups, eq(exerciseMuscles.muscleGroupId, muscleGroups.id))
+        .where(inArray(exerciseMuscles.exerciseId, ids))
+
+      const musclesByExercise = new Map<string, any[]>()
+      for (const row of muscleRows) {
+        const list = musclesByExercise.get(row.exerciseId) || []
+        list.push({
+          muscleGroupId: row.muscleGroupId,
+          muscleGroupName: row.muscleGroupName,
+          role: row.role,
+        })
+        musclesByExercise.set(row.exerciseId, list)
+      }
+
+      items = baseItems.map((exercise: any) => ({
+        ...exercise,
+        muscles: musclesByExercise.get(exercise.id) || [],
+      }))
+    }
 
     logger.info('Exercises fetched', { total, page, limit, filters })
     
@@ -170,7 +173,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const admin = await requireAdmin(request)
+    const admin = await requireAdmin(request, { permission: 'canManageExercises' })
     if (admin instanceof NextResponse) return admin
 
     const body = await request.json()

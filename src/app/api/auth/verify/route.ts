@@ -17,10 +17,7 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get('token')
 
     if (!token) {
-      return NextResponse.json(
-        { error: 'Verification token is required' },
-        { status: 400 }
-      )
+      return NextResponse.redirect(new URL('/auth/verified?success=false&reason=missing', request.url))
     }
 
     // Hash the token (should match how it's stored)
@@ -35,10 +32,7 @@ export async function GET(request: NextRequest) {
 
     if (user.length === 0) {
       logger.warn('Invalid verification token', { token: token.substring(0, 10) + '***' })
-      return NextResponse.json(
-        { error: 'Invalid or expired verification token' },
-        { status: 400 }
-      )
+      return NextResponse.redirect(new URL('/auth/verified?success=false&reason=invalid', request.url))
     }
 
     const foundUser = user[0]
@@ -47,10 +41,7 @@ export async function GET(request: NextRequest) {
     const tokenExpiry = foundUser.emailVerificationTokenExpiry as Date | null
     if (!tokenExpiry || tokenExpiry < new Date()) {
       logger.warn('Expired verification token', { userId: foundUser.id })
-      return NextResponse.json(
-        { error: 'Verification token has expired. Please request a new one.' },
-        { status: 400 }
-      )
+      return NextResponse.redirect(new URL('/auth/verified?success=false&reason=expired', request.url))
     }
 
     // Update user as verified
@@ -72,9 +63,6 @@ export async function GET(request: NextRequest) {
     )
   } catch (error) {
     logger.error('Email verification error', error as Error)
-    return NextResponse.json(
-      { error: 'Email verification failed' },
-      { status: 500 }
-    )
+    return NextResponse.redirect(new URL('/auth/verified?success=false&reason=server', request.url))
   }
 }

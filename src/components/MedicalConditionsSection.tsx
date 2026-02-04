@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 interface MedicalConditionData {
   medicalConditions: string[]
@@ -44,11 +44,7 @@ export function MedicalConditionsSection({ userId, onSave }: MedicalConditionsSe
   })
   const [originalData, setOriginalData] = useState<MedicalConditionData>(data)
 
-  useEffect(() => {
-    fetchMedicalHistory()
-  }, [userId])
-
-  const fetchMedicalHistory = async () => {
+  const fetchMedicalHistory = useCallback(async () => {
     try {
       const response = await fetch(`/api/users/${userId}/medical-history`)
       if (response.ok) {
@@ -68,7 +64,11 @@ export function MedicalConditionsSection({ userId, onSave }: MedicalConditionsSe
     } catch (error) {
       console.error('Error fetching medical history:', error)
     }
-  }
+  }, [userId])
+
+  useEffect(() => {
+    fetchMedicalHistory()
+  }, [fetchMedicalHistory])
 
   const handleConditionToggle = (conditionId: string) => {
     const condition = MEDICAL_CONDITIONS.find(c => c.id === conditionId)

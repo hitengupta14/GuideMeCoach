@@ -6,7 +6,7 @@ import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    const admin = await requireAdmin(request)
+    const admin = await requireAdmin(request, { permission: 'canViewAnalytics' })
     if (admin instanceof NextResponse) return admin
 
     const days = 30

@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const admin = await requireAdmin(request)
+    const admin = await requireAdmin(request, { permission: 'canManageSystem' })
     if (admin instanceof NextResponse) return admin
 
     const cookieStore = await cookies()

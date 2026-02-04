@@ -51,14 +51,19 @@ function ResetPasswordContent() {
     }
   }
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+	  const handleResetPassword = async (e: React.FormEvent) => {
+	    e.preventDefault()
+	    setError(null)
 
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
+	    if (!token) {
+	      setError('Invalid or missing reset token')
+	      return
+	    }
+
+	    if (newPassword !== confirmPassword) {
+	      setError('Passwords do not match')
+	      return
+	    }
 
     if (newPassword.length < 8) {
       setError('Password must be at least 8 characters')
@@ -67,12 +72,12 @@ function ResetPasswordContent() {
 
     setLoading(true)
 
-    try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, newPassword }),
-      })
+	    try {
+	      const response = await fetch('/api/auth/reset-password', {
+	        method: 'PUT',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify({ token, password: newPassword, confirmPassword }),
+	      })
 
       const data = await response.json()
 

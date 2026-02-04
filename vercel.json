@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/daily-reminders",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/ai-cache-cleanup",
+      "schedule": "0 3 * * *"
     }
   ]
 }

@@ -13,11 +13,10 @@ export default function SignupForm() {
   })
   const [redirectPath, setRedirectPath] = useState('/dashboard')
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [otpSent, setOtpSent] = useState(false)
-  const [otpCode, setOtpCode] = useState('')
-  const [verifying, setVerifying] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -98,75 +97,62 @@ export default function SignupForm() {
         <div className="w-full max-w-md rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-6 sm:p-8 text-center">
           <div className="text-5xl mb-4">✅</div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Account created</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">Verify your email with the OTP code.</p>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            We sent a verification link to your email. Please verify to log in.
+          </p>
 
-          {!otpSent ? (
-            <button
-              onClick={async () => {
-                try {
-                  setLoading(true)
-                  const resp = await fetch('/api/auth/otp/send', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: formData.email }),
-                  })
-                  if (!resp.ok) {
-                    const data = await resp.json()
-                    setError(data.error || 'Failed to send OTP')
-                  } else {
-                    setOtpSent(true)
-                  }
-                } catch (e) {
-                  setError('Network error while sending OTP')
-                } finally {
-                  setLoading(false)
-                }
-              }}
-              className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
-              disabled={loading}
-            >
-              {loading ? 'Sending…' : 'Send OTP to Email'}
-            </button>
-          ) : (
-            <div className="space-y-3 text-left">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Enter OTP Code</label>
-              <input
-                type="text"
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="6-digit code"
-              />
-              <button
-                onClick={async () => {
-                  try {
-                    setVerifying(true)
-                    const resp = await fetch('/api/auth/otp/verify', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({ email: formData.email, otp: otpCode }),
-                    })
-                    const data = await resp.json()
-                    if (!resp.ok) {
-                      setError(data.error || 'Invalid OTP')
-                    } else {
-                      router.push(redirectPath)
-                    }
-                  } catch (e) {
-                    setError('Network error while verifying OTP')
-                  } finally {
-                    setVerifying(false)
-                  }
-                }}
-                className="w-full bg-green-600 text-white py-2.5 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
-                disabled={verifying}
-              >
-                {verifying ? 'Verifying...' : 'Verify & Continue'}
-              </button>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Code expires in 10 minutes.</p>
+          {resendSuccess ? (
+            <div className="mb-4 rounded-xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-900/20 p-4 text-left">
+              <p className="text-green-800 dark:text-green-300 text-sm">
+                If your email is registered and not yet verified, we sent a new verification link.
+              </p>
             </div>
-          )}
+          ) : null}
+
+          {error ? (
+            <div className="mb-4 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 p-4 text-left">
+              <p className="text-red-800 dark:text-red-300 text-sm">{error}</p>
+            </div>
+          ) : null}
+
+          <button
+            onClick={async () => {
+              try {
+                setError(null)
+                setResendSuccess(false)
+                setResending(true)
+
+                const resp = await fetch('/api/auth/resend-verification', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: formData.email }),
+                })
+
+                const data = await resp.json()
+                if (!resp.ok) {
+                  setError(data?.error || 'Failed to resend verification email')
+                  return
+                }
+
+                setResendSuccess(true)
+              } catch {
+                setError('Network error while resending verification email')
+              } finally {
+                setResending(false)
+              }
+            }}
+            className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            disabled={resending}
+          >
+            {resending ? 'Sending…' : 'Resend Verification Email'}
+          </button>
+
+          <button
+            onClick={() => router.push(`/auth/login?registered=1&redirect=${encodeURIComponent(redirectPath)}`)}
+            className="mt-3 w-full bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white py-2.5 rounded-lg font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            Back to Login
+          </button>
         </div>
       </div>
     )

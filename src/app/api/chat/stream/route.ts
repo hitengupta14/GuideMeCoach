@@ -3,7 +3,7 @@ import { db } from '@/db'
 import { chatMessages, chatConversations, users } from '@/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-import { generateStreamingChatResponse, isOpenAIConfigured } from '@/lib/ai'
+import { generateStreamingChatResponse, getOpenAIModel, isOpenAIConfigured } from '@/lib/ai'
 import { chatRateLimiter } from '@/lib/rate-limit'
 import { verifySession } from '@/lib/auth-helpers'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
@@ -147,7 +147,7 @@ async function streamChat(request: NextRequest) {
     await logAIUsage({
       userId,
       feature: 'chat',
-      model: 'gpt-4',
+      model: getOpenAIModel(),
       responseTime: Date.now() - startTime,
       success: true,
     })

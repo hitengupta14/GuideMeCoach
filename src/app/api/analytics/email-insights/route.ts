@@ -5,11 +5,12 @@ import { db } from '@/db'
 import { users, workoutSessions, workoutLogs, exercises } from '@/db/schema'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-import { analyzeProgress } from '@/lib/ai'
+import { analyzeProgress, getOpenAIModel } from '@/lib/ai'
 import { aiRateLimiter } from '@/lib/rate-limit'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
 import { getPremiumStatus } from '@/lib/entitlements'
 import { withApiTelemetry } from '@/lib/api-telemetry'
+import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache'
 
 async function emailInsights(request: NextRequest) {
   try {
@@ -59,17 +60,6 @@ async function emailInsights(request: NextRequest) {
       )
     }
 
-    const quota = await checkQuota(userId, 'insights', userIsPremium)
-    if (!quota.allowed) {
-      return NextResponse.json(
-        {
-          error: 'AI insights quota exceeded',
-          quota: { used: quota.used, limit: quota.limit, resetAt: quota.resetAt },
-        },
-        { status: 403 }
-      )
-    }
-
     // Get recent workout data
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - (weeksBack * 7))
@@ -116,56 +106,95 @@ async function emailInsights(request: NextRequest) {
       .orderBy(desc(sql`count(*)`))
       .limit(20)
 
+    const lastSessionAt = recentSessions[0]?.completedAt ? new Date(recentSessions[0].completedAt).toISOString() : null
+    const cacheKey = hashAIRequest('insights.progress', {
+      v: 1,
+      userId,
+      weeksBack,
+      lastSessionAt,
+      sessionsCount: recentSessions.length,
+      topExercises: exerciseStats
+        .slice(0, 10)
+        .map((e) => ({
+          id: e.exerciseId,
+          c: Number(e.workoutCount) || 0,
+          mw: Number(e.maxWeight) || 0,
+        })),
+      experienceLevel: user.experienceLevel || null,
+      goals: user.goals || [],
+      weight: user.weight || null,
+      height: user.height || null,
+      age: user.age || null,
+    })
+
     // Generate insights with timeout
     let insights
     try {
-      const startTime = Date.now()
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      const cachedInsights = await getCachedAIResponse(cacheKey, 24) // 24 hours
+      if (cachedInsights) {
+        insights = cachedInsights
+      } else {
+        const quota = await checkQuota(userId, 'insights', userIsPremium)
+        if (!quota.allowed) {
+          return NextResponse.json(
+            {
+              error: 'AI insights quota exceeded',
+              quota: { used: quota.used, limit: quota.limit, resetAt: quota.resetAt },
+            },
+            { status: 403 }
+          )
+        }
 
-      insights = await analyzeProgress({
-        recentSessions: recentSessions.map(s => ({
-          dayName: s.dayName,
-          duration: s.duration,
-          energyLevel: s.energyLevel,
-          difficulty: s.difficulty,
-          date: s.completedAt,
-        })),
-        exerciseStats: exerciseStats.map(e => ({
-          exerciseName: e.exerciseName,
-          avgWeight: Number(e.avgWeight),
-          maxWeight: Number(e.maxWeight),
-          totalSets: Number(e.totalSets),
-          workoutCount: Number(e.workoutCount),
-          avgRpe: Number(e.avgRpe),
-        })),
-        userProfile: {
-          name: user.name || 'User',
-          experienceLevel: user.experienceLevel || 'intermediate',
-          goals: user.goals || [],
-          weight: user.weight || undefined,
-          height: user.height || undefined,
-          age: user.age || undefined,
-        },
-      })
+        const startTime = Date.now()
 
-      clearTimeout(timeout)
+        insights = await analyzeProgress({
+          recentSessions: recentSessions.map(s => ({
+            dayName: s.dayName,
+            duration: s.duration,
+            energyLevel: s.energyLevel,
+            difficulty: s.difficulty,
+            date: s.completedAt,
+          })),
+          exerciseStats: exerciseStats.map(e => ({
+            exerciseName: e.exerciseName,
+            avgWeight: Number(e.avgWeight),
+            maxWeight: Number(e.maxWeight),
+            totalSets: Number(e.totalSets),
+            workoutCount: Number(e.workoutCount),
+            avgRpe: Number(e.avgRpe),
+          })),
+          userProfile: {
+            name: user.name || 'User',
+            experienceLevel: user.experienceLevel || 'intermediate',
+            goals: user.goals || [],
+            weight: user.weight || undefined,
+            height: user.height || undefined,
+            age: user.age || undefined,
+          },
+        })
 
-      await decrementQuota(userId, 'insights', userIsPremium)
-      await logAIUsage({
-        userId,
-        feature: 'insights',
-        model: 'gpt-4',
-        responseTime: Date.now() - startTime,
-        success: true,
-      })
+        await decrementQuota(userId, 'insights', userIsPremium)
+        await logAIUsage({
+          userId,
+          feature: 'insights',
+          model: getOpenAIModel(),
+          responseTime: Date.now() - startTime,
+          success: true,
+        })
+
+        await cacheAIResponse(cacheKey, 'insights.progress', insights, {
+          userId,
+          weeksBack,
+          lastSessionAt,
+        })
+      }
     } catch (aiError) {
       logger.error('AI analysis failed for email', aiError as Error)
 
       await logAIUsage({
         userId,
         feature: 'insights',
-        model: 'gpt-4',
+        model: getOpenAIModel(),
         success: false,
         errorMessage: (aiError as Error).message,
       })

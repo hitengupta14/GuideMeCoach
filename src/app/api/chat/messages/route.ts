@@ -3,8 +3,8 @@ import { db } from '@/db'
 import { chatMessages, users, chatConversations } from '@/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-import { apiRateLimiter } from '@/lib/rate-limit'
-import { generateChatResponse, isOpenAIConfigured } from '@/lib/ai'
+import { chatRateLimiter } from '@/lib/rate-limit'
+import { generateChatResponse, getOpenAIModel, isOpenAIConfigured } from '@/lib/ai'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
 import { verifySession } from '@/lib/auth-helpers'
 import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache'
@@ -61,7 +61,7 @@ async function getMessages(request: NextRequest) {
 async function addMessage(request: NextRequest) {
   try {
     // Rate limiting
-    const rateLimitResult = await apiRateLimiter(request)
+    const rateLimitResult = await chatRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many requests. Please try again later.' },
@@ -147,7 +147,7 @@ async function addMessage(request: NextRequest) {
           },
           message: premium.isPremium 
             ? `You've used all ${quota.limit} AI chat messages this month. Resets on ${new Date(quota.resetAt).toLocaleDateString()}`
-            : 'Upgrade to Premium to access AI chat (₹199-₹299/month)',
+            : 'Upgrade to Premium to access AI chat. See /pricing for details.',
         },
         { status: 403 }
       )
@@ -190,7 +190,15 @@ async function addMessage(request: NextRequest) {
       try {
         // Generate cache key from conversation context
         const cacheKey = hashAIRequest('chat', {
+          userId,
+          conversationId,
           userMessage: content,
+          // Cache should be conversation-aware to avoid stale/wrong replies.
+          contextWindow: conversationHistory
+            .slice(-4)
+            .map((m) => `${m.role}:${m.content}`)
+            .join('\n')
+            .slice(0, 2000),
           experienceLevel: user?.experienceLevel || 'unknown',
           goals: user?.goals || [],
         })
@@ -233,7 +241,7 @@ async function addMessage(request: NextRequest) {
         await logAIUsage({
           userId,
           feature: 'chat',
-          model: 'gpt-4',
+          model: getOpenAIModel(),
           responseTime: Date.now() - startTime,
           success: true,
         })
@@ -244,7 +252,7 @@ async function addMessage(request: NextRequest) {
         await logAIUsage({
           userId,
           feature: 'chat',
-          model: 'gpt-4',
+          model: getOpenAIModel(),
           responseTime: Date.now() - startTime,
           success: false,
           errorMessage: (aiError as Error).message,

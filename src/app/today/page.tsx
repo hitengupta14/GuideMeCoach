@@ -5,6 +5,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from '@/hooks/useSession'
 
+function slugify(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]/g, '')
+}
+
 type TodayResponse =
   | {
       hasActivePlan: false
@@ -25,6 +33,7 @@ type TodayResponse =
         exercises: Array<{
           exerciseId: string
           exerciseName?: string
+          exerciseSlug?: string
           sets: number
           reps: string
           restSeconds: number
@@ -257,12 +266,12 @@ export default function TodayPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="font-bold text-gray-900 dark:text-white">
-                          {ex.exerciseName ? (
+                          {ex.exerciseSlug || ex.exerciseName ? (
                             <Link
-                              href={`/exercises/${ex.exerciseName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')}`}
+                              href={`/exercises/${ex.exerciseSlug || slugify(ex.exerciseName || '')}`}
                               className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline"
                             >
-                              {ex.exerciseName}
+                              {ex.exerciseName || 'Exercise'}
                             </Link>
                           ) : (
                             <span>Exercise</span>

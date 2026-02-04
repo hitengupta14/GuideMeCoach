@@ -1,7 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+
+const QUEUE_KEY = 'workoutSyncQueue:v1'
+const LOCAL_SUMMARY_KEY_PREFIX = 'workoutLocalSummary:v1:'
 
 interface PlannedExercise {
   exerciseName: string
@@ -41,9 +44,6 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
   const [sessionError, setSessionError] = useState<string | null>(null)
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [sessionStartTime] = useState(new Date())
-
-  const QUEUE_KEY = 'workoutSyncQueue:v1'
-  const LOCAL_SUMMARY_KEY_PREFIX = 'workoutLocalSummary:v1:'
 
   type QueuedRequest = {
     id: string
@@ -121,7 +121,7 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
   const [suggestLoading, setSuggestLoading] = useState(false)
   const [workingWeights, setWorkingWeights] = useState<string[]>(() => planExercises.map(() => ''))
 
-  const readQueue = (): QueuedRequest[] => {
+  const readQueue = useCallback((): QueuedRequest[] => {
     try {
       const raw = localStorage.getItem(QUEUE_KEY)
       if (!raw) return []
@@ -130,18 +130,18 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
     } catch {
       return []
     }
-  }
+  }, [])
 
-  const writeQueue = (queue: QueuedRequest[]) => {
+  const writeQueue = useCallback((queue: QueuedRequest[]) => {
     try {
       localStorage.setItem(QUEUE_KEY, JSON.stringify(queue))
       setPendingSyncCount(queue.length)
     } catch {
       // If storage fails, we still allow the workout to continue, but sync may be lost.
     }
-  }
+  }, [])
 
-  const enqueueRequest = (url: string, method: QueuedRequest['method'], body: any) => {
+  const enqueueRequest = useCallback((url: string, method: QueuedRequest['method'], body: any) => {
     const q = readQueue()
     q.push({
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -151,7 +151,7 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
       createdAt: Date.now(),
     })
     writeQueue(q)
-  }
+  }, [readQueue, writeQueue])
 
   const markSetPendingByPayload = (payload: { exerciseId: string; isWarmup?: boolean; setNumber: number }) => {
     setExerciseSets((prev) => {
@@ -336,7 +336,7 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
     }
 
     startSession()
-  }, [dayName, planId])
+  }, [dayName, planId, enqueueRequest])
 
   // Offline/online tracking + best-effort background sync
   useEffect(() => {

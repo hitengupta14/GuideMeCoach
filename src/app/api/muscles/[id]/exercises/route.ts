@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { muscleGroups, exerciseMuscles, exercises } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 export async function GET(
   request: Request,
@@ -36,7 +36,7 @@ export async function GET(
       })
       .from(exerciseMuscles)
       .innerJoin(exercises, eq(exerciseMuscles.exerciseId, exercises.id))
-      .where(eq(exerciseMuscles.muscleGroupId, muscleId))
+      .where(and(eq(exerciseMuscles.muscleGroupId, muscleId), eq(exercises.reviewStatus, 'approved')))
     
     // Group by role
     const groupedExercises = {
