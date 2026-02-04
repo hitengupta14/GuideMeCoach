@@ -60,11 +60,26 @@ export async function GET(req: Request) {
     // Calculate max streak in last 90 days
     let maxStreak = 0
     let tempStreak = 0
-    const dateSortedKeys = Object.keys(sessionsByDate).sort().reverse()
+    let prevDate: Date | null = null
+    const dateSortedKeys = Object.keys(sessionsByDate).sort() // ascending YYYY-MM-DD
 
-    for (const date of dateSortedKeys) {
-      tempStreak++
+    for (const dateStr of dateSortedKeys) {
+      const d = new Date(`${dateStr}T00:00:00.000Z`)
+      if (!prevDate) {
+        tempStreak = 1
+        maxStreak = Math.max(maxStreak, tempStreak)
+        prevDate = d
+        continue
+      }
+
+      const diffDays = Math.round((d.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24))
+      if (diffDays === 1) {
+        tempStreak += 1
+      } else if (diffDays > 1) {
+        tempStreak = 1
+      }
       maxStreak = Math.max(maxStreak, tempStreak)
+      prevDate = d
     }
 
     // Get weekly data for last 12 weeks

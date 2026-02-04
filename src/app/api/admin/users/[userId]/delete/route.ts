@@ -2,33 +2,32 @@ import { db } from '@/db'
 import { users, adminActivityLogs } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth-helpers'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check authentication
-    const userId = await verifySession(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user is admin
-    const adminUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .then(rows => rows[0])
-
-    if (!adminUser?.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const admin = await requireAdmin(request, { permission: 'canManageUsers' })
+    if (admin instanceof NextResponse) return admin
+    const { userId, adminRole } = admin
 
     const { reason = 'No reason provided', type = 'soft' } = await request.json()
     
     // type can be 'soft' (mark deleted but keep data) or 'hard' (full deletion)
+
+    if (params.userId === userId) {
+      return NextResponse.json({ error: 'You cannot delete your own account via this endpoint' }, { status: 400 })
+    }
+
+    if (type !== 'soft' && type !== 'hard') {
+      return NextResponse.json({ error: 'Invalid delete type' }, { status: 400 })
+    }
+
+    if (type === 'hard' && adminRole !== 'super_admin') {
+      return NextResponse.json({ error: 'Hard delete requires super_admin' }, { status: 403 })
+    }
     
     if (type === 'hard') {
       // Hard delete - this will cascade delete all user data

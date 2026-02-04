@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { sql } from 'drizzle-orm'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    // In a real app, verify admin authentication here
+    const admin = await requireAdmin(request, { permission: 'canManageSystem' })
+    if (admin instanceof NextResponse) return admin
 
     // Check database connection
     let databaseStatus: 'healthy' | 'warning' | 'error' = 'healthy'

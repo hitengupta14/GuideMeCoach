@@ -38,8 +38,8 @@ const PLAN_DETAILS: Record<string, PlanDetails> = {
   premium: {
     id: 'premium',
     name: 'Premium Monthly',
-    price: '₹249',
-    priceValue: 24900, // in paise
+    price: '₹299',
+    priceValue: 29900, // in paise
     period: '/month',
     features: [
       'AI Workout Planner (2/month)',
@@ -53,16 +53,16 @@ const PLAN_DETAILS: Record<string, PlanDetails> = {
   'premium-yearly': {
     id: 'premium-yearly',
     name: 'Premium Yearly',
-    price: '₹2,490',
-    priceValue: 249000, // in paise
+    price: '₹2,499',
+    priceValue: 249900, // in paise
     period: '/year',
     features: [
       'All Premium features included',
       'Priority support',
       'Early access to new features',
-      'Save ₹3,478/year vs monthly',
+      'Save ₹1,089/year vs monthly',
     ],
-    savings: 'Save 17% vs monthly',
+    savings: 'Save 30% vs monthly',
   },
 };
 
@@ -94,7 +94,7 @@ export default function CheckoutScreen() {
 
     try {
       // Step 1: Create Razorpay order on backend
-      const orderResponse: any = await apiClient.request('/api/v1/subscription/create', {
+      const orderResponse: any = await apiClient.request('/v1/subscription/create', {
         method: 'POST',
         body: JSON.stringify({
           planType: planId,
@@ -151,7 +151,7 @@ export default function CheckoutScreen() {
     try {
       // Verify payment signature on backend
       const verifyResponse: any = await apiClient.request(
-        '/api/v1/subscription/verify',
+        '/v1/subscription/verify',
         {
           method: 'POST',
           body: JSON.stringify({
@@ -165,24 +165,22 @@ export default function CheckoutScreen() {
       setIsProcessing(false);
 
       if (verifyResponse?.success) {
-        // Show success message
-        Alert.alert(
-          '🎉 Success!',
-          'Payment successful! You now have access to all premium features.',
-          [
-            {
-              text: 'Start Using Premium',
-              onPress: () => {
-                // Navigate to dashboard or AI features
-                navigation.reset({
-                  index: 0,
-                  // @ts-ignore
-                  routes: [{ name: 'AppTabs' }],
-                });
-              },
+        const message =
+          verifyResponse?.message ||
+          'Payment verified. Subscription activation is processing. Please refresh in a few seconds.';
+
+        Alert.alert('✅ Payment Verified', message, [
+          {
+            text: 'Continue',
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                // @ts-ignore
+                routes: [{ name: 'AppTabs' }],
+              });
             },
-          ]
-        );
+          },
+        ]);
       } else {
         throw new Error('Payment verification failed');
       }

@@ -26,6 +26,7 @@ export interface PlanningSession {
 export interface SelectedExercise {
   exerciseId: string
   exerciseName?: string // Optional: populated when needed for display
+  exerciseSlug?: string // Optional: used for linking to exercise detail pages
   sets: number
   reps: string
   restSeconds: number

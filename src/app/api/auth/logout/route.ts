@@ -13,6 +13,7 @@ const logoutSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies()
+    const refreshCookie = cookieStore.get('refresh_token')?.value
     
     // Get user ID from session
     const userId = await verifySession(request)
@@ -31,15 +32,19 @@ export async function POST(request: NextRequest) {
         // Logout from all devices
         await revokeAllUserTokens(userId)
         logger.info('User logged out from all devices', { userId })
-      } else if (body.refreshToken) {
-        // Revoke specific refresh token
-        await revokeRefreshToken(body.refreshToken)
-        logger.info('User refresh token revoked', { userId })
+      } else {
+        const tokenToRevoke = body.refreshToken || refreshCookie
+        if (tokenToRevoke) {
+          // Revoke specific refresh token
+          await revokeRefreshToken(tokenToRevoke)
+          logger.info('User refresh token revoked', { userId })
+        }
       }
     }
     
     // Delete the session cookie
     cookieStore.delete('session')
+    cookieStore.delete('refresh_token')
     
     if (userId) {
       logger.info('User logged out', { userId })

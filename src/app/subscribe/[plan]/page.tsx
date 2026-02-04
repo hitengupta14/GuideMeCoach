@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { useSession } from "@/hooks/useSession";
 import { useAPIError } from "@/hooks/useAPIError";
@@ -54,14 +54,14 @@ const PLANS = {
 
 export default function SubscribePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const params = useParams();
   const { user, isLoading: isSessionLoading } = useSession({ required: true });
   const { handleError, handleSuccess, handleLoading, dismissToast } = useAPIError();
 
-  const planKey = (searchParams.get("plan") || "premium") as keyof typeof PLANS;
+  const planParam = Array.isArray((params as any).plan) ? (params as any).plan?.[0] : (params as any).plan;
+  const planKey = (planParam || "premium") as keyof typeof PLANS;
   const plan = PLANS[planKey] || PLANS.premium;
 
-  const [token, setToken] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<
     "india" | "international"
   >("india");
@@ -69,43 +69,8 @@ export default function SubscribePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Get auth token from localStorage on mount
-  useEffect(() => {
-    const getToken = async () => {
-      if (typeof window !== 'undefined') {
-        let savedToken: string | null = localStorage.getItem('token');
-        
-        // If no token in localStorage but user exists, try to get it from session
-        if (!savedToken && user?.id) {
-          try {
-            const response = await fetch('/api/auth/session');
-            if (response.ok) {
-              const data = await response.json();
-              if (data.token) {
-                savedToken = data.token;
-              }
-            }
-          } catch (err) {
-            console.error('Failed to fetch token from session:', err);
-          }
-        }
-        
-        if (savedToken) {
-          localStorage.setItem('token', savedToken);
-        }
-        setToken(savedToken);
-      }
-    };
-    
-    getToken();
-  }, [user?.id]);
-
   const handleSubscribe = async () => {
-    if (!token || !user?.id) {
-      await handleError({ error: "Please log in first", statusCode: 401 });
-      router.push("/auth/login?redirect=/pricing");
-      return;
-    }
+    if (!user?.id) return;
 
     const toastId = handleLoading("Creating payment order...");
     setIsProcessing(true);
@@ -118,8 +83,7 @@ export default function SubscribePage() {
         {
           displayRegion: selectedRegion,
           planType: planKey,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+        }
       );
 
       dismissToast(toastId);
@@ -159,30 +123,53 @@ export default function SubscribePage() {
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
                 planType: planKey,
-              },
-              { headers: { Authorization: `Bearer ${token}` } }
+              }
             );
 
             dismissToast(verifyToastId);
 
-            if (verifyError) {
-              await handleError(verifyError);
-              setIsProcessing(false);
-              return;
-            }
+              if (verifyError) {
+                await handleError(verifyError);
+                setIsProcessing(false);
+                return;
+              }
 
-            handleSuccess("Payment successful! You're now premium.");
-            setSuccess(true);
+              // Webhook is the canonical source of truth; verification just confirms signature.
+              // Poll subscription status briefly so the user doesn't land on Pricing before activation.
+              const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+              const waitForPremium = async (timeoutMs = 20000) => {
+                const start = Date.now();
+                while (Date.now() - start < timeoutMs) {
+                  try {
+                    const res = await fetch("/api/user/subscription/status", {
+                      credentials: "include",
+                    });
+                    if (res.ok) {
+                      const json = await res.json();
+                      if (json?.data?.isPremium) return true;
+                    }
+                  } catch {
+                    // ignore transient errors while waiting
+                  }
+                  await sleep(1500);
+                }
+                return false;
+              };
 
-            // Redirect back to pricing to see updated status
-            setTimeout(() => {
+              handleSuccess("Payment verified. Activating your subscription...");
+              setSuccess(true);
+
+              const activated = await waitForPremium();
+              if (activated) {
+                handleSuccess("Subscription activated! You're now premium.");
+              }
+
               router.push("/pricing?from=payment");
-            }, 2000);
-          },
-          modal: {
-            ondismiss: function () {
-              setIsProcessing(false);
-              setError("Payment cancelled");
+            },
+            modal: {
+              ondismiss: function () {
+                setIsProcessing(false);
+                setError("Payment cancelled");
             },
           },
         };

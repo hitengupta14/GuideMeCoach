@@ -90,7 +90,7 @@ export default function UpgradeModal({
           <div className="mb-6 text-center">
             <p className="text-gray-600 dark:text-gray-400 mb-2">Starting at</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              ₹249<span className="text-lg text-gray-600 dark:text-gray-400">/month</span>
+              ₹299<span className="text-lg text-gray-600 dark:text-gray-400">/month</span>
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               7 days free trial • Cancel anytime

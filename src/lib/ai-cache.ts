@@ -7,7 +7,7 @@
 
 import { db } from '@/db'
 import { aiResponseCache } from '@/db/schema'
-import { eq, and, gt } from 'drizzle-orm'
+import { and, eq, gt, lt, sql } from 'drizzle-orm'
 import crypto from 'crypto'
 import { logger } from './logger'
 
@@ -49,20 +49,22 @@ export async function getCachedAIResponse(
 ): Promise<any | null> {
   try {
     const cutoffTime = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000)
-    
-    const cached = await db.query.aiResponseCache.findFirst({
-      where: and(
-        eq(aiResponseCache.cacheKey, cacheKey),
-        gt(aiResponseCache.createdAt, cutoffTime)
-      ),
-    })
 
-    if (cached) {
-      logger.info('AI cache hit', { cacheKey, feature: cached.feature })
-      return cached.response
-    }
+    // Single-query hit: bump hit counters + return cached response.
+    const [cached] = await db
+      .update(aiResponseCache)
+      .set({
+        hitCount: sql`${aiResponseCache.hitCount} + 1`,
+        lastAccessedAt: new Date(),
+      })
+      .where(and(eq(aiResponseCache.cacheKey, cacheKey), gt(aiResponseCache.createdAt, cutoffTime)))
+      .returning({ response: aiResponseCache.response, feature: aiResponseCache.feature })
 
-    return null
+    if (!cached) return null
+
+    logger.info('AI cache hit', { cacheKey, feature: cached.feature })
+    return cached.response
+
   } catch (error) {
     logger.error('AI cache retrieval error', error as Error)
     return null
@@ -92,6 +94,7 @@ export async function cacheAIResponse(
         feature,
         response,
         metadata: metadata || {},
+        lastAccessedAt: new Date(),
       })
       .onConflictDoUpdate({
         target: aiResponseCache.cacheKey,
@@ -99,6 +102,7 @@ export async function cacheAIResponse(
           response,
           metadata: metadata || {},
           createdAt: new Date(),
+          lastAccessedAt: new Date(),
         },
       })
 
@@ -185,6 +189,3 @@ export async function getCacheStats(): Promise<{
     }
   }
 }
-
-// Import missing function
-import { lt } from 'drizzle-orm'

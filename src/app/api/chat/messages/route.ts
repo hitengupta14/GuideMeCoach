@@ -3,14 +3,16 @@ import { db } from '@/db'
 import { chatMessages, users, chatConversations } from '@/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-import { apiRateLimiter } from '@/lib/rate-limit'
-import { generateChatResponse, isOpenAIConfigured } from '@/lib/ai'
+import { chatRateLimiter } from '@/lib/rate-limit'
+import { generateChatResponse, getOpenAIModel, isOpenAIConfigured } from '@/lib/ai'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
 import { verifySession } from '@/lib/auth-helpers'
 import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
 // Get messages in a conversation
-export async function GET(request: NextRequest) {
+async function getMessages(request: NextRequest) {
   try {
     // Verify session
     const userId = await verifySession(request)
@@ -56,10 +58,10 @@ export async function GET(request: NextRequest) {
 
 
 // Add a message to a conversation
-export async function POST(request: NextRequest) {
+async function addMessage(request: NextRequest) {
   try {
     // Rate limiting
-    const rateLimitResult = apiRateLimiter(request)
+    const rateLimitResult = await chatRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many requests. Please try again later.' },
@@ -75,6 +77,8 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const premium = await getPremiumStatus(userId)
 
     const body = await request.json()
     const { conversationId, content } = body
@@ -110,7 +114,6 @@ export async function POST(request: NextRequest) {
         goals: users.goals,
         medicalConditions: users.medicalConditions,
         age: users.age,
-        isPremium: users.isPremium,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest) {
     }
 
     // PHASE 1: Check AI quota BEFORE generating response
-    const quota = await checkQuota(userId, 'chat', user.isPremium || false)
+    const quota = await checkQuota(userId, 'chat', premium.isPremium)
     
     if (!quota.allowed) {
       // Save user message but return quota error
@@ -142,9 +145,9 @@ export async function POST(request: NextRequest) {
             limit: quota.limit,
             resetAt: quota.resetAt,
           },
-          message: user.isPremium 
+          message: premium.isPremium 
             ? `You've used all ${quota.limit} AI chat messages this month. Resets on ${new Date(quota.resetAt).toLocaleDateString()}`
-            : 'Upgrade to Premium to access AI chat (₹199-₹299/month)',
+            : 'Upgrade to Premium to access AI chat. See /pricing for details.',
         },
         { status: 403 }
       )
@@ -187,7 +190,15 @@ export async function POST(request: NextRequest) {
       try {
         // Generate cache key from conversation context
         const cacheKey = hashAIRequest('chat', {
+          userId,
+          conversationId,
           userMessage: content,
+          // Cache should be conversation-aware to avoid stale/wrong replies.
+          contextWindow: conversationHistory
+            .slice(-4)
+            .map((m) => `${m.role}:${m.content}`)
+            .join('\n')
+            .slice(0, 2000),
           experienceLevel: user?.experienceLevel || 'unknown',
           goals: user?.goals || [],
         })
@@ -224,13 +235,13 @@ export async function POST(request: NextRequest) {
         }
 
         // PHASE 1: Decrement quota AFTER successful AI generation
-        await decrementQuota(userId, 'chat', user.isPremium || false)
+        await decrementQuota(userId, 'chat', premium.isPremium)
 
         // Log AI usage
         await logAIUsage({
           userId,
           feature: 'chat',
-          model: 'gpt-4',
+          model: getOpenAIModel(),
           responseTime: Date.now() - startTime,
           success: true,
         })
@@ -241,7 +252,7 @@ export async function POST(request: NextRequest) {
         await logAIUsage({
           userId,
           feature: 'chat',
-          model: 'gpt-4',
+          model: getOpenAIModel(),
           responseTime: Date.now() - startTime,
           success: false,
           errorMessage: (aiError as Error).message,
@@ -285,6 +296,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to add message' }, { status: 500 })
   }
 }
+
+export const GET = withApiTelemetry(getMessages, { name: 'chat.messages.get' })
+export const POST = withApiTelemetry(addMessage, { name: 'chat.messages.post' })
 
 // Fallback response when OpenAI is not available
 function getFallbackResponse(userMessage: string): string {
@@ -368,4 +382,3 @@ Progress takes time - be patient and consistent! What lift are you working on?`
 
 What would you like to know?`
 }
-

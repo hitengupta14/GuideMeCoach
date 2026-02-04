@@ -42,7 +42,7 @@ const PRICING_PLANS: PricingPlan[] = [
   {
     id: 'premium',
     name: 'Premium',
-    price: '₹249',
+    price: '₹299',
     period: '/month',
     description: 'AI-powered personalization',
     features: [
@@ -59,18 +59,18 @@ const PRICING_PLANS: PricingPlan[] = [
   {
     id: 'premium-yearly',
     name: 'Premium Yearly',
-    price: '₹2,490',
+    price: '₹2,499',
     period: '/year',
-    description: 'Best value - save 17%',
+    description: 'Best value - save up to 30%',
     features: [
       'All Premium features',
       'All AI features included',
       'Priority support',
       'Early access to new features',
-      'Save ₹3,478/year vs monthly',
+      'Save ₹1,089/year vs monthly',
     ],
     highlighted: false,
-    savings: 'Save 17%',
+    savings: 'Save 30%',
   },
 ];
 

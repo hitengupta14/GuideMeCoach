@@ -40,8 +40,16 @@ export default function SignupScreen({ navigation }: any) {
     }
 
     try {
-      await signup(email, password, name);
-      // If signup succeeds, navigation will happen automatically via auth state change
+      const result = await signup(email, password, name);
+      if (result?.requiresEmailVerification) {
+        Alert.alert(
+          'Verify your email',
+          'We sent a verification link to your email. Please verify your email, then log in.',
+          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        );
+        return;
+      }
+      // If signup logged you in, navigation will happen automatically via auth state change.
     } catch (err: any) {
       // Show the actual error message from the API
       const errorMessage = error || err.message || 'Failed to create account';

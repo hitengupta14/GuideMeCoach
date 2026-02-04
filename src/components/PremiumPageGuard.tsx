@@ -16,7 +16,7 @@ export function PremiumPageGuard({
   fallback,
 }: PremiumPageGuardProps) {
   const router = useRouter()
-  const { isPremium, isLoading } = useSubscriptionStatus(typeof window !== 'undefined' ? localStorage.getItem('token') : null)
+  const { isPremium, isLoading } = useSubscriptionStatus()
 
   if (isLoading) {
     return (

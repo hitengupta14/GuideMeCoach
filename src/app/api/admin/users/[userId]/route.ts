@@ -2,29 +2,15 @@ import { db } from '@/db'
 import { users, subscriptionHistory, workoutSessions } from '@/db/schema'
 import { eq, desc, sql } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth-helpers'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check authentication
-    const userId = await verifySession(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user is admin
-    const adminUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .then(rows => rows[0])
-
-    if (!adminUser?.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const admin = await requireAdmin(request, { permission: 'canManageUsers' })
+    if (admin instanceof NextResponse) return admin
 
     // Get user details
     const user = await db

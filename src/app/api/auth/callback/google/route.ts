@@ -3,18 +3,42 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { SignJWT, createRemoteJWKSet, jwtVerify } from 'jose'
+import { getJwtSecretKey } from '@/lib/jwt'
+import { createRefreshToken } from '@/lib/refresh-token'
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+const JWT_SECRET = getJwtSecretKey()
 
 export async function GET(request: NextRequest) {
   try {
-    const code = request.nextUrl.searchParams.get('code')
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const code = request.nextUrl.searchParams.get('code')
+    const state = request.nextUrl.searchParams.get('state')
+    const expectedState = request.cookies.get('google_oauth_state')?.value
     const clientId = process.env.GOOGLE_CLIENT_ID
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
+    if (!state || !expectedState || state !== expectedState) {
+      const response = NextResponse.redirect(`${appUrl}/auth/login?error=google_state_mismatch`)
+      response.cookies.set('google_oauth_state', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/',
+      })
+      return response
+    }
+
     if (!code || !clientId || !clientSecret) {
-      return NextResponse.redirect(`${appUrl}/auth/login?error=google_oauth_failed`)
+      const response = NextResponse.redirect(`${appUrl}/auth/login?error=google_oauth_failed`)
+      response.cookies.set('google_oauth_state', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/',
+      })
+      return response
     }
 
     // Exchange code for tokens
@@ -31,13 +55,29 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResp.ok) {
-      return NextResponse.redirect(`${appUrl}/auth/login?error=google_token_exchange_failed`)
+      const response = NextResponse.redirect(`${appUrl}/auth/login?error=google_token_exchange_failed`)
+      response.cookies.set('google_oauth_state', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/',
+      })
+      return response
     }
 
     const tokenJson = await tokenResp.json()
     const idToken = tokenJson.id_token as string
     if (!idToken) {
-      return NextResponse.redirect(`${appUrl}/auth/login?error=google_id_token_missing`)
+      const response = NextResponse.redirect(`${appUrl}/auth/login?error=google_id_token_missing`)
+      response.cookies.set('google_oauth_state', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/',
+      })
+      return response
     }
 
     // Verify ID token with Google's JWKS
@@ -53,7 +93,15 @@ export async function GET(request: NextRequest) {
     const sub = (payload.sub as string) || ''
 
     if (!email) {
-      return NextResponse.redirect(`${appUrl}/auth/login?error=google_email_missing`)
+      const response = NextResponse.redirect(`${appUrl}/auth/login?error=google_email_missing`)
+      response.cookies.set('google_oauth_state', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/',
+      })
+      return response
     }
 
     // Find or create user by email
@@ -93,11 +141,38 @@ export async function GET(request: NextRequest) {
     const token = await new SignJWT({ userId: userRecord.id })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime('30d')
+      .setExpirationTime('1h')
       .sign(JWT_SECRET)
 
     const response = NextResponse.redirect(`${appUrl}/dashboard`)
+    response.cookies.set('google_oauth_state', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    })
+
+    const userAgent = request.headers.get('user-agent') || undefined
+    const platform = request.headers.get('x-platform') || undefined
+    const deviceName = request.headers.get('x-device-name') || undefined
+    const appVersion = request.headers.get('x-app-version') || undefined
+    const ipAddress = request.ip || request.headers.get('x-forwarded-for') || undefined
+
+    const refreshToken = await createRefreshToken(
+      userRecord.id,
+      { userAgent, platform, deviceName, appVersion },
+      ipAddress
+    )
+
     response.cookies.set('session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60,
+      path: '/',
+    })
+    response.cookies.set('refresh_token', refreshToken.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -108,6 +183,14 @@ export async function GET(request: NextRequest) {
     return response
   } catch (error) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    return NextResponse.redirect(`${appUrl}/auth/login?error=google_oauth_error`)
+    const response = NextResponse.redirect(`${appUrl}/auth/login?error=google_oauth_error`)
+    response.cookies.set('google_oauth_state', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    })
+    return response
   }
 }

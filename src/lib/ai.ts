@@ -1,5 +1,9 @@
 import OpenAI from 'openai'
 import { logger } from './logger'
+import { aiWorkoutPlanRefSchema, aiWorkoutPlanTemplateSchema } from './ai-schemas'
+
+const DEFAULT_AI_TIMEOUT_MS = 30_000
+const PLAN_AI_TIMEOUT_MS = 60_000
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -37,40 +41,16 @@ USER PROFILE:
 `
     : ''
 
-  return `You are an expert fitness coach and personal trainer with deep knowledge of:
-- Exercise biomechanics and proper form
-- Injury prevention and rehabilitation
-- Progressive overload and periodization
-- Strength training, hypertrophy, and conditioning
-- Exercise modifications and alternatives
-- Sports science and recovery strategies
+  return `You are an expert fitness coach and personal trainer.
 
 ${contextStr}
 
 GUIDELINES:
-1. **Safety First**: Always prioritize proper form and injury prevention
-2. **Evidence-Based**: Provide scientifically-backed advice
-3. **Personalized**: Consider user's experience level, goals, and limitations
-4. **Practical**: Give actionable, clear instructions
-5. **Encouraging**: Be motivating and supportive
-6. **Concise**: Keep responses focused and digestible (2-4 paragraphs)
-7. **Medical Disclaimer**: For injuries or pain, recommend consulting a healthcare professional
-
-RESPONSE FORMAT:
-- Use bullet points for lists
-- Include ✓ for correct form cues, ✗ for common mistakes
-- Use emojis sparingly for emphasis (💪 ⚠️ ✅)
-- Structure: Brief intro → Key points → Actionable advice
-
-TOPICS YOU EXCEL AT:
-- Exercise form and technique
-- Alternative exercises based on equipment/injuries
-- Progressive overload strategies
-- Recovery and injury prevention
-- Training program design
-- Motivation and consistency
-
-Always remember: You're helping someone improve their health and fitness safely and effectively.`
+1) Safety first; avoid risky advice.
+2) Evidence-based and practical.
+3) Personalized to the user's experience/goals/limitations.
+4) Concise and actionable (2-4 short paragraphs, bullets when helpful).
+5) If pain/injury is mentioned, recommend consulting a clinician.`
 }
 
 /**
@@ -101,10 +81,10 @@ export async function generateChatResponse(
         ...messages,
       ],
       temperature: 0.7,
-      max_tokens: 800,
+      max_tokens: 700,
       presence_penalty: 0.1,
       frequency_penalty: 0.1,
-    })
+    }, { timeout: DEFAULT_AI_TIMEOUT_MS })
 
     const response = completion.choices[0]?.message?.content || getFallbackResponse()
     
@@ -150,7 +130,7 @@ export async function generateStreamingChatResponse(
     presence_penalty: 0.1,
     frequency_penalty: 0.1,
     stream: true,
-  })
+  }, { timeout: DEFAULT_AI_TIMEOUT_MS })
 
   // Convert OpenAI stream to web ReadableStream
   const encoder = new TextEncoder()
@@ -175,14 +155,19 @@ export async function generateStreamingChatResponse(
 }
 
 /**
- * Generate workout plan using AI
+ * Generate a workout plan template (two-stage planner).
+ *
+ * Stage 1 (AI): outputs plan structure + movement patterns (no exercise IDs/names).
+ * Stage 2 (server): selects concrete exercises from DB and produces a catalog-referenced plan.
  */
-export async function generateWorkoutPlan(input: {
+export async function generateWorkoutPlanTemplate(input: {
   goal: string
   experienceLevel: string
   daysPerWeek: number
+  preferredLocation?: 'home' | 'gym' | 'both'
   equipment?: string[]
   medicalConditions?: string[]
+  affectedJoints?: string[]
   duration?: number
   userProfile?: {
     name?: string
@@ -195,7 +180,190 @@ export async function generateWorkoutPlan(input: {
     throw new Error('OpenAI not configured')
   }
 
-  const prompt = `Generate a personalized workout plan with the following requirements:
+  const userDetails: string[] = []
+  if (typeof input.userProfile?.age === 'number' && Number.isFinite(input.userProfile.age) && input.userProfile.age > 0) {
+    userDetails.push(`${Math.round(input.userProfile.age)}yo`)
+  }
+  if (typeof input.userProfile?.weight === 'number' && Number.isFinite(input.userProfile.weight) && input.userProfile.weight > 0) {
+    userDetails.push(`${Math.round(input.userProfile.weight)}kg`)
+  }
+  if (typeof input.userProfile?.height === 'number' && Number.isFinite(input.userProfile.height) && input.userProfile.height > 0) {
+    userDetails.push(`${Math.round(input.userProfile.height)}cm`)
+  }
+  const userLine = userDetails.length > 0 ? `- User: ${userDetails.join(', ')}` : ''
+
+  const prompt = `Generate a personalized workout plan TEMPLATE (NO specific exercise names or IDs).
+
+REQUIREMENTS:
+- Goal: ${input.goal}
+- Experience Level: ${input.experienceLevel}
+- Days per Week: ${input.daysPerWeek}
+- Preferred Location: ${input.preferredLocation || 'both'}
+- Available Equipment: ${input.equipment?.join(', ') || 'not specified'}
+- Medical Conditions: ${input.medicalConditions?.join(', ') || 'None'}
+${input.affectedJoints && input.affectedJoints.length > 0 ? `- Affected Joints to Protect: ${input.affectedJoints.join(', ')}` : ''}
+- Session Duration: ${input.duration || 60} minutes
+${userLine}
+
+ALLOWED VALUES:
+- category: strength | mobility | rehab | cardio
+- movementPattern: push | pull | hinge | squat | rotate | carry | isolation
+
+RULES:
+1) Output STRICT JSON (no markdown).
+2) Do NOT include exercise names, slugs, or IDs.
+3) Each day: 3-6 slots. Include a warm-up slot first (mobility/rehab/cardio).
+4) For each slot, include: category, movementPattern (array; can be empty for cardio/mobility), sets, reps, restSeconds, notes.
+5) Safety first: avoid stressing affected joints/conditions; pick lower-impact patterns when relevant.
+6) Balance muscle groups across the week and include recovery.
+
+OUTPUT:
+{
+  "planName": "string",
+  "durationWeeks": 4,
+  "description": "string",
+  "weeklyStructure": [
+    {
+      "day": "Day 1",
+      "focus": "string",
+      "exercises": [
+        {
+          "category": "strength|mobility|rehab|cardio",
+          "movementPattern": ["push|pull|..."],
+          "sets": 3,
+          "reps": "8-10",
+          "restSeconds": 90,
+          "notes": "RPE 7-8, tempo, cues"
+        }
+      ],
+      "totalDurationMinutes": 60
+    }
+  ],
+  "progressionStrategy": "string",
+  "deloadWeek": "string",
+  "tips": ["string"]
+}`
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: getOpenAIModel(),
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert strength & conditioning coach. Generate workout plan templates in strict JSON format.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 1200,
+      response_format: { type: 'json_object' },
+    }, { timeout: PLAN_AI_TIMEOUT_MS })
+
+    const responseText = completion.choices[0]?.message?.content || '{}'
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(responseText)
+    } catch {
+      throw new Error('OpenAI returned invalid JSON for workout plan template')
+    }
+
+    const validation = aiWorkoutPlanTemplateSchema.safeParse(parsed)
+    if (!validation.success) {
+      const issueSummary = validation.error.issues
+        .slice(0, 5)
+        .map((issue) => {
+          const path = issue.path.length > 0 ? issue.path.join('.') : '(root)'
+          return `${path}: ${issue.message}`
+        })
+        .join('; ')
+      logger.warn('AI workout plan template validation failed', { errors: validation.error.issues })
+      throw new Error(`AI workout plan template validation failed: ${issueSummary}`)
+    }
+
+    logger.info('AI workout plan template generated', {
+      goal: input.goal,
+      days: input.daysPerWeek,
+      model: getOpenAIModel(),
+      tokens: completion.usage?.total_tokens,
+    })
+
+    return {
+      ...validation.data,
+      tokensUsed: completion.usage?.total_tokens,
+    }
+  } catch (error) {
+    logger.error('Workout plan template generation error', error as Error, {
+      goal: input.goal,
+      experienceLevel: input.experienceLevel,
+      daysPerWeek: input.daysPerWeek,
+      model: getOpenAIModel(),
+    })
+    if (error instanceof Error) throw error
+    throw new Error(typeof error === 'string' ? error : String(error))
+  }
+}
+
+/**
+ * Generate workout plan using AI
+ */
+export async function generateWorkoutPlan(input: {
+  goal: string
+  experienceLevel: string
+  daysPerWeek: number
+  equipment?: string[]
+  medicalConditions?: string[]
+  affectedJoints?: string[]
+  duration?: number
+  userProfile?: {
+    name?: string
+    age?: number
+    weight?: number
+    height?: number
+  }
+  allowedExercises: Array<{
+    id: string
+    name: string
+    category: string
+    difficulty: string
+    equipment: string[]
+    location: string
+    movementPattern: string[]
+  }>
+}): Promise<any> {
+  if (!isOpenAIConfigured()) {
+    throw new Error('OpenAI not configured')
+  }
+
+  const userDetails: string[] = []
+  if (typeof input.userProfile?.age === 'number' && Number.isFinite(input.userProfile.age) && input.userProfile.age > 0) {
+    userDetails.push(`${Math.round(input.userProfile.age)}yo`)
+  }
+  if (
+    typeof input.userProfile?.weight === 'number' &&
+    Number.isFinite(input.userProfile.weight) &&
+    input.userProfile.weight > 0
+  ) {
+    userDetails.push(`${Math.round(input.userProfile.weight)}kg`)
+  }
+  if (
+    typeof input.userProfile?.height === 'number' &&
+    Number.isFinite(input.userProfile.height) &&
+    input.userProfile.height > 0
+  ) {
+    userDetails.push(`${Math.round(input.userProfile.height)}cm`)
+  }
+  const userLine = userDetails.length > 0 ? `- User: ${userDetails.join(', ')}` : ''
+
+  const allowedExerciseLines = input.allowedExercises
+    .map((ex) => {
+      const equipment = Array.isArray(ex.equipment) && ex.equipment.length > 0 ? ex.equipment.join(',') : 'none'
+      const patterns =
+        Array.isArray(ex.movementPattern) && ex.movementPattern.length > 0 ? ex.movementPattern.join(',') : '-'
+      return `${ex.id} | ${ex.name} | ${ex.category} | ${ex.difficulty} | equip=${equipment} | loc=${ex.location} | pat=${patterns}`
+    })
+    .join('\n')
+
+  const prompt = `Generate a personalized workout plan using ONLY the provided exercise catalog.
 
 REQUIREMENTS:
 - Goal: ${input.goal}
@@ -203,13 +371,18 @@ REQUIREMENTS:
 - Days per Week: ${input.daysPerWeek}
 - Available Equipment: ${input.equipment?.join(', ') || 'Full gym access'}
 - Medical Conditions: ${input.medicalConditions?.join(', ') || 'None'}
+${input.affectedJoints && input.affectedJoints.length > 0 ? `- Affected Joints to Protect: ${input.affectedJoints.join(', ')}` : ''}
 - Session Duration: ${input.duration || 60} minutes
-${input.userProfile ? `- User: ${input.userProfile.age}yo, ${input.userProfile.weight}kg, ${input.userProfile.height}cm` : ''}
+${userLine}
 
-OUTPUT FORMAT (strict JSON):
+ALLOWED_EXERCISES (use ONLY these; reference by exact exerciseId shown). Format:
+exerciseId | name | category | difficulty | equip=... | loc=... | pat=...
+${allowedExerciseLines}
+
+OUTPUT FORMAT (strict JSON). Every exercise MUST reference an existing "exerciseId" from ALLOWED_EXERCISES:
 {
   "planName": "Descriptive plan name",
-  "duration": "4 weeks",
+  "durationWeeks": 4,
   "description": "2-3 sentence overview",
   "weeklyStructure": [
     {
@@ -217,14 +390,14 @@ OUTPUT FORMAT (strict JSON):
       "focus": "Push (Chest, Shoulders, Triceps)",
       "exercises": [
         {
-          "name": "Barbell Bench Press",
+          "exerciseId": "uuid-from-ALLOWED_EXERCISES",
           "sets": 4,
           "reps": "8-10",
-          "rest": "90s",
+          "restSeconds": 90,
           "notes": "Progressive overload - add 2.5kg when hitting 10 reps"
         }
       ],
-      "totalDuration": "60 minutes"
+      "totalDurationMinutes": 60
     }
   ],
   "progressionStrategy": "How to progress each week",
@@ -233,13 +406,19 @@ OUTPUT FORMAT (strict JSON):
 }
 
 IMPORTANT:
-1. Use ONLY exercises that exist in a standard gym
-2. Include warm-up exercises
+1. CRITICAL: Use ONLY exercises from ALLOWED_EXERCISES (NO new exercises, NO made-up IDs)
+2. Include warm-up exercises (choose from mobility/rehab/cardio if available)
 3. Progressive overload built-in
-4. Consider medical conditions for exercise selection
+4. CRITICAL: Avoid exercises that stress affected joints or medical conditions
 5. Balance muscle groups across the week
 6. Include rest/recovery days
 7. Provide RPE (Rate of Perceived Exertion) guidance
+${input.affectedJoints && input.affectedJoints.length > 0 ? `
+MEDICAL SAFETY PRIORITY:
+- EXCLUDE any exercises that heavily involve: ${input.affectedJoints.join(', ')}
+- Prioritize low-impact alternatives for affected joints
+- Suggest modifications for any recommended exercise if it involves protected areas
+` : ''}
 
 Generate the plan now:`
 
@@ -254,23 +433,52 @@ Generate the plan now:`
         { role: 'user', content: prompt },
       ],
       temperature: 0.8,
-      max_tokens: 2500,
+      max_tokens: 2000,
       response_format: { type: 'json_object' },
-    })
+    }, { timeout: PLAN_AI_TIMEOUT_MS })
 
     const responseText = completion.choices[0]?.message?.content || '{}'
-    const plan = JSON.parse(responseText)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(responseText)
+    } catch (jsonError) {
+      throw new Error('OpenAI returned invalid JSON for workout plan')
+    }
+    const validation = aiWorkoutPlanRefSchema.safeParse(parsed)
+    if (!validation.success) {
+      const issueSummary = validation.error.issues
+        .slice(0, 5)
+        .map((issue) => {
+          const path = issue.path.length > 0 ? issue.path.join('.') : '(root)'
+          return `${path}: ${issue.message}`
+        })
+        .join('; ')
+      logger.warn('AI workout plan validation failed', { errors: validation.error.issues })
+      throw new Error(`AI workout plan validation failed: ${issueSummary}`)
+    }
+    const plan = validation.data
 
     logger.info('AI workout plan generated', {
       goal: input.goal,
       days: input.daysPerWeek,
+      model: getOpenAIModel(),
       tokens: completion.usage?.total_tokens,
     })
 
-    return plan
+    return {
+      ...plan,
+      tokensUsed: completion.usage?.total_tokens,
+    }
   } catch (error) {
-    logger.error('Workout plan generation error', error as Error)
-    throw new Error('Failed to generate workout plan')
+    logger.error('Workout plan generation error', error as Error, {
+      goal: input.goal,
+      experienceLevel: input.experienceLevel,
+      daysPerWeek: input.daysPerWeek,
+      model: getOpenAIModel(),
+      allowedExercisesCount: input.allowedExercises.length,
+    })
+    if (error instanceof Error) throw error
+    throw new Error(typeof error === 'string' ? error : String(error))
   }
 }
 
@@ -286,16 +494,55 @@ export async function analyzeProgress(workoutData: {
     throw new Error('OpenAI not configured')
   }
 
-  const prompt = `Analyze this user's workout progress and provide insights:
+  const sessions = Array.isArray(workoutData.recentSessions) ? workoutData.recentSessions.slice(0, 25) : []
+  const stats = Array.isArray(workoutData.exerciseStats) ? workoutData.exerciseStats.slice(0, 20) : []
 
-RECENT WORKOUT SESSIONS (last 4 weeks):
-${JSON.stringify(workoutData.recentSessions, null, 2)}
+  const sessionLines = sessions
+    .map((s: any) => {
+      const date = s?.date ? new Date(s.date).toISOString().slice(0, 10) : s?.completedAt ? new Date(s.completedAt).toISOString().slice(0, 10) : ''
+      const day = typeof s?.dayName === 'string' ? s.dayName : ''
+      const duration = typeof s?.duration === 'number' ? `${Math.round(s.duration)}m` : ''
+      const energy = typeof s?.energyLevel === 'number' ? `energy=${Math.round(s.energyLevel)}` : ''
+      const diff = typeof s?.difficulty === 'string' ? `diff=${s.difficulty}` : ''
+      return [date, day, duration, energy, diff].filter(Boolean).join(' | ')
+    })
+    .filter(Boolean)
+    .join('\n')
 
-EXERCISE PERFORMANCE STATS:
-${JSON.stringify(workoutData.exerciseStats, null, 2)}
+  const statLines = stats
+    .map((e: any) => {
+      const name = typeof e?.exerciseName === 'string' ? e.exerciseName : 'Unknown'
+      const count = typeof e?.workoutCount === 'number' ? `count=${Math.round(e.workoutCount)}` : ''
+      const avgW = Number.isFinite(Number(e?.avgWeight)) ? `avgW=${Math.round(Number(e.avgWeight))}` : ''
+      const maxW = Number.isFinite(Number(e?.maxWeight)) ? `maxW=${Math.round(Number(e.maxWeight))}` : ''
+      const sets = typeof e?.totalSets === 'number' ? `sets=${Math.round(e.totalSets)}` : ''
+      const rpe = Number.isFinite(Number(e?.avgRpe)) ? `avgRPE=${Number(e.avgRpe).toFixed(1)}` : ''
+      return [name, count, avgW, maxW, sets, rpe].filter(Boolean).join(' | ')
+    })
+    .filter(Boolean)
+    .join('\n')
+
+  const profile = workoutData.userProfile || {}
+  const profileLine = [
+    typeof profile?.experienceLevel === 'string' ? `experience=${profile.experienceLevel}` : '',
+    Array.isArray(profile?.goals) && profile.goals.length > 0 ? `goals=${profile.goals.join(',')}` : '',
+    typeof profile?.age === 'number' ? `age=${Math.round(profile.age)}` : '',
+    typeof profile?.weight === 'number' ? `weight=${Math.round(profile.weight)}kg` : '',
+    typeof profile?.height === 'number' ? `height=${Math.round(profile.height)}cm` : '',
+  ]
+    .filter(Boolean)
+    .join(' | ')
+
+  const prompt = `Analyze this user's workout progress and provide insights.
 
 USER PROFILE:
-${JSON.stringify(workoutData.userProfile, null, 2)}
+${profileLine || 'N/A'}
+
+RECENT SESSIONS (most recent first; max 25):
+${sessionLines || 'N/A'}
+
+TOP EXERCISE STATS (max 20):
+${statLines || 'N/A'}
 
 PROVIDE:
 1. **Progress Summary**: Overall trend (improving/plateau/regressing)
@@ -318,7 +565,7 @@ Keep it motivating, specific, and actionable. Use data points from their logs.`
       ],
       temperature: 0.7,
       max_tokens: 1000,
-    })
+    }, { timeout: DEFAULT_AI_TIMEOUT_MS })
 
     return completion.choices[0]?.message?.content || 'Unable to analyze progress at this time.'
   } catch (error) {
@@ -408,7 +655,7 @@ CRITICAL:
       temperature: 0.7,
       max_tokens: 1200,
       response_format: { type: 'json_object' },
-    })
+    }, { timeout: DEFAULT_AI_TIMEOUT_MS })
 
     const responseText = completion.choices[0]?.message?.content || '{}'
     const feedback = JSON.parse(responseText)
@@ -561,7 +808,7 @@ Focus on balance, not just intensity.`
       temperature: 0.7,
       max_tokens: 1200,
       response_format: { type: 'json_object' },
-    })
+    }, { timeout: DEFAULT_AI_TIMEOUT_MS })
 
     const responseText = completion.choices[0]?.message?.content || '{}'
     const recommendations = JSON.parse(responseText)
@@ -699,7 +946,7 @@ Provide response as JSON:
       temperature: 0.7,
       max_tokens: 1500,
       response_format: { type: 'json_object' },
-    })
+    }, { timeout: DEFAULT_AI_TIMEOUT_MS })
 
     const responseText = completion.choices[0]?.message?.content || '{}'
     const guidance = JSON.parse(responseText)
@@ -749,7 +996,7 @@ Be conversational, encouraging, and specific. Focus on what THEY specifically de
     temperature: 0.8,
     max_tokens: 500,
     stream: true,
-  })
+  }, { timeout: DEFAULT_AI_TIMEOUT_MS })
 
   const encoder = new TextEncoder()
 
@@ -860,7 +1107,7 @@ Focus on:
       temperature: 0.7,
       max_tokens: 1000,
       response_format: { type: 'json_object' },
-    })
+    }, { timeout: DEFAULT_AI_TIMEOUT_MS })
 
     const responseText = completion.choices[0]?.message?.content || '{}'
     const recommendations = JSON.parse(responseText)

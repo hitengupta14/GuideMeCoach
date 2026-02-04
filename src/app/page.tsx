@@ -1,43 +1,17 @@
-'use client'
-
 import Link from 'next/link'
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useSession } from '@/hooks/useSession'
 
 export default function Home() {
-  const router = useRouter()
-  const { isLoading } = useSession({ required: false })
-
-  useEffect(() => {
-    if (!isLoading) {
-      // Note: useSession doesn't auto-redirect when required: false
-      // We'll handle the redirect check after loading
-    }
-  }, [isLoading, router])
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-indigo-950">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800 dark:from-indigo-900 dark:via-purple-900 dark:to-indigo-950 text-white py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6">
               Master Every Exercise
             </h1>
             <p className="text-xl md:text-2xl text-indigo-100 dark:text-indigo-200 mb-8 leading-relaxed">
-              Your structured guide to 100+ exercises with detailed instructions, 
+              Your structured guide to 500+ exercises with detailed instructions, 
               video demos, and medical-safe filtering
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -69,7 +43,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
             <div className="text-center">
-              <div className="text-4xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">100+</div>
+              <div className="text-4xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">500+</div>
               <div className="text-gray-600 dark:text-gray-400">Exercises</div>
             </div>
             <div className="text-center">
@@ -144,7 +118,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 border border-gray-200 dark:border-gray-700">
-              <div className="flex gap-8 items-center">
+              <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start sm:items-center">
                 <div className="flex-shrink-0">
                   <div className="text-5xl">📋</div>
                 </div>

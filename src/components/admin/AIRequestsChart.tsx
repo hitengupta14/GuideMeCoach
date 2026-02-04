@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Line } from 'react-chartjs-2'
 import { useAPIError } from '@/hooks/useAPIError'
 import { apiWrapper } from '@/lib/api-wrapper'
@@ -22,11 +22,8 @@ export default function AIRequestsChart() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchAIData()
-  }, [])
-
-  const fetchAIData = async () => {
+  const fetchAIData = useCallback(async () => {
+    setLoading(true)
     const { data: result, error } = await apiWrapper.get<{ labels: string[], counts: number[] }>('/api/admin/analytics/ai-requests')
 
     if (error) {
@@ -51,7 +48,11 @@ export default function AIRequestsChart() {
       })
     }
     setLoading(false)
-  }
+  }, [handleError])
+
+  useEffect(() => {
+    fetchAIData()
+  }, [fetchAIData])
 
   if (loading) {
     return (

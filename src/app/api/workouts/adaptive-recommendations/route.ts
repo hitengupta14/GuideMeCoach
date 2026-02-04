@@ -4,7 +4,12 @@ import { db } from '@/db'
 import { users, workoutSessions, workoutLogs } from '@/db/schema'
 import { eq, and, desc, gte, inArray, sql } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-import { getAdaptiveWorkoutRecommendations, isOpenAIConfigured } from '@/lib/ai'
+import { getAdaptiveWorkoutRecommendations, getOpenAIModel, isOpenAIConfigured } from '@/lib/ai'
+import { aiRateLimiter } from '@/lib/rate-limit'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
+import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache'
 
 function difficultyToNumber(difficulty: string | null): number {
   if (!difficulty) return 5
@@ -18,12 +23,14 @@ function clamp(num: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, num))
 }
 
-export async function GET(request: NextRequest) {
+async function getAdaptiveRecommendations(request: NextRequest) {
   try {
     const userId = await verifySession(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const premium = await getPremiumStatus(userId)
 
     // Get user profile with premium and health data
     const [user] = await db
@@ -34,8 +41,6 @@ export async function GET(request: NextRequest) {
         medicalConditions: users.medicalConditions,
         painAreas: users.painAreas,
         availableEquipment: users.availableEquipment,
-        isPremium: users.isPremium,
-        subscriptionEndsAt: users.subscriptionEndsAt,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -120,31 +125,86 @@ export async function GET(request: NextRequest) {
     })
 
     // Get adaptive recommendations with timeout
-    const userIsPremium = user.isPremium && user.subscriptionEndsAt && new Date(user.subscriptionEndsAt) > new Date()
+    const userIsPremium = premium.isPremium
     let recommendations
     let type: 'ai' | 'formula' = 'formula'
+    let quotaInfo: any = null
     
     try {
       // Premium users get AI-powered recommendations with medical conditions
       if (userIsPremium && isOpenAIConfigured()) {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+        const goal = (user.goals?.[0] as string) || 'muscle_gain'
+        const planDays = Math.max(3, Math.min(6, Math.round((user.timeAvailability || 60) / 20)))
 
-        recommendations = await getAdaptiveWorkoutRecommendations({
-          recentWorkouts: workoutData,
-          averageRecovery: recovery10,
-          currentStreak: calculateStreak(recentWorkouts),
-          goal: (user.goals?.[0] as string) || 'muscle_gain',
+        const cacheKey = hashAIRequest('insights.adaptive', {
+          v: 1,
+          userId,
+          goal,
           experienceLevel: user.experienceLevel || 'intermediate',
-          workoutPlanDays: Math.max(3, Math.min(6, Math.round((user.timeAvailability || 60) / 20))),
-          // Premium: Include health data for personalized recommendations
-          medicalConditions: user.medicalConditions || [],
-          painAreas: user.painAreas || [],
-          availableEquipment: user.availableEquipment || [],
+          planDays,
+          workoutsThisWeek,
+          recovery10,
+          avgRpe: Number(avgRpe.toFixed(2)),
+          lastWorkoutAt: recentWorkouts[0]?.completedAt ? new Date(recentWorkouts[0].completedAt).toISOString() : null,
+          medicalConditions: (user.medicalConditions || []).map((c) => String(c)).sort(),
+          painAreas: (user.painAreas || []).map((p) => String(p)).sort(),
+          equipment: (user.availableEquipment || []).map((e) => String(e)).sort(),
         })
-        
-        type = 'ai'
-        clearTimeout(timeout)
+
+        const cached = await getCachedAIResponse(cacheKey, 6) // 6 hours
+        if (cached) {
+          recommendations = cached
+          type = 'ai'
+          quotaInfo = await checkQuota(userId, 'insights', userIsPremium)
+        } else {
+          const rl = await aiRateLimiter(request)
+          if (!rl.allowed) {
+            return NextResponse.json(
+              { error: 'Too many AI requests. Please try again later.' },
+              { status: 429, headers: { 'Retry-After': rl.retryAfter?.toString() || '3600' } }
+            )
+          }
+
+          const quota = await checkQuota(userId, 'insights', userIsPremium)
+          quotaInfo = quota
+          if (!quota.allowed) {
+            // Fall back to formula-based recommendations when AI quota is exhausted.
+            recommendations = generateSimpleRecommendations(recovery10, avgRpe, workoutsThisWeek)
+            type = 'formula'
+          } else {
+            const startTime = Date.now()
+
+            recommendations = await getAdaptiveWorkoutRecommendations({
+              recentWorkouts: workoutData,
+              averageRecovery: recovery10,
+              currentStreak: calculateStreak(recentWorkouts),
+              goal,
+              experienceLevel: user.experienceLevel || 'intermediate',
+              workoutPlanDays: planDays,
+              // Premium: Include health data for personalized recommendations
+              medicalConditions: user.medicalConditions || [],
+              painAreas: user.painAreas || [],
+              availableEquipment: user.availableEquipment || [],
+            })
+
+            type = 'ai'
+
+            await decrementQuota(userId, 'insights', userIsPremium)
+            await logAIUsage({
+              userId,
+              feature: 'insights',
+              model: getOpenAIModel(),
+              responseTime: Date.now() - startTime,
+              success: true,
+            })
+
+            await cacheAIResponse(cacheKey, 'insights.adaptive', recommendations, {
+              userId,
+              goal,
+              lastWorkoutAt: recentWorkouts[0]?.completedAt || null,
+            })
+          }
+        }
       } else {
         // Free users get simple formula-based recommendations
         recommendations = generateSimpleRecommendations(recovery10, avgRpe, workoutsThisWeek)
@@ -167,6 +227,14 @@ export async function GET(request: NextRequest) {
       recommendations,
       isPremium: userIsPremium,
       type,
+      quota: quotaInfo
+        ? {
+            used: quotaInfo.used,
+            remaining: quotaInfo.remaining,
+            limit: quotaInfo.limit,
+            resetAt: quotaInfo.resetAt,
+          }
+        : undefined,
       stats: {
         totalWorkouts: recentWorkouts.length,
         averageRecovery: recovery10,
@@ -179,6 +247,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch recommendations' }, { status: 500 })
   }
 }
+
+export const GET = withApiTelemetry(getAdaptiveRecommendations, { name: 'workouts.adaptive-recommendations' })
 
 function calculateStreak(workouts: typeof workoutSessions.$inferSelect[]): number {
   if (workouts.length === 0) return 0

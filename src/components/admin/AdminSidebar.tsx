@@ -44,6 +44,12 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
       icon: ChartBarIcon, 
       show: permissions.canViewAnalytics 
     },
+    {
+      name: 'Metrics',
+      href: '/admin/metrics',
+      icon: ChartBarIcon,
+      show: permissions.canViewAnalytics,
+    },
     { 
       name: 'AI Monitoring', 
       href: '/admin/ai-monitoring', 

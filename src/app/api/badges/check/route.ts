@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { achievementBadges, userAchievements, workoutSessions, workoutLogs, users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { verifySession } from '@/lib/auth-helpers'
 
 // Get all available badges
 export async function GET(request: NextRequest) {
@@ -13,6 +14,14 @@ export async function GET(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json(badges)
+    }
+
+    const authUserId = await verifySession(request)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (authUserId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Get user's earned badges
@@ -38,11 +47,9 @@ export async function GET(request: NextRequest) {
 // Check and award badges for user
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { userId } = body
-
+    const userId = await verifySession(request)
     if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Fetch all badges

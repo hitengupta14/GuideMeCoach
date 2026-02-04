@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Sparkles, AlertCircle, CheckCircle, Loader } from 'lucide-react'
 
 interface Suggestion {
@@ -38,8 +38,15 @@ export default function ExerciseRecommender({
   const [error, setError] = useState<string | null>(null)
   const [isExpanded, setIsExpanded] = useState(true)
 
-  const fetchRecommendations = async () => {
-    if (!lastExercises || lastExercises.length === 0) {
+  const lastExercisesStable = useMemo(() => [...lastExercises], [lastExercises])
+  const availableEquipmentStable = useMemo(
+    () => (availableEquipment ? [...availableEquipment] : undefined),
+    [availableEquipment]
+  )
+
+  const fetchRecommendations = useCallback(async () => {
+    if (lastExercisesStable.length === 0) {
+      setRecommendations(null)
       setError('No recent exercises to base recommendations on')
       return
     }
@@ -53,8 +60,8 @@ export default function ExerciseRecommender({
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          lastExercises,
-          availableEquipment,
+          lastExercises: lastExercisesStable,
+          availableEquipment: availableEquipmentStable,
         }),
       })
 
@@ -69,13 +76,16 @@ export default function ExerciseRecommender({
     } finally {
       setLoading(false)
     }
-  }
+  }, [availableEquipmentStable, lastExercisesStable])
 
   useEffect(() => {
-    if (lastExercises.length > 0) {
+    if (lastExercisesStable.length > 0) {
       fetchRecommendations()
+    } else {
+      setRecommendations(null)
+      setError(null)
     }
-  }, [lastExercises.join(',')])
+  }, [fetchRecommendations, lastExercisesStable.length])
 
   if (!isExpanded && recommendations) {
     return (

@@ -3,9 +3,13 @@ import { jwtVerify, createRemoteJWKSet } from 'jose'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import jwt from 'jsonwebtoken'
+import { SignJWT } from 'jose'
+import { getJwtSecretKey } from '@/lib/jwt'
+import { createRefreshToken } from '@/lib/refresh-token'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { logger } from '@/lib/logger'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+const JWT_SECRET = getJwtSecretKey()
 
 // This endpoint handles Google Sign-In from mobile apps
 // Mobile apps use expo-auth-session which gets the ID token directly from Google
@@ -37,8 +41,9 @@ export async function POST(request: NextRequest) {
       audience: clientId,
     })
 
-    const email = payload.email as string
-    const name = payload.name as string
+    const email = (payload.email as string) || ''
+    const name = (payload.name as string) || ''
+    const emailVerified = Boolean(payload.email_verified)
 
     if (!email) {
       return NextResponse.json(
@@ -49,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Find or create user
     let user = await db.query.users.findFirst({
-      where: eq(users.email, email),
+      where: eq(users.email, email.toLowerCase()),
     })
 
     if (!user) {
@@ -57,37 +62,82 @@ export async function POST(request: NextRequest) {
       const [newUser] = await db
         .insert(users)
         .values({
-          email,
+          email: email.toLowerCase(),
           name: name || email.split('@')[0],
           passwordHash: null, // No password for OAuth users
+          emailVerified: emailVerified,
+          lastLoginAt: new Date(),
         })
         .returning()
 
       user = newUser
+    } else {
+      // Keep user record fresh.
+      await db
+        .update(users)
+        .set({
+          emailVerified: emailVerified || user.emailVerified,
+          name: name || user.name,
+          lastLoginAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, user.id))
     }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email,
-        name: user.name 
-      },
-      JWT_SECRET,
-      { expiresIn: '7d' }
+    const token = await new SignJWT({ userId: user.id })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(JWT_SECRET)
+
+    const userAgent = request.headers.get('user-agent') || undefined
+    const platform = request.headers.get('x-platform') || undefined
+    const deviceName = request.headers.get('x-device-name') || undefined
+    const appVersion = request.headers.get('x-app-version') || undefined
+    const ipAddress = request.ip || request.headers.get('x-forwarded-for') || undefined
+
+    const refreshToken = await createRefreshToken(
+      user.id,
+      { userAgent, platform, deviceName, appVersion },
+      ipAddress
     )
 
-    return NextResponse.json({
+    const premium = await getPremiumStatus(user.id)
+
+    const response = NextResponse.json({
       success: true,
       data: {
         token,
+        refreshToken: refreshToken.token,
+        refreshTokenExpiresAt: refreshToken.expiresAt.toISOString(),
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
+          isPremium: premium.isPremium,
+          isAdmin: user.isAdmin,
+          adminRole: user.adminRole,
         },
       },
     })
+
+    response.cookies.set('session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60,
+      path: '/',
+    })
+    response.cookies.set('refresh_token', refreshToken.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60,
+      path: '/',
+    })
+
+    logger.info('Google sign-in successful', { userId: user.id })
+    return response
   } catch (error) {
     console.error('Google Sign-In Error:', error)
     

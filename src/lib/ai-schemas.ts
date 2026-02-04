@@ -19,6 +19,20 @@ export const aiExerciseSchema = z.object({
 })
 
 /**
+ * Exercise schema (catalog-referenced) for AI-generated workout plans.
+ * NOTE: This is the preferred format: exercises must reference an existing DB exerciseId.
+ */
+export const aiExerciseRefSchema = z.object({
+  exerciseId: z.string().uuid('exerciseId must be a UUID'),
+  sets: z.number().int().positive(),
+  reps: z.string().min(1),
+  // Prefer restSeconds, but accept legacy/rest string too.
+  restSeconds: z.union([z.number().int().nonnegative(), z.string().min(1)]).optional(),
+  rest: z.string().min(1).optional(),
+  notes: z.string().optional(),
+})
+
+/**
  * Day structure schema
  */
 export const aiDaySchema = z.object({
@@ -26,6 +40,13 @@ export const aiDaySchema = z.object({
   focus: z.string().min(1),
   exercises: z.array(aiExerciseSchema).min(1, 'At least one exercise required'),
   totalDuration: z.string().optional(),
+})
+
+export const aiDayRefSchema = z.object({
+  day: z.string().min(1),
+  focus: z.string().min(1),
+  exercises: z.array(aiExerciseRefSchema).min(1, 'At least one exercise required'),
+  totalDurationMinutes: z.number().int().positive().optional(),
 })
 
 /**
@@ -36,6 +57,49 @@ export const aiWorkoutPlanSchema = z.object({
   duration: z.string().min(1),
   description: z.string().min(1),
   weeklyStructure: z.array(aiDaySchema).min(1, 'At least one day required'),
+  progressionStrategy: z.string().optional(),
+  deloadWeek: z.string().optional(),
+  tips: z.array(z.string()).optional().default([]),
+})
+
+export const aiWorkoutPlanRefSchema = z.object({
+  planName: z.string().min(1, 'Plan name is required'),
+  durationWeeks: z.number().int().positive().optional(),
+  description: z.string().min(1),
+  weeklyStructure: z.array(aiDayRefSchema).min(1, 'At least one day required'),
+  progressionStrategy: z.string().optional(),
+  deloadWeek: z.string().optional(),
+  tips: z.array(z.string()).optional().default([]),
+})
+
+/**
+ * Workout plan template schema (two-stage planner).
+ * AI outputs structure + movement patterns; server picks exact exercises from DB.
+ */
+const movementPatternValues = ['push', 'pull', 'hinge', 'squat', 'rotate', 'carry', 'isolation'] as const
+const categoryValues = ['strength', 'mobility', 'rehab', 'cardio'] as const
+
+export const aiExerciseSlotSchema = z.object({
+  category: z.enum(categoryValues),
+  movementPattern: z.array(z.enum(movementPatternValues)).optional().default([]),
+  sets: z.number().int().positive(),
+  reps: z.string().min(1),
+  restSeconds: z.union([z.number().int().nonnegative(), z.string().min(1)]).optional(),
+  notes: z.string().optional(),
+})
+
+export const aiDayTemplateSchema = z.object({
+  day: z.string().min(1),
+  focus: z.string().min(1),
+  exercises: z.array(aiExerciseSlotSchema).min(1, 'At least one slot required'),
+  totalDurationMinutes: z.number().int().positive().optional(),
+})
+
+export const aiWorkoutPlanTemplateSchema = z.object({
+  planName: z.string().min(1, 'Plan name is required'),
+  durationWeeks: z.number().int().positive().optional(),
+  description: z.string().min(1),
+  weeklyStructure: z.array(aiDayTemplateSchema).min(1, 'At least one day required'),
   progressionStrategy: z.string().optional(),
   deloadWeek: z.string().optional(),
   tips: z.array(z.string()).optional().default([]),
@@ -109,8 +173,12 @@ export const aiExerciseKnowledgeSchema = z.object({
  * Types inferred from schemas
  */
 export type AIWorkoutPlan = z.infer<typeof aiWorkoutPlanSchema>
+export type AIWorkoutPlanRef = z.infer<typeof aiWorkoutPlanRefSchema>
+export type AIWorkoutPlanTemplate = z.infer<typeof aiWorkoutPlanTemplateSchema>
 export type AIExercise = z.infer<typeof aiExerciseSchema>
+export type AIExerciseRef = z.infer<typeof aiExerciseRefSchema>
 export type AIDay = z.infer<typeof aiDaySchema>
+export type AIDayRef = z.infer<typeof aiDayRefSchema>
 export type AIExerciseRecommendations = z.infer<
   typeof aiExerciseRecommendationsSchema
 >

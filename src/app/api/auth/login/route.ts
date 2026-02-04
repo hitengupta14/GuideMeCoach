@@ -2,20 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { verifyPassword, generateToken } from '@/lib/auth'
+import { verifyPassword } from '@/lib/auth'
 import { loginSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 import { authRateLimiter } from '@/lib/rate-limit'
 import { z } from 'zod'
 import { SignJWT } from 'jose'
 import { createRefreshToken } from '@/lib/refresh-token'
+import { getJwtSecretKey } from '@/lib/jwt'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+const JWT_SECRET = getJwtSecretKey()
 
-export async function POST(request: NextRequest) {
+async function login(request: NextRequest) {
   try {
     // Rate limiting
-    const rateLimitResult = authRateLimiter(request)
+    const rateLimitResult = await authRateLimiter(request)
     if (!rateLimitResult.allowed) {
       logger.warn('Login rate limit exceeded', { ip: request.ip })
       return NextResponse.json(
@@ -33,8 +35,6 @@ export async function POST(request: NextRequest) {
     const validated = loginSchema.parse(body)
     const { email, password } = validated
 
-    console.log('🔍 Login attempt:', { email, passwordLength: password.length })
-
     // Find user
     const user = await db
       .select({
@@ -50,15 +50,11 @@ export async function POST(request: NextRequest) {
         goals: users.goals,
         isAdmin: users.isAdmin,
         adminRole: users.adminRole,
-        isPremium: users.isPremium,
-        subscriptionEndsAt: users.subscriptionEndsAt,
         lastLoginAt: users.lastLoginAt,
       })
       .from(users)
       .where(eq(users.email, email.toLowerCase()))
       .limit(1)
-
-    console.log('🔍 User found:', user.length > 0 ? 'Yes' : 'No')
 
     if (user.length === 0) {
       logger.warn('Login attempt with non-existent email', { email: email.substring(0, 5) + '***' })
@@ -81,16 +77,9 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       )
     }
-    console.log('🔍 User details:', { 
-      id: foundUser.id, 
-      email: foundUser.email,
-      hasPasswordHash: !!foundUser.passwordHash,
-      passwordHashPreview: foundUser.passwordHash?.substring(0, 20)
-    })
 
     // Verify password
     if (!foundUser.passwordHash) {
-      console.log('❌ User has no password hash')
       logger.error('User has no password hash', new Error('Missing password hash'), { userId: foundUser.id })
       return NextResponse.json(
         { error: 'User authentication not configured' },
@@ -99,7 +88,6 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordValid = await verifyPassword(password, foundUser.passwordHash)
-    console.log('🔍 Password valid:', passwordValid)
     
     if (!passwordValid) {
       logger.warn('Invalid password attempt', { email: email.substring(0, 5) + '***' })
@@ -166,26 +154,22 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     )
 
-    // Set HTTP-only cookie with JWT token (24 hours for better persistence)
+    // Set HTTP-only cookies: short-lived access token + long-lived refresh token
     const isProduction = process.env.NODE_ENV === 'production'
-    const cookieDomain = isProduction ? undefined : 'localhost'
     
     response.cookies.set('session', token, {
       httpOnly: true,
       secure: isProduction, // true on Vercel (HTTPS enforced)
       sameSite: 'lax', // Allows cross-site GET requests to include the cookie
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60, // 1 hour (matches JWT expiry)
       path: '/', // Available to all paths
-      domain: cookieDomain, // undefined = use current domain (Vercel will use .vercel.app)
     })
-
-    console.log('[Login] Cookie set:', {
-      NODE_ENV: process.env.NODE_ENV,
+    response.cookies.set('refresh_token', refreshToken.token, {
+      httpOnly: true,
       secure: isProduction,
-      domain: cookieDomain,
       sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60, // 30 days
       path: '/',
-      maxAge: '24h',
     })
 
     logger.info('User login successful', { userId: foundUser.id })
@@ -209,3 +193,5 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const POST = withApiTelemetry(login, { name: 'auth.login', includeUserId: false })

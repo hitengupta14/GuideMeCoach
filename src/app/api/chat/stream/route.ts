@@ -3,14 +3,17 @@ import { db } from '@/db'
 import { chatMessages, chatConversations, users } from '@/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-import { generateStreamingChatResponse, isOpenAIConfigured } from '@/lib/ai'
+import { generateStreamingChatResponse, getOpenAIModel, isOpenAIConfigured } from '@/lib/ai'
 import { chatRateLimiter } from '@/lib/rate-limit'
 import { verifySession } from '@/lib/auth-helpers'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
-export async function POST(request: NextRequest) {
+async function streamChat(request: NextRequest) {
   try {
     // Rate limiting for chat messages
-    const rateLimitResult = chatRateLimiter(request)
+    const rateLimitResult = await chatRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return new Response(
         JSON.stringify({ error: 'Too many messages. Please slow down.' }),
@@ -29,6 +32,8 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return new Response('Unauthorized', { status: 401 })
     }
+
+    const premium = await getPremiumStatus(userId)
 
     const body = await request.json()
     const { conversationId, content } = body
@@ -70,6 +75,33 @@ export async function POST(request: NextRequest) {
       .where(eq(users.id, userId))
       .limit(1)
 
+    if (!user) {
+      return new Response('User not found', { status: 404 })
+    }
+
+    const userIsPremium = premium.isPremium
+
+    // Enforce quota BEFORE starting the stream (streaming makes it hard to decrement after completion).
+    const quota = await checkQuota(userId, 'chat', userIsPremium)
+    if (!quota.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'AI chat quota exceeded',
+          quota: {
+            used: quota.used,
+            limit: quota.limit,
+            resetAt: quota.resetAt,
+          },
+          message: userIsPremium
+            ? `You've used all ${quota.limit} AI chat messages this month. Resets on ${new Date(quota.resetAt).toLocaleDateString()}`
+            : 'Upgrade to Premium to access AI chat.',
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const startTime = Date.now()
+
     // Get conversation history
     const previousMessages = await db
       .select({
@@ -100,6 +132,9 @@ export async function POST(request: NextRequest) {
       { role: 'user' as const, content },
     ]
 
+    // Decrement quota right before starting the stream.
+    await decrementQuota(userId, 'chat', userIsPremium)
+
     // Generate streaming response
     const stream = await generateStreamingChatResponse(messages, {
       name: user?.name || undefined,
@@ -107,6 +142,14 @@ export async function POST(request: NextRequest) {
       goals: user?.goals || undefined,
       medicalConditions: user?.medicalConditions || undefined,
       age: user?.age || undefined,
+    })
+
+    await logAIUsage({
+      userId,
+      feature: 'chat',
+      model: getOpenAIModel(),
+      responseTime: Date.now() - startTime,
+      success: true,
     })
 
     logger.info('Streaming response started', { conversationId, userId })
@@ -123,3 +166,5 @@ export async function POST(request: NextRequest) {
     return new Response('Failed to generate response', { status: 500 })
   }
 }
+
+export const POST = withApiTelemetry(streamChat, { name: 'chat.stream' })

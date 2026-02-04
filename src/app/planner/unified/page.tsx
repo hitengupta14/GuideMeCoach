@@ -17,7 +17,7 @@ function UnifiedPlannerContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isLoading } = useSession({ required: true })
-  const { hasAccess, isLoading: subLoading, isPremium } = useSubscriptionStatus(typeof window !== 'undefined' ? localStorage.getItem('token') : null)
+  const { hasAccess, isLoading: subLoading } = useSubscriptionStatus()
   const { quotas } = useAIQuota()
 
   useEffect(() => {

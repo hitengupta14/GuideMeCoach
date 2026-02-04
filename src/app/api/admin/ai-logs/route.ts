@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { aiUsageLogs } from '@/db/schema'
 import { desc } from 'drizzle-orm'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const admin = await requireAdmin(request, { permission: 'canViewAnalytics' })
+    if (admin instanceof NextResponse) return admin
+
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '20')
 
@@ -12,7 +16,7 @@ export async function GET(request: NextRequest) {
       .select()
       .from(aiUsageLogs)
       .orderBy(desc(aiUsageLogs.createdAt))
-      .limit(limit)
+      .limit(Math.min(Math.max(limit, 1), 100))
 
     return NextResponse.json({ requests })
   } catch (error) {

@@ -1,37 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/db'
-import { users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
 import { getUserQuotas } from '@/lib/ai-quota'
 import { verifySession } from '@/lib/auth-helpers'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
-/**
- * GET /api/user/quotas
- * Get user's AI usage quotas
- */
-export async function GET(request: NextRequest) {
+async function getQuotas(request: NextRequest) {
   try {
     const userId = await verifySession(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user's premium status
-    const [user] = await db
-      .select({ isPremium: users.isPremium })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
+    const premium = await getPremiumStatus(userId)
 
     // Get all quotas
-    const quotas = await getUserQuotas(userId, user.isPremium || false)
+    const quotas = await getUserQuotas(userId, premium.isPremium)
 
     return NextResponse.json({
-      isPremium: user.isPremium || false,
+      isPremium: premium.isPremium,
       quotas,
     })
   } catch (error) {
@@ -42,3 +28,5 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+export const GET = withApiTelemetry(getQuotas, { name: 'user.quotas' })

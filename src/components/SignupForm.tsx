@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -11,13 +11,27 @@ export default function SignupForm() {
     password: '',
     confirmPassword: '',
   })
+  const [redirectPath, setRedirectPath] = useState('/dashboard')
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [otpSent, setOtpSent] = useState(false)
-  const [otpCode, setOtpCode] = useState('')
-  const [verifying, setVerifying] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const redirect = params.get('redirect')
+    if (redirect) {
+      try {
+        const decoded = decodeURIComponent(redirect)
+        // Never redirect signups directly to admin routes.
+        setRedirectPath(decoded.startsWith('/admin') ? '/dashboard' : decoded)
+      } catch {
+        setRedirectPath('/dashboard')
+      }
+    }
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -79,98 +93,86 @@ export default function SignupForm() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md w-full">
-          <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-green-600 mb-4">Account Created!</h2>
-          <p className="text-gray-600 mb-4">Verify your email with the OTP code.</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4">
+        <div className="w-full max-w-md rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-6 sm:p-8 text-center">
+          <div className="text-5xl mb-4">✅</div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Account created</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            We sent a verification link to your email. Please verify to log in.
+          </p>
 
-          {!otpSent ? (
-            <button
-              onClick={async () => {
-                try {
-                  setLoading(true)
-                  const resp = await fetch('/api/auth/otp/send', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: formData.email }),
-                  })
-                  if (!resp.ok) {
-                    const data = await resp.json()
-                    setError(data.error || 'Failed to send OTP')
-                  } else {
-                    setOtpSent(true)
-                  }
-                } catch (e) {
-                  setError('Network error while sending OTP')
-                } finally {
-                  setLoading(false)
-                }
-              }}
-              className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-            >
-              Send OTP to Email
-            </button>
-          ) : (
-            <div className="space-y-3 text-left">
-              <label className="block text-sm font-medium text-gray-700">Enter OTP Code</label>
-              <input
-                type="text"
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="6-digit code"
-              />
-              <button
-                onClick={async () => {
-                  try {
-                    setVerifying(true)
-                    const resp = await fetch('/api/auth/otp/verify', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({ email: formData.email, otp: otpCode }),
-                    })
-                    const data = await resp.json()
-                    if (!resp.ok) {
-                      setError(data.error || 'Invalid OTP')
-                    } else {
-                      router.push('/dashboard')
-                    }
-                  } catch (e) {
-                    setError('Network error while verifying OTP')
-                  } finally {
-                    setVerifying(false)
-                  }
-                }}
-                className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
-                disabled={verifying}
-              >
-                {verifying ? 'Verifying...' : 'Verify & Continue'}
-              </button>
-              <p className="text-sm text-gray-500">Code expires in 10 minutes.</p>
+          {resendSuccess ? (
+            <div className="mb-4 rounded-xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-900/20 p-4 text-left">
+              <p className="text-green-800 dark:text-green-300 text-sm">
+                If your email is registered and not yet verified, we sent a new verification link.
+              </p>
             </div>
-          )}
+          ) : null}
+
+          {error ? (
+            <div className="mb-4 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 p-4 text-left">
+              <p className="text-red-800 dark:text-red-300 text-sm">{error}</p>
+            </div>
+          ) : null}
+
+          <button
+            onClick={async () => {
+              try {
+                setError(null)
+                setResendSuccess(false)
+                setResending(true)
+
+                const resp = await fetch('/api/auth/resend-verification', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: formData.email }),
+                })
+
+                const data = await resp.json()
+                if (!resp.ok) {
+                  setError(data?.error || 'Failed to resend verification email')
+                  return
+                }
+
+                setResendSuccess(true)
+              } catch {
+                setError('Network error while resending verification email')
+              } finally {
+                setResending(false)
+              }
+            }}
+            className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            disabled={resending}
+          >
+            {resending ? 'Sending…' : 'Resend Verification Email'}
+          </button>
+
+          <button
+            onClick={() => router.push(`/auth/login?registered=1&redirect=${encodeURIComponent(redirectPath)}`)}
+            className="mt-3 w-full bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white py-2.5 rounded-lg font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            Back to Login
+          </button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-        <p className="text-gray-600 mb-6">Start your fitness journey with GuideMeCoach</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl p-6 sm:p-8 w-full max-w-md">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Create account</h1>
+        <p className="text-gray-600 dark:text-gray-400 mb-6">Start your fitness journey with GuideMeCoach</p>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700 text-sm">{error}</p>
+          <div className="mb-4 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 p-4">
+            <p className="text-red-800 dark:text-red-300 text-sm">{error}</p>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Full Name
             </label>
             <input
@@ -180,13 +182,14 @@ export default function SignupForm() {
               value={formData.name}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              autoComplete="name"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="John Doe"
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Email
             </label>
             <input
@@ -196,13 +199,14 @@ export default function SignupForm() {
               value={formData.email}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              autoComplete="email"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Password
             </label>
             <input
@@ -212,16 +216,17 @@ export default function SignupForm() {
               value={formData.password}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              autoComplete="new-password"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="At least 8 characters"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Must contain uppercase, lowercase, and number
             </p>
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Confirm Password
             </label>
             <input
@@ -231,7 +236,8 @@ export default function SignupForm() {
               value={formData.confirmPassword}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              autoComplete="new-password"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="Repeat your password"
             />
           </div>
@@ -239,28 +245,31 @@ export default function SignupForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Creating account...' : 'Create Account'}
           </button>
         </form>
 
-        <div className="flex items-center gap-4 my-6">
-          <div className="flex-1 border-t border-gray-300"></div>
-          <span className="text-gray-500 text-sm">or</span>
-          <div className="flex-1 border-t border-gray-300"></div>
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center" aria-hidden="true">
+            <div className="w-full border-t border-gray-200 dark:border-gray-800" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-white dark:bg-gray-900 px-3 text-sm text-gray-500">or</span>
+          </div>
         </div>
 
         <a
           href="/api/auth/google/start"
-          className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-900 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+          className="w-full inline-flex items-center justify-center gap-2 bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white py-2.5 rounded-lg font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
         >
           <span>Continue with Google</span>
         </a>
 
-        <p className="text-center text-gray-600">
+        <p className="text-center text-gray-600 dark:text-gray-400 mt-6">
           Already have an account?{' '}
-          <Link href="/auth/login" className="text-indigo-600 hover:underline font-semibold">
+          <Link href="/auth/login" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
             Login here
           </Link>
         </p>

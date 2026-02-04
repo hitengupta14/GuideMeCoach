@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { workoutPlans, users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { workoutPlans } from '@/db/schema'
+import { desc, eq } from 'drizzle-orm'
 import { verifySession } from '@/lib/auth-helpers'
 
 /**
@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
 
     const plans = await db.query.workoutPlans.findMany({
       where: eq(workoutPlans.userId, userId),
+      orderBy: [desc(workoutPlans.createdAt)],
     })
 
     return NextResponse.json({
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { planData, name, description, durationWeeks } = await request.json()
+    const { planData, name, description, durationWeeks, isActive } = await request.json()
 
     if (!planData) {
       return NextResponse.json(
@@ -58,19 +59,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Save the plan
-    const newPlan = await db.insert(workoutPlans).values({
-      userId,
-      name: name || 'Generated Plan',
-      description: description || 'Personalized workout plan',
-      durationWeeks: durationWeeks || 12,
-      planData: planData as any,
-      isActive: true,
-    }).returning()
+    const activate = Boolean(isActive)
+
+    // Save the plan (and optionally activate it, deactivating other plans for the user).
+    const newPlan = await db.transaction(async (tx) => {
+      if (activate) {
+        await tx
+          .update(workoutPlans)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(eq(workoutPlans.userId, userId))
+      }
+
+      const [inserted] = await tx
+        .insert(workoutPlans)
+        .values({
+          userId,
+          name: name || 'Generated Plan',
+          description: description || 'Personalized workout plan',
+          durationWeeks: durationWeeks || 12,
+          planData: planData as any,
+          isActive: activate,
+          updatedAt: new Date(),
+        })
+        .returning()
+
+      return inserted
+    })
 
     return NextResponse.json({
       success: true,
-      plan: newPlan[0],
+      plan: newPlan,
     })
   } catch (error) {
     console.error('Error saving plan:', error)

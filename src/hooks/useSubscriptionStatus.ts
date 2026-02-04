@@ -20,17 +20,28 @@ export interface SubscriptionStatusData {
   pendingPlanStartsAt: string | null;
 }
 
+/**
+ * Web should prefer cookie-based auth (HTTP-only `session` cookie).
+ * Token-based auth is kept optional for mobile/API clients.
+ */
 export function useSubscriptionStatus(token?: string | null) {
+  const authKind = token ? 'bearer' : 'cookie'
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['subscription-status', token],
+    queryKey: ['subscription-status', authKind],
     queryFn: async () => {
-      if (!token) return null;
-
       const response = await fetch('/api/user/subscription/status', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
+        headers: token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : undefined,
       });
+
+      // Treat unauthenticated as "no subscription" rather than an error.
+      if (response.status === 401) {
+        return null
+      }
 
       if (!response.ok) {
         throw new Error('Failed to fetch subscription status');
@@ -39,7 +50,7 @@ export function useSubscriptionStatus(token?: string | null) {
       const result = await response.json();
       return result.data as SubscriptionStatusData;
     },
-    enabled: !!token,
+    enabled: true,
     staleTime: 2 * 60 * 1000, // 2 minutes (was 30 seconds) - reasonable for subscription data
     gcTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false, // Don't refetch on every tab focus (was true)

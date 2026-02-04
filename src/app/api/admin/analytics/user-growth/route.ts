@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { users, workoutSessions } from '@/db/schema'
 import { sql, gte } from 'drizzle-orm'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    // In a real app, verify admin authentication here
+    const admin = await requireAdmin(request, { permission: 'canViewAnalytics' })
+    if (admin instanceof NextResponse) return admin
     
     const days = 30
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)

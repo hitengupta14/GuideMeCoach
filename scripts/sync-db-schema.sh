@@ -37,19 +37,15 @@ fi
 
 if [ "$TARGET" == "production" ] || [ "$TARGET" == "both" ]; then
   echo "🚀 Applying to PRODUCTION database..."
-  PGPASSWORD='guidemecoach@0705' psql \
-    -h aws-1-ap-south-1.pooler.supabase.com \
-    -p 6543 \
-    -U postgres.pezjeesjrnzqabwrssyb \
-    -d postgres \
-    -c "$MIGRATION_0004"
+  if [ -z "$PROD_DATABASE_URL" ]; then
+    echo "❌ PROD_DATABASE_URL is not set."
+    echo "   Example: PROD_DATABASE_URL=\"postgresql://USER:PASSWORD@HOST:PORT/DB\" ./scripts/sync-db-schema.sh production"
+    exit 1
+  fi
+
+  psql "$PROD_DATABASE_URL" -c "$MIGRATION_0004"
   
-  PGPASSWORD='guidemecoach@0705' psql \
-    -h aws-1-ap-south-1.pooler.supabase.com \
-    -p 6543 \
-    -U postgres.pezjeesjrnzqabwrssyb \
-    -d postgres \
-    -c "$MIGRATION_0008"
+  psql "$PROD_DATABASE_URL" -c "$MIGRATION_0008"
   echo "✅ Production database updated"
 fi
 

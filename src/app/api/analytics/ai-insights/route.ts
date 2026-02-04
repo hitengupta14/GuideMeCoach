@@ -3,14 +3,18 @@ import { db } from '@/db'
 import { users, workoutSessions, workoutLogs, exercises } from '@/db/schema'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-import { analyzeProgress } from '@/lib/ai'
+import { analyzeProgress, getOpenAIModel } from '@/lib/ai'
 import { aiRateLimiter } from '@/lib/rate-limit'
 import { verifySession } from '@/lib/auth-helpers'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
+import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache'
 
-export async function GET(request: NextRequest) {
+async function aiInsights(request: NextRequest) {
   try {
     // Rate limiting for AI insights
-    const rateLimitResult = aiRateLimiter(request)
+    const rateLimitResult = await aiRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many AI insight requests. Please try again later.' },
@@ -31,14 +35,8 @@ export async function GET(request: NextRequest) {
     const weeksBack = parseInt(searchParams.get('weeks') || '4')
 
     // Check if user is premium (AI insights is a premium feature)
-    const [userCheck] = await db
-      .select({ isPremium: users.isPremium, subscriptionEndsAt: users.subscriptionEndsAt })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-
-    const isPremium = userCheck?.isPremium && 
-      (!userCheck.subscriptionEndsAt || new Date(userCheck.subscriptionEndsAt) > new Date())
+    const premium = await getPremiumStatus(userId)
+    const isPremium = premium.isPremium
 
     // Get user profile
     const [user] = await db
@@ -133,8 +131,66 @@ export async function GET(request: NextRequest) {
     } else {
       // Premium users get full AI analysis
       try {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+        const lastSessionAt = recentSessions[0]?.completedAt ? new Date(recentSessions[0].completedAt).toISOString() : null
+        const cacheKey = hashAIRequest('insights.progress', {
+          v: 1,
+          userId,
+          weeksBack,
+          lastSessionAt,
+          sessionsCount: recentSessions.length,
+          topExercises: exerciseStats
+            .slice(0, 10)
+            .map((e) => ({
+              id: e.exerciseId,
+              c: Number(e.workoutCount) || 0,
+              mw: Number(e.maxWeight) || 0,
+            })),
+          // Include key profile fields to invalidate cache on profile updates.
+          experienceLevel: user.experienceLevel || null,
+          goals: user.goals || [],
+          weight: user.weight || null,
+          height: user.height || null,
+          age: user.age || null,
+        })
+
+        // Serve cached insights even if quota is exhausted (no OpenAI call).
+        const cachedInsights = await getCachedAIResponse(cacheKey, 24) // 24 hours
+        if (cachedInsights) {
+          return NextResponse.json({
+            insights: cachedInsights,
+            cached: true,
+            stats: {
+              totalWorkouts: recentSessions.length,
+              avgDuration: recentSessions.reduce((sum, s) => sum + s.duration, 0) / recentSessions.length || 0,
+              avgEnergyLevel: recentSessions.reduce((sum, s) => sum + (s.energyLevel || 5), 0) / recentSessions.length || 0,
+              exercisesTracked: exerciseStats.length,
+              topExercises: exerciseStats.slice(0, 5).map(e => e.exerciseName),
+            },
+            period: {
+              weeks: weeksBack,
+              from: cutoffDate.toISOString(),
+              to: new Date().toISOString(),
+            },
+          })
+        }
+
+        const quota = await checkQuota(userId, 'insights', isPremium)
+        if (!quota.allowed) {
+          return NextResponse.json(
+            {
+              error: 'AI insights quota exceeded',
+              quota: {
+                used: quota.used,
+                limit: quota.limit,
+                resetAt: quota.resetAt,
+              },
+              message: `You've used all ${quota.limit} AI insights this month. Resets on ${new Date(quota.resetAt).toLocaleDateString()}`,
+            },
+            { status: 403 }
+          )
+        }
+
+        const startTime = Date.now()
 
         insights = await analyzeProgress({
         recentSessions: recentSessions.map(s => ({
@@ -162,9 +218,31 @@ export async function GET(request: NextRequest) {
         },
       })
 
-        clearTimeout(timeout)
+        await decrementQuota(userId, 'insights', isPremium)
+        await logAIUsage({
+          userId,
+          feature: 'insights',
+          model: getOpenAIModel(),
+          responseTime: Date.now() - startTime,
+          success: true,
+        })
+
+        await cacheAIResponse(cacheKey, 'insights.progress', insights, {
+          userId,
+          weeksBack,
+          lastSessionAt,
+        })
       } catch (aiError) {
         logger.error('AI analysis failed', aiError as Error)
+
+        await logAIUsage({
+          userId,
+          feature: 'insights',
+          model: getOpenAIModel(),
+          success: false,
+          errorMessage: (aiError as Error).message,
+        })
+
         // Return fallback insights if AI fails
         insights = {
           summary: 'Unable to generate AI insights at this time. Please try again later.',
@@ -197,3 +275,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to generate insights' }, { status: 500 })
   }
 }
+
+export const GET = withApiTelemetry(aiInsights, { name: 'analytics.ai-insights' })

@@ -1,6 +1,6 @@
 import { db } from '@/db'
 import { exercises, exerciseJoints, joints } from '@/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 
 export async function GET(req: Request) {
   try {
@@ -17,7 +17,9 @@ export async function GET(req: Request) {
     const exercise = await db
       .select()
       .from(exercises)
-      .where(eq(exercises.id, exerciseId))
+      .where(
+        and(eq(exercises.id, exerciseId), eq(exercises.reviewStatus, 'approved'))
+      )
       .then(res => res[0])
 
     if (!exercise) {
@@ -38,9 +40,6 @@ export async function GET(req: Request) {
       .from(exerciseJoints)
       .leftJoin(joints, eq(exerciseJoints.jointId, joints.id))
       .where(eq(exerciseJoints.exerciseId, exerciseId))
-
-    // Get all joints for reference
-    const allJoints = await db.select().from(joints)
 
     return Response.json({
       exercise: {
@@ -100,7 +99,9 @@ export async function POST(req: Request) {
     const fullExercises = await db
       .select()
       .from(exercises)
-      .where(inArray(exercises.id, exerciseIds))
+      .where(
+        and(inArray(exercises.id, exerciseIds), eq(exercises.reviewStatus, 'approved'))
+      )
 
     return Response.json({
       searchedJoints: jointNames,

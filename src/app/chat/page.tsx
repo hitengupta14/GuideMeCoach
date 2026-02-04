@@ -1,27 +1,23 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import Chatbot from '@/components/Chatbot'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useAIQuota } from '@/hooks/useAIQuota'
-import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import { useSession } from '@/hooks/useSession'
 import { PremiumPageGuard } from '@/components/PremiumPageGuard'
 
 export default function ChatPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
-  const router = useRouter()
   const { user, isLoading } = useSession()
-  const { hasAccess, isPremium } = useSubscriptionStatus(
-    typeof window !== 'undefined' ? localStorage.getItem('token') : null
-  )
   const { quotas, canAccessFeature } = useAIQuota()
 
-  // Check if free user - show upgrade prompt
-  if (!user?.isPremium && !isLoading) {
-    setShowUpgradeModal(true)
-  }
+  // Show upgrade prompt for free users (avoid setState during render).
+  useEffect(() => {
+    if (!isLoading && user && !user.isPremium) {
+      setShowUpgradeModal(true)
+    }
+  }, [isLoading, user])
 
   if (isLoading) {
     return (

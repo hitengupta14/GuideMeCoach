@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useSession } from '@/hooks/useSession'
 import AdaptiveWorkoutsComponent from '@/components/AdaptiveWorkoutsComponent'
@@ -9,21 +8,7 @@ import NutritionGuidanceComponent from '@/components/NutritionGuidanceComponent'
 import ProgressInsightsComponent from '@/components/ProgressInsightsComponent'
 
 export default function DashboardPage() {
-  const router = useRouter()
   const { user, isLoading } = useSession()
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      })
-      router.push('/')
-    } catch (err) {
-      console.error('Logout failed:', err)
-      router.push('/')
-    }
-  }
 
   if (isLoading) {
     return (
@@ -42,49 +27,23 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-950 dark:to-indigo-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800/50 border-b border-gray-200 dark:border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-800 transition-colors"
-          >
-            Logout
-          </button>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-12">
         {/* Welcome Section */}
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-8 mb-8 border border-gray-200 dark:border-gray-800">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome back, {user.name}!</h2>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Welcome back, {user.name}!</h1>
           <p className="text-gray-600 dark:text-gray-400">Here's your fitness dashboard. Let's crush those goals today!</p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-800/50 p-6 border border-gray-200 dark:border-gray-800">
-            <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">0</div>
-            <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">Workouts This Week</p>
-          </div>
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-800/50 p-6 border border-gray-200 dark:border-gray-800">
-            <div className="text-3xl font-bold text-green-600 dark:text-green-400">0</div>
-            <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">Total Workouts</p>
-          </div>
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-800/50 p-6 border border-gray-200 dark:border-gray-800">
-            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">0</div>
-            <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">Achievements</p>
-          </div>
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow dark:shadow-gray-800/50 p-6 border border-gray-200 dark:border-gray-800">
-            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">0</div>
-            <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">Favorite Exercises</p>
-          </div>
-        </div>
-
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-4 gap-6 mb-8">
+          <Link href="/today">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-gray-800">
+              <div className="text-4xl mb-4">📅</div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Today</h3>
+              <p className="text-gray-600 dark:text-gray-400">Your next workout, ready to go</p>
+            </div>
+          </Link>
           <Link href="/planner">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-gray-800">
               <div className="text-4xl mb-4">📋</div>
@@ -104,7 +63,7 @@ export default function DashboardPage() {
           <Link href="/workouts">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-gray-800">
               <div className="text-4xl mb-4">💪</div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Log Workout</h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Quick Log</h3>
               <p className="text-gray-600 dark:text-gray-400">Record your workout and track progress</p>
             </div>
           </Link>

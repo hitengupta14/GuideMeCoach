@@ -1,30 +1,19 @@
 import { db } from '@/db'
-import { users, subscriptionHistory, adminActivityLogs } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { adminActivityLogs, entitlements, subscriptionHistory, users } from '@/db/schema'
+import { eq, sql } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth-helpers'
+import { requireAdmin } from '@/lib/admin-auth'
+import { getPremiumStatus, isEntitlementsAvailable } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
-export async function POST(
+async function cancelSubscription(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check authentication
-    const userId = await verifySession(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user is admin
-    const adminUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .then(rows => rows[0])
-
-    if (!adminUser?.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const admin = await requireAdmin(request, { permission: 'canManageSubscriptions' })
+    if (admin instanceof NextResponse) return admin
+    const { userId, email } = admin
 
     const { reason = 'Cancelled by admin', refund = false } = await request.json()
 
@@ -42,42 +31,73 @@ export async function POST(
       )
     }
 
-    if (!user.isPremium) {
+    const premium = await getPremiumStatus(params.userId)
+    if (!premium.isPremium) {
       return NextResponse.json(
         { error: 'User does not have an active subscription' },
         { status: 400 }
       )
     }
 
-    // Cancel subscription - set isPremium to false and subscriptionEndsAt to now
-    await db
-      .update(users)
-      .set({
-        isPremium: false,
-        subscriptionEndsAt: new Date(),
-        updatedAt: new Date(),
+    const now = new Date()
+    const entitlementsAvailable = await isEntitlementsAvailable().catch(() => false)
+
+    await db.transaction(async (tx) => {
+      if (entitlementsAvailable) {
+        // Canonical: revoke premium entitlement.
+        await tx
+          .insert(entitlements)
+          .values({
+            userId: params.userId,
+            feature: 'premium',
+            source: 'admin_cancel',
+            startsAt: now,
+            endsAt: now,
+            metadata: { reason },
+            createdAt: now,
+            updatedAt: now,
+          })
+          .onConflictDoUpdate({
+            target: [entitlements.userId, entitlements.feature],
+            set: {
+              source: 'admin_cancel',
+              endsAt: now,
+              metadata: { reason },
+              updatedAt: sql`now()`,
+            },
+          })
+      }
+
+      // Keep denormalized fields in sync for legacy/admin UI.
+      await tx
+        .update(users)
+        .set({
+          isPremium: false,
+          subscriptionEndsAt: now,
+          updatedAt: now,
+        })
+        .where(eq(users.id, params.userId))
+
+      // Log subscription cancellation in history
+      await tx.insert(subscriptionHistory).values({
+        userId: params.userId,
+        action: 'cancelled',
+        startDate: now,
+        endDate: now,
+        cancellationReason: reason,
+        cancelledAt: now,
+        cancelledBy: email || 'admin',
+        notes: `Cancelled by admin: ${reason}`,
       })
-      .where(eq(users.id, params.userId))
 
-    // Log subscription cancellation in history
-    await db.insert(subscriptionHistory).values({
-      userId: params.userId,
-      action: 'cancelled',
-      startDate: new Date(),
-      endDate: new Date(),
-      cancellationReason: reason,
-      cancelledAt: new Date(),
-      cancelledBy: adminUser.email || 'admin',
-      notes: `Cancelled by admin: ${reason}`,
-    })
-
-    // Log the action
-    await db.insert(adminActivityLogs).values({
-      adminId: userId,
-      action: 'subscription_cancelled',
-      targetType: 'subscription',
-      targetId: params.userId,
-      metadata: { reason, refund, userEmail: user.email },
+      // Log the action
+      await tx.insert(adminActivityLogs).values({
+        adminId: userId,
+        action: 'subscription_cancelled',
+        targetType: 'subscription',
+        targetId: params.userId,
+        metadata: { reason, refund, userEmail: user.email },
+      })
     })
 
     return NextResponse.json(
@@ -88,7 +108,7 @@ export async function POST(
           userId: user.id,
           email: user.email,
           isPremium: false,
-          subscriptionEndsAt: new Date(),
+          subscriptionEndsAt: now,
         },
       },
       { status: 200 }
@@ -101,3 +121,5 @@ export async function POST(
     )
   }
 }
+
+export const POST = withApiTelemetry(cancelSubscription, { name: 'admin.users.cancel-subscription' })

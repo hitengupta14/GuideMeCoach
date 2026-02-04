@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+import { verifySession } from '@/lib/auth-helpers';
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    // This endpoint is currently a placeholder (does not persist tokens).
+    // Gate it in production until the storage + sync pipeline is implemented.
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_WEARABLES !== 'true') {
+      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+    }
+
+    const userId = await verifySession(req);
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid token' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    const token = authHeader.slice(7);
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    const userId = payload.userId as string;
 
     const { provider, authCode, refreshToken } = await req.json();
 

@@ -258,7 +258,7 @@ export default function UpgradeModal({ visible, feature, onClose }: UpgradeModal
               <View style={styles.pricingContainer}>
                 <Text style={styles.pricingLabel}>Starting at</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                  <Text style={styles.pricingAmount}>₹249</Text>
+                  <Text style={styles.pricingAmount}>₹299</Text>
                   <Text style={styles.pricingPeriod}>/month</Text>
                 </View>
               </View>

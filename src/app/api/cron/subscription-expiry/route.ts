@@ -10,22 +10,29 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { entitlements, users } from '@/db/schema'
 import { and, eq, gte, lte, isNotNull } from 'drizzle-orm'
 import { sendSubscriptionExpiryEmail } from '@/lib/email'
 import { logger } from '@/lib/logger'
+import { withApiTelemetry } from '@/lib/api-telemetry'
+import { isEntitlementsAvailable } from '@/lib/entitlements'
 
 export const dynamic = 'force-dynamic'
 
 // Verify cron secret to prevent unauthorized access
 function verifyCronSecret(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET || 'your-secret-key-here'
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    // Fail closed if misconfigured.
+    logger.error('CRON_SECRET is not set; rejecting cron request')
+    return false
+  }
   
   return authHeader === `Bearer ${cronSecret}`
 }
 
-export async function GET(request: NextRequest) {
+async function subscriptionExpiryCron(request: NextRequest) {
   // Verify authorization
   if (!verifyCronSecret(request)) {
     logger.warn('Unauthorized cron job access attempt')
@@ -40,24 +47,57 @@ export async function GET(request: NextRequest) {
     const sevenDaysFromNow = new Date(now)
     sevenDaysFromNow.setDate(now.getDate() + 7)
 
-    // Find users with subscriptions expiring in 3 or 7 days
-    const expiringUsers = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        subscriptionEndsAt: users.subscriptionEndsAt,
-        isPremium: users.isPremium,
-      })
-      .from(users)
-      .where(
-        and(
-          eq(users.isPremium, true),
-          isNotNull(users.subscriptionEndsAt),
-          gte(users.subscriptionEndsAt, now), // Not yet expired
-          lte(users.subscriptionEndsAt, sevenDaysFromNow) // Expires within 7 days
-        )
-      )
+    // Find users with premium entitlements expiring in 3 or 7 days.
+    // Include a legacy fallback (users.isPremium/subscriptionEndsAt) so existing installs
+    // don't miss notifications before an entitlements backfill runs.
+    const entitlementsAvailable = await isEntitlementsAvailable().catch(() => false)
+
+    const [entitlementExpiring, legacyExpiring] = await Promise.all([
+      entitlementsAvailable
+        ? db
+            .select({
+              id: users.id,
+              email: users.email,
+              name: users.name,
+              subscriptionEndsAt: entitlements.endsAt,
+            })
+            .from(entitlements)
+            .innerJoin(users, eq(entitlements.userId, users.id))
+            .where(
+              and(
+                eq(entitlements.feature, 'premium'),
+                isNotNull(entitlements.endsAt),
+                gte(entitlements.endsAt, now), // Not yet expired
+                lte(entitlements.endsAt, sevenDaysFromNow) // Expires within 7 days
+              )
+            )
+        : Promise.resolve([]),
+      db
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          subscriptionEndsAt: users.subscriptionEndsAt,
+        })
+        .from(users)
+        .where(
+          and(
+            eq(users.isPremium, true),
+            isNotNull(users.subscriptionEndsAt),
+            gte(users.subscriptionEndsAt, now),
+            lte(users.subscriptionEndsAt, sevenDaysFromNow)
+          )
+        ),
+    ])
+
+    const expiringUsersMap = new Map<
+      string,
+      { id: string; email: string | null; name: string | null; subscriptionEndsAt: Date | null }
+    >()
+    for (const row of [...legacyExpiring, ...entitlementExpiring]) {
+      expiringUsersMap.set(row.id, row)
+    }
+    const expiringUsers = Array.from(expiringUsersMap.values())
 
     logger.info(`Found ${expiringUsers.length} users with expiring subscriptions`)
 
@@ -131,3 +171,5 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+export const GET = withApiTelemetry(subscriptionExpiryCron, { name: 'cron.subscription-expiry', includeUserId: false })

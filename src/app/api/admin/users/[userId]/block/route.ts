@@ -2,29 +2,16 @@ import { db } from '@/db'
 import { users, adminActivityLogs } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth-helpers'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check authentication
-    const userId = await verifySession(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user is admin
-    const adminUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .then(rows => rows[0])
-
-    if (!adminUser?.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const admin = await requireAdmin(request, { permission: 'canManageUsers' })
+    if (admin instanceof NextResponse) return admin
+    const { userId } = admin
 
     const { reason = 'No reason provided' } = await request.json()
 
@@ -66,22 +53,9 @@ export async function DELETE(
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check authentication
-    const userId = await verifySession(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user is admin
-    const adminUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .then(rows => rows[0])
-
-    if (!adminUser?.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const admin = await requireAdmin(request, { permission: 'canManageUsers' })
+    if (admin instanceof NextResponse) return admin
+    const { userId } = admin
 
     const { reason = 'No reason provided' } = await request.json()
 
