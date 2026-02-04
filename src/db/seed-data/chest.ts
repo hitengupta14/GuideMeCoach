@@ -24,6 +24,7 @@ export const chestExercises = [
     injuryRisks: ['Shoulder impingement', 'Pectoralis strain', 'Rotator cuff strain'],
     benefits: { muscleGrowth: true, sportsPerformance: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'upper_chest', role: 'primary' },
       { muscleGroup: 'front_delts', role: 'secondary' },
       { muscleGroup: 'triceps', role: 'secondary' }
@@ -52,6 +53,7 @@ export const chestExercises = [
     injuryRisks: ['Shoulder strain', 'Pectoralis tendinitis'],
     benefits: { muscleGrowth: true, posture: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'upper_chest', role: 'primary' },
       { muscleGroup: 'front_delts', role: 'secondary' },
       { muscleGroup: 'triceps', role: 'secondary' }
@@ -79,6 +81,7 @@ export const chestExercises = [
     injuryRisks: [],
     benefits: { muscleGrowth: true, posture: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'upper_chest', role: 'primary' },
       { muscleGroup: 'front_delts', role: 'secondary' }
     ]
@@ -105,6 +108,7 @@ export const chestExercises = [
     injuryRisks: ['Shoulder strain', 'Pectoralis strain'],
     benefits: { muscleGrowth: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'upper_chest', role: 'primary' },
       { muscleGroup: 'front_delts', role: 'stabilizer' }
     ]
@@ -134,6 +138,7 @@ export const chestExercises = [
     injuryRisks: ['Pectoralis major tear', 'Shoulder impingement', 'Rotator cuff strain'],
     benefits: { muscleGrowth: true, sportsPerformance: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'mid_chest', role: 'primary' },
       { muscleGroup: 'front_delts', role: 'secondary' },
       { muscleGroup: 'triceps', role: 'secondary' }
@@ -161,6 +166,7 @@ export const chestExercises = [
     injuryRisks: ['Shoulder instability', 'Pectoralis strain'],
     benefits: { muscleGrowth: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'mid_chest', role: 'primary' },
       { muscleGroup: 'front_delts', role: 'secondary' },
       { muscleGroup: 'triceps', role: 'secondary' }
@@ -188,6 +194,7 @@ export const chestExercises = [
     injuryRisks: [],
     benefits: { muscleGrowth: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'mid_chest', role: 'primary' },
       { muscleGroup: 'front_delts', role: 'secondary' }
     ]
@@ -214,6 +221,7 @@ export const chestExercises = [
     injuryRisks: ['Shoulder strain', 'Pectoralis strain'],
     benefits: { muscleGrowth: true, mobility: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'mid_chest', role: 'primary' },
       { muscleGroup: 'front_delts', role: 'stabilizer' }
     ]
@@ -240,6 +248,7 @@ export const chestExercises = [
     injuryRisks: [],
     benefits: { muscleGrowth: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'mid_chest', role: 'primary' }
     ]
   },
@@ -266,6 +275,7 @@ export const chestExercises = [
     injuryRisks: ['Shoulder strain', 'Pectoralis strain'],
     benefits: { muscleGrowth: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'mid_chest', role: 'primary' },
       { muscleGroup: 'front_delts', role: 'stabilizer' }
     ]
@@ -295,6 +305,7 @@ export const chestExercises = [
     injuryRisks: ['Shoulder strain', 'Abdominal strain'],
     benefits: { muscleGrowth: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'lower_chest', role: 'primary' },
       { muscleGroup: 'triceps', role: 'secondary' }
     ]
@@ -321,6 +332,7 @@ export const chestExercises = [
     injuryRisks: ['Shoulder strain', 'Pectoralis strain'],
     benefits: { muscleGrowth: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'lower_chest', role: 'primary' }
     ]
   },
@@ -346,6 +358,7 @@ export const chestExercises = [
     injuryRisks: [],
     benefits: { muscleGrowth: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'lower_chest', role: 'primary' }
     ]
   },
@@ -371,6 +384,7 @@ export const chestExercises = [
     injuryRisks: ['Shoulder impingement', 'Wrist strain'],
     benefits: { muscleGrowth: true, fatLoss: true, sportsPerformance: true },
     muscleGroups: [
+      { muscleGroup: 'chest', role: 'primary' },
       { muscleGroup: 'mid_chest', role: 'primary' },
       { muscleGroup: 'front_delts', role: 'secondary' },
       { muscleGroup: 'triceps', role: 'secondary' }

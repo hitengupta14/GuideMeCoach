@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, muscleGroups } from '@/db/schema'
-import { eq, ilike, and } from 'drizzle-orm'
+import { eq, ilike, and, inArray } from 'drizzle-orm'
 import { exerciseFilterSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 import { apiRateLimiter } from '@/lib/rate-limit'
@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
     const pageParam = Number(searchParams.get('page') || '1')
     const limitParam = Number(searchParams.get('limit') || '20')
     const offsetParam = Number(searchParams.get('offset') || '0')
-    const limit = Number.isFinite(limitParam) && limitParam > 0 && limitParam <= 100 ? limitParam : 20
+    const MAX_LIMIT = 1000
+    const limit = Number.isFinite(limitParam) && limitParam > 0 && limitParam <= MAX_LIMIT ? limitParam : 20
     // If legacy offset is provided, map it to page
     const pageFromOffset = Number.isFinite(offsetParam) && offsetParam >= 0 ? (Math.floor(offsetParam / limit) + 1) : null
     const page = pageFromOffset ?? (Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1)
@@ -56,7 +57,17 @@ export async function GET(request: NextRequest) {
     }
     
     if (filters.location) {
-      conditions.push(eq(exercises.location, filters.location as any))
+      // Interpret location as "where you can do it":
+      // - home => include {home, both}
+      // - gym  => include {gym, both}
+      // - both => only {both}
+      if (filters.location === 'home') {
+        conditions.push(inArray(exercises.location, ['home', 'both'] as any))
+      } else if (filters.location === 'gym') {
+        conditions.push(inArray(exercises.location, ['gym', 'both'] as any))
+      } else {
+        conditions.push(eq(exercises.location, filters.location as any))
+      }
     }
     
     if (filters.search) {

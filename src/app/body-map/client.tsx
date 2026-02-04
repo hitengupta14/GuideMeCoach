@@ -48,7 +48,8 @@ export default function BodyMapClientPage() {
 
   const bodyParts = [
     { key: 'upper', label: 'Upper Body' },
-    { key: 'shoulders', label: 'Shoulders & Arms' },
+    { key: 'shoulders', label: 'Shoulders' },
+    { key: 'arms', label: 'Arms' },
     { key: 'core', label: 'Core' },
     { key: 'legs', label: 'Legs' },
     { key: 'back', label: 'Back' },
