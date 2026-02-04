@@ -23,19 +23,21 @@ export function decidePricing(options: {
   const tier = options.lockedTier ?? inferTierFromCountry(options.billingCountry)
 
   // Amounts in paise (smallest unit) for Razorpay
-  // India: ₹299/month; International: equivalent monthly in INR for now
+  // India: ₹299/month; ₹2,499/year (discounted)
+  // International: USD display pricing ($5/mo, $49/yr) charged as an INR equivalent for Razorpay.
   const INDIA_MONTHLY_PAISE = 29900
+  const INDIA_YEARLY_PAISE = 249900
   const INTERNATIONAL_MONTHLY_PAISE = 41500 // Approx for $5 equivalent in INR
+  const INTERNATIONAL_YEARLY_PAISE = 406700 // Approx for $49 equivalent in INR
 
-  let amountPaise = INDIA_MONTHLY_PAISE
-  if (tier === 'international') {
-    amountPaise = INTERNATIONAL_MONTHLY_PAISE
-  }
-
-  if (options.planType === 'premium-yearly') {
-    // 12x monthly; simple scaling; discounting can be applied later server-side
-    amountPaise = amountPaise * 12
-  }
+  const amountPaise =
+    tier === 'international'
+      ? options.planType === 'premium-yearly'
+        ? INTERNATIONAL_YEARLY_PAISE
+        : INTERNATIONAL_MONTHLY_PAISE
+      : options.planType === 'premium-yearly'
+        ? INDIA_YEARLY_PAISE
+        : INDIA_MONTHLY_PAISE
 
   const reason = tier === 'international'
     ? 'International pricing applied based on your payment method.'

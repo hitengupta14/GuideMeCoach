@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, FormEvent } from 'react'
+import { useEffect, useState, FormEvent, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
-export default function ResendVerificationPage() {
+function ResendVerificationContent() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -112,5 +112,19 @@ export default function ResendVerificationPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function ResendVerificationPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4 text-gray-700 dark:text-gray-300">
+          Loading...
+        </div>
+      }
+    >
+      <ResendVerificationContent />
+    </Suspense>
   )
 }

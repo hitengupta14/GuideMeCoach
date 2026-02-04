@@ -10,10 +10,6 @@ import { Dialog, Transition } from '@headlessui/react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 
 async function fetchExercises(filters: Record<string, string | null>, search: string, page: number, limit: number) {
-  // Avoid calling internal API routes during SSR/static generation.
-  if (typeof document === 'undefined') {
-    return { items: [], exercises: [], total: 0, page, limit }
-  }
   const params = new URLSearchParams()
 
   Object.entries(filters).forEach(([key, value]) => {
@@ -36,7 +32,16 @@ async function fetchExercises(filters: Record<string, string | null>, search: st
   return response.json()
 }
 
-export default function ExercisesClientPage() {
+type ExercisesResponse = {
+  items: Exercise[]
+  exercises: Exercise[]
+  total: number
+  page: number
+  limit: number
+}
+
+export default function ExercisesClientPage(props: { initialData?: ExercisesResponse }) {
+  const initialData = props.initialData
   const [mounted, setMounted] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -53,8 +58,8 @@ export default function ExercisesClientPage() {
     location: null,
   })
 
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(20)
+  const [page, setPage] = useState(initialData?.page || 1)
+  const [limit, setLimit] = useState(initialData?.limit || 20)
 
   useEffect(() => {
     setMounted(true)
@@ -73,6 +78,8 @@ export default function ExercisesClientPage() {
     placeholderData: (previousData) => previousData,
   })
 
+  const resolved = (data ?? initialData) as ExercisesResponse | undefined
+
   const handleFilterChange = (key: string, value: string | null) => {
     setFilters((prev) => ({
       ...prev,
@@ -81,9 +88,9 @@ export default function ExercisesClientPage() {
     setPage(1)
   }
 
-  const items = data?.items || []
-  const total = data?.total ?? 0
-  const showLoading = !mounted || isLoading
+  const items = resolved?.items || []
+  const total = resolved?.total ?? 0
+  const showLoading = (!mounted && !initialData) || (mounted && isLoading && !resolved)
   const hasActiveFilters = Object.values(filters).some((v) => v)
 
   return (

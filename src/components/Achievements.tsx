@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 interface Badge {
   id: string
@@ -23,11 +23,8 @@ export default function Achievements({ userId }: AchievementsProps) {
   const [badges, setBadges] = useState<Badge[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchBadges()
-  }, [userId])
-
-  const fetchBadges = async () => {
+  const fetchBadges = useCallback(async () => {
+    setLoading(true)
     try {
       // First check for new badges
       await fetch('/api/badges/check', {
@@ -45,7 +42,11 @@ export default function Achievements({ userId }: AchievementsProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId])
+
+  useEffect(() => {
+    fetchBadges()
+  }, [fetchBadges])
 
   if (loading) {
     return <div className="text-center py-8">Loading achievements...</div>

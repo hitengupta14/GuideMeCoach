@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 
 interface Achievement {
   id: string
@@ -28,11 +28,7 @@ export default function UserEngagementComponent() {
   const [calendarMonth, setCalendarMonth] = useState(new Date())
   const [calendar, setCalendar] = useState<any>(null)
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       const [achievRes, profileRes, calendarRes] = await Promise.all([
@@ -60,7 +56,11 @@ export default function UserEngagementComponent() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [calendarMonth])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   const handleProfileUpdate = async (field: string, value: any) => {
     try {

@@ -6,7 +6,12 @@ const publicPaths = [
   '/auth/login',
   '/auth/signup',
   '/auth/reset-password',
+  '/auth/resend-verification',
   '/auth/verified',
+  '/pricing',
+  '/privacy',
+  '/terms',
+  '/medical-disclaimer',
   '/exercises',
   '/muscles',
   '/body-map',
@@ -51,9 +56,12 @@ export async function middleware(request: NextRequest) {
   const isPublicPath = isPublicPathname(pathname)
   
   const sessionValid = await hasValidSession(request)
+  const hasRefreshToken = Boolean(request.cookies.get('refresh_token')?.value)
 
   // Redirect to login if accessing protected route without session
-  if (!isApiRoute && !isPublicPath && !sessionValid) {
+  // If the access token is expired but a refresh token exists, let the request through
+  // so the client can refresh seamlessly (session endpoint will rotate cookies).
+  if (!isApiRoute && !isPublicPath && !sessionValid && !hasRefreshToken) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     // Keep query param name consistent with the web auth screens.

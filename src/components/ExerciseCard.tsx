@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState } from 'react'
 import { Exercise } from '@/db/schema'
 import { useSession } from '@/hooks/useSession'
@@ -71,11 +72,13 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
         <div className="bg-gradient-to-r from-primary-500 to-primary-600 p-4 text-white relative">
           <div className="flex items-start justify-between">
             {exercise.thumbnailUrl ? (
-              <img
+              <Image
                 src={exercise.thumbnailUrl}
                 alt={exercise.name}
+                width={48}
+                height={48}
                 className="w-12 h-12 rounded-lg object-cover bg-white/10"
-                loading="lazy"
+                unoptimized
               />
             ) : (
               <span className="text-3xl">{categoryIcons[exercise.category as string] || '💪'}</span>

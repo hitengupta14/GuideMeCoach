@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { formatDistanceToNow } from 'date-fns'
 import { useAPIError } from '@/hooks/useAPIError'
@@ -23,11 +23,8 @@ export default function RecentAIRequests() {
   const [requests, setRequests] = useState<AIRequest[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchRequests()
-  }, [])
-
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
+    setLoading(true)
     const { data, error } = await apiWrapper.get<{ requests: AIRequest[] }>('/api/admin/ai-logs?limit=10')
 
     if (error) {
@@ -40,7 +37,11 @@ export default function RecentAIRequests() {
       setRequests(data.requests)
     }
     setLoading(false)
-  }
+  }, [handleError])
+
+  useEffect(() => {
+    fetchRequests()
+  }, [fetchRequests])
 
   if (loading) {
     return (

@@ -51,13 +51,13 @@ const PRICING_PLANS = [
     priceIndia: '₹2,499',
     priceInternational: '$49',
     period: '/year',
-    description: 'Best value - save 17%',
+    description: 'Best value - save up to 30%',
     features: [
       'All Premium features',
       'All AI features',
       'Priority support',
       'Early access to new features',
-      'Save 16% vs monthly',
+      'Save up to 30% vs monthly',
     ],
     cta: 'Start Free Trial',
     highlighted: false,
@@ -98,7 +98,7 @@ function PricingContent() {
     setIsCancelling(true)
 
     try {
-      const response = await fetch('/api/v1/subscription/cancel', {
+      const response = await fetch('/api/user/subscription/cancel', {
         method: 'POST',
         credentials: 'include',
         headers: {

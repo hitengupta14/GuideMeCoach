@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, exerciseAlternatives, muscleGroups } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { verifySession } from '@/lib/auth-helpers'
 import { requireAdmin } from '@/lib/admin-auth'
 
 function isUuid(value: string): boolean {
@@ -16,11 +15,6 @@ export async function GET(
   try {
     const identifier = params.id
     const identifierType = isUuid(identifier) ? 'id' : 'slug'
-
-    // Admins can view drafts; everyone else only sees approved content.
-    const sessionUserId = await verifySession(request)
-    const admin = sessionUserId ? await requireAdmin(request) : null
-    const isAdmin = admin && !(admin instanceof NextResponse)
     
     // Fetch exercise
     const exercise = await db.query.exercises.findFirst({
@@ -36,11 +30,16 @@ export async function GET(
       )
     }
 
-    if (!isAdmin && exercise.reviewStatus !== 'approved') {
-      return NextResponse.json(
-        { error: 'Exercise not found' },
-        { status: 404 }
-      )
+    // Draft/unapproved content should only be visible to admins who can manage exercises.
+    // Return 404 for unauthorized users to avoid leaking existence of drafts.
+    if (exercise.reviewStatus !== 'approved') {
+      const admin = await requireAdmin(request, { permission: 'canManageExercises' })
+      if (admin instanceof NextResponse) {
+        return NextResponse.json(
+          { error: 'Exercise not found' },
+          { status: 404 }
+        )
+      }
     }
 
     const exerciseId = exercise.id
@@ -91,7 +90,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const admin = await requireAdmin(request)
+    const admin = await requireAdmin(request, { permission: 'canManageExercises' })
     if (admin instanceof NextResponse) return admin
 
     const exerciseId = params.id
@@ -136,7 +135,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const admin = await requireAdmin(request)
+    const admin = await requireAdmin(request, { permission: 'canManageExercises' })
     if (admin instanceof NextResponse) return admin
 
     const exerciseId = params.id

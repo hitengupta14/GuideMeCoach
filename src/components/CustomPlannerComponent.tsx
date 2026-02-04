@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAPIError } from '@/hooks/useAPIError'
@@ -49,11 +49,7 @@ export default function CustomPlannerComponent() {
   const [currentDay, setCurrentDay] = useState<{ weekIdx: number; dayIdx: number } | null>(null)
   const router = useRouter()
 
-  useEffect(() => {
-    fetchExercises()
-  }, [])
-
-  const fetchExercises = async () => {
+  const fetchExercises = useCallback(async () => {
     const { data, error } = await apiWrapper.get<{ exercises: Exercise[] }>('/api/exercises?limit=1000')
 
     if (error) {
@@ -77,7 +73,11 @@ export default function CustomPlannerComponent() {
     ])
 
     setLoading(false)
-  }
+  }, [handleError])
+
+  useEffect(() => {
+    fetchExercises()
+  }, [fetchExercises])
 
   const generateTemplate = () => {
     if (availableExercises.length === 0) return

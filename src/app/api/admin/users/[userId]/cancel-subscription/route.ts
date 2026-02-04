@@ -11,7 +11,7 @@ async function cancelSubscription(
   { params }: { params: { userId: string } }
 ) {
   try {
-    const admin = await requireAdmin(request)
+    const admin = await requireAdmin(request, { permission: 'canManageSubscriptions' })
     if (admin instanceof NextResponse) return admin
     const { userId, email } = admin
 

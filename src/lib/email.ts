@@ -246,12 +246,12 @@ export function getPaymentSuccessEmailHtml(options: {
 
           <h3>What's Included:</h3>
           <ul>
-            <li>✨ Unlimited AI-generated workout plans</li>
-            <li>🤖 Unlimited AI chat for fitness guidance</li>
-            <li>📊 Advanced progress insights & analytics</li>
-            <li>🎯 Adaptive workout recommendations</li>
-            <li>💪 Exercise form feedback</li>
-            <li>🍽️ Nutrition guidance</li>
+            <li>🏋️ AI Workout Planner (2/month)</li>
+            <li>🤖 AI Chat Support (25 messages/month)</li>
+            <li>📊 AI Weekly Insights (1/week)</li>
+            <li>✏️ AI Plan Edits (3/month)</li>
+            <li>⚡ Priority support</li>
+            <li>✅ Ad-free experience</li>
           </ul>
 
           <p style="text-align: center;">
@@ -279,13 +279,13 @@ Payment Details:
 - Amount Paid: ₹${formattedAmount}
 - Subscription Valid Until: ${new Date(options.subscriptionEndsAt).toLocaleDateString()}
 
-What's Included:
-✨ Unlimited AI-generated workout plans
-🤖 Unlimited AI chat for fitness guidance
-📊 Advanced progress insights & analytics
-🎯 Adaptive workout recommendations
-💪 Exercise form feedback
-🍽️ Nutrition guidance
+	What's Included:
+🏋️ AI Workout Planner (2/month)
+🤖 AI Chat Support (25 messages/month)
+📊 AI Weekly Insights (1/week)
+✏️ AI Plan Edits (3/month)
+⚡ Priority support
+✅ Ad-free experience
 
 Start your premium journey: ${options.appUrl}
 
@@ -340,10 +340,10 @@ export function getSubscriptionExpiryEmailHtml(options: {
 
           <p>After expiration, you'll lose access to:</p>
           <ul>
-            <li>🚫 Unlimited AI workout plans</li>
-            <li>🚫 AI chat assistance</li>
-            <li>🚫 Advanced progress insights</li>
-            <li>🚫 Adaptive recommendations</li>
+            <li>🚫 AI Workout Planner</li>
+            <li>🚫 AI Chat Support</li>
+            <li>🚫 AI Weekly Insights</li>
+            <li>🚫 AI Plan Edits</li>
           </ul>
 
           <p><strong>Don't let your progress stop!</strong> Renew now to keep all premium features.</p>
@@ -370,11 +370,11 @@ ${options.daysRemaining} Day${options.daysRemaining !== 1 ? 's' : ''} Remaining!
 
 Your GuideMeCoach Premium subscription will expire on ${new Date(options.subscriptionEndsAt).toLocaleDateString()}
 
-After expiration, you'll lose access to:
-🚫 Unlimited AI workout plans
-🚫 AI chat assistance
-🚫 Advanced progress insights
-🚫 Adaptive recommendations
+	After expiration, you'll lose access to:
+🚫 AI Workout Planner
+🚫 AI Chat Support
+🚫 AI Weekly Insights
+🚫 AI Plan Edits
 
 Don't let your progress stop! Renew now: ${options.appUrl}/pricing
 

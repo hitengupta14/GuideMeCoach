@@ -516,7 +516,7 @@ async function generatePlan(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'AI planner not available on Free plan',
-          message: 'Upgrade to Premium to access AI-powered workout plans (₹199-₹299/month)',
+          message: 'Upgrade to Premium to access AI-powered workout plans. See /pricing for details.',
         },
         { status: 403 }
       )

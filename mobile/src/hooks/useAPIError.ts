@@ -5,8 +5,17 @@
 
 import { useCallback } from 'react'
 import { useNavigation } from '@react-navigation/native'
-import Toast from 'react-native-toast-message'
+import { Alert, Platform, ToastAndroid } from 'react-native'
 import { parseAPIError, getErrorMessage, getErrorAction, type APIError } from '@/lib/error-handler'
+
+function showToast(title: string, message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.showWithGravity(`${title}: ${message}`, ToastAndroid.LONG, ToastAndroid.TOP)
+    return
+  }
+
+  Alert.alert(title, message)
+}
 
 export function useAPIError() {
   const navigation = useNavigation<any>()
@@ -38,17 +47,11 @@ export function useAPIError() {
       // Get action button if applicable
       const action = getErrorAction(apiError)
 
-      // Show toast
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: message,
-        position: 'top',
-        visibilityTime: 5000,
-        autoHide: true,
-        onPress: action
-          ? () => {
-              // Handle navigation based on action
+      if (action) {
+        Alert.alert('Error', message, [
+          {
+            text: action.label,
+            onPress: () => {
               if (action.label === 'Complete Profile') {
                 navigation.navigate('Profile')
               } else if (action.label === 'View Plans') {
@@ -58,9 +61,13 @@ export function useAPIError() {
               } else {
                 action.onPress()
               }
-            }
-          : undefined,
-      })
+            },
+          },
+          { text: 'OK', style: 'cancel' },
+        ])
+      } else {
+        showToast('Error', message)
+      }
 
       return apiError
     },
@@ -68,33 +75,15 @@ export function useAPIError() {
   )
 
   const handleSuccess = useCallback((message: string, title: string = 'Success') => {
-    Toast.show({
-      type: 'success',
-      text1: title,
-      text2: message,
-      position: 'top',
-      visibilityTime: 3000,
-    })
+    showToast(title, message)
   }, [])
 
   const handleInfo = useCallback((message: string, title: string = 'Info') => {
-    Toast.show({
-      type: 'info',
-      text1: title,
-      text2: message,
-      position: 'top',
-      visibilityTime: 3000,
-    })
+    showToast(title, message)
   }, [])
 
   const handleWarning = useCallback((message: string, title: string = 'Warning') => {
-    Toast.show({
-      type: 'warning',
-      text1: title,
-      text2: message,
-      position: 'top',
-      visibilityTime: 4000,
-    })
+    showToast(title, message)
   }, [])
 
   return {

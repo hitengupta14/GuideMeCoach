@@ -40,12 +40,13 @@ export async function handleGoogleSignIn(idToken: string) {
     
     // Backend returns { success: true, data: { token, user } }
     const tokenData = response?.data?.token || response?.token;
+    const refreshTokenData = response?.data?.refreshToken || response?.refreshToken || null;
     const userData = response?.data?.user || response?.user;
 
     if (tokenData && userData) {
-      apiClient.setToken(tokenData);
+      apiClient.setTokens(tokenData, refreshTokenData);
       console.log('✅ Google Sign-In Success: Token saved');
-      return { token: tokenData, user: userData };
+      return { token: tokenData, refreshToken: refreshTokenData, user: userData };
     } else {
       console.error('❌ Invalid response structure:', response);
       throw new Error('Invalid response from Google authentication');

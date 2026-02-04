@@ -82,7 +82,7 @@ export default function NutritionGuidanceComponent({ userId }: { userId: string 
     }
 
     fetchGuidance()
-  }, [])
+  }, [handleError])
 
   if (loading) {
     return (

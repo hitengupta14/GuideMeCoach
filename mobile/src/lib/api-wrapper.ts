@@ -87,7 +87,7 @@ async function mobileRequest<T>(
 
     if (shouldRetry) {
       const delay = ((config as any).retryDelay || 1000) * Math.pow(2, retryCount)
-      await new Promise((resolve) => setTimeout(resolve, delay))
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), delay))
       return mobileRequest<T>(endpoint, {
         ...options,
         retryCount: retryCount + 1,

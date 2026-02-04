@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 
 interface Message {
@@ -30,18 +30,12 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Fetch messages if conversation exists
-  useEffect(() => {
-    if (conversationId && conversationId !== 'null') {
-      fetchMessages()
-    }
-  }, [conversationId])
-
-  const fetchMessages = async () => {
-    if (!conversationId || conversationId === 'null') return
+  const fetchMessages = useCallback(async (conversationIdOverride?: string) => {
+    const cid = conversationIdOverride ?? conversationId
+    if (!cid || cid === 'null') return
     
     try {
-      const response = await fetch(`/api/chat/messages?conversationId=${conversationId}`)
+      const response = await fetch(`/api/chat/messages?conversationId=${cid}`)
       if (!response.ok) {
         console.error('Error fetching messages:', response.statusText)
         return
@@ -51,7 +45,14 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
     } catch (error) {
       console.error('Error fetching messages:', error)
     }
-  }
+  }, [conversationId])
+
+  // Fetch messages if conversation exists
+  useEffect(() => {
+    if (conversationId && conversationId !== 'null') {
+      fetchMessages()
+    }
+  }, [conversationId, fetchMessages])
 
   const startConversation = async (selectedTopic: string) => {
     setTopic(selectedTopic)
@@ -74,7 +75,7 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
 
       const data = await response.json()
       setConversationId(data.id)
-      await fetchMessages()
+      await fetchMessages(data.id)
     } catch (error) {
       console.error('Error starting conversation:', error)
     } finally {

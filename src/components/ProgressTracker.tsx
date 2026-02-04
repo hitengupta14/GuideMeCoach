@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 interface ProgressData {
   weekNumber: number
@@ -24,11 +24,7 @@ export default function ProgressTracker({ userId }: ProgressTrackerProps) {
   })
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchProgressData()
-  }, [userId])
-
-  const fetchProgressData = async () => {
+  const fetchProgressData = useCallback(async () => {
     try {
       // Fetch sessions
       const sessionsRes = await fetch(`/api/workouts/sessions?userId=${userId}`)
@@ -113,7 +109,12 @@ export default function ProgressTracker({ userId }: ProgressTrackerProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId])
+
+  useEffect(() => {
+    setLoading(true)
+    fetchProgressData()
+  }, [fetchProgressData])
 
   if (loading) {
     return <div className="text-center py-8">Loading progress data...</div>

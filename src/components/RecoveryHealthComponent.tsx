@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useAPIError } from '@/hooks/useAPIError'
 import { apiWrapper } from '@/lib/api-wrapper'
 
@@ -74,18 +74,21 @@ export default function RecoveryHealthComponent() {
   const [warmupType, setWarmupType] = useState<'warmup' | 'cooldown'>('warmup')
   const [warmupData, setWarmupData] = useState<any>(null)
 
-  useEffect(() => {
-    fetchRecoveryData()
-  }, [])
-
-  useEffect(() => {
-    if (activeTab === 'pain') {
-      fetchPainEntries()
+  const fetchPainEntries = useCallback(async () => {
+    try {
+      setPainLoading(true)
+      const { data, error } = await apiWrapper.get<{ entries: any[] }>('/api/recovery/pain')
+      if (error) {
+        await handleError(error)
+        return
+      }
+      setPainEntries(Array.isArray(data?.entries) ? data?.entries : [])
+    } finally {
+      setPainLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab])
+  }, [handleError])
 
-  const fetchRecoveryData = async () => {
+  const fetchRecoveryData = useCallback(async () => {
     try {
       setLoading(true)
       const [recoveryRes, restDaysRes] = await Promise.all([
@@ -107,7 +110,17 @@ export default function RecoveryHealthComponent() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [handleError])
+
+  useEffect(() => {
+    fetchRecoveryData()
+  }, [fetchRecoveryData])
+
+  useEffect(() => {
+    if (activeTab === 'pain') {
+      fetchPainEntries()
+    }
+  }, [activeTab, fetchPainEntries])
 
   const handleSorenessSubmit = async () => {
     const { data, error } = await apiWrapper.post<{ success: boolean }>(
@@ -121,20 +134,6 @@ export default function RecoveryHealthComponent() {
     }
 
     handleSuccess('Soreness recorded successfully')
-  }
-
-  const fetchPainEntries = async () => {
-    try {
-      setPainLoading(true)
-      const { data, error } = await apiWrapper.get<{ entries: any[] }>('/api/recovery/pain')
-      if (error) {
-        await handleError(error)
-        return
-      }
-      setPainEntries(Array.isArray(data?.entries) ? data?.entries : [])
-    } finally {
-      setPainLoading(false)
-    }
   }
 
   const handlePainSubmit = async () => {

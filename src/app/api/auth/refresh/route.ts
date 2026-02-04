@@ -16,11 +16,22 @@ const refreshSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    let refreshToken: string | null = null
+    try {
+      const body = await request.json()
+      const validated = refreshSchema.parse(body)
+      refreshToken = validated.refreshToken
+    } catch {
+      // Web clients may rely on the HTTP-only refresh cookie.
+      refreshToken = request.cookies.get('refresh_token')?.value ?? null
+    }
 
-    // Validate input
-    const validated = refreshSchema.parse(body)
-    const { refreshToken } = validated
+    if (!refreshToken) {
+      return NextResponse.json(
+        { error: 'Refresh token is required' },
+        { status: 400 }
+      )
+    }
 
     // Extract device info from headers
     const userAgent = request.headers.get('user-agent') || undefined
@@ -44,10 +55,14 @@ export async function POST(request: NextRequest) {
         ip: ipAddress,
         userAgent,
       })
-      return NextResponse.json(
+      const res = NextResponse.json(
         { error: 'Invalid or expired refresh token' },
         { status: 401 }
       )
+      // Clear cookies to prevent loops.
+      res.cookies.set('session', '', { httpOnly: true, path: '/', maxAge: 0 })
+      res.cookies.set('refresh_token', '', { httpOnly: true, path: '/', maxAge: 0 })
+      return res
     }
 
     logger.info('Token refreshed successfully', {
@@ -74,6 +89,13 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60, // 1 hour
+      path: '/',
+    })
+    response.cookies.set('refresh_token', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60, // 30 days
       path: '/',
     })
 

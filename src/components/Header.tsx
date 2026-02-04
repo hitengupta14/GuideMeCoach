@@ -172,189 +172,194 @@ export function Header() {
                 </button>
 
                 {showMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50">
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50 max-h-[calc(100vh-6rem)] overflow-y-auto overscroll-contain">
                     {/* User Info Section */}
-                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-50 dark:from-indigo-900/30 to-transparent">
-                      <p className="font-bold text-gray-900 dark:text-white">{user.name}</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">{user.email}</p>
-                      {user.weight && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Weight: {user.weight} kg</p>
-                      )}
-                    </div>
+                    <Link
+                      href="/profile"
+                      className="block px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-50 dark:from-indigo-900/30 to-transparent hover:bg-indigo-50/80 dark:hover:bg-indigo-900/40 transition"
+                      onClick={() => setShowMenu(false)}
+                    >
+                      <p className="font-semibold text-gray-900 dark:text-white leading-tight">
+                        {user.name}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                        {user.email}
+                      </p>
+                    </Link>
 
                     {/* Navigation Section */}
-                    <div className="py-2 border-b border-gray-200 dark:border-gray-700">
+                    <div className="py-1 border-b border-gray-200 dark:border-gray-700">
                       <Link 
                         href="/exercises"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <BookOpen className="h-5 w-5" aria-hidden="true" />
+                        <BookOpen className="h-4 w-4" aria-hidden="true" />
                         <span>Exercise Library</span>
                       </Link>
                       <Link 
                         href="/body-map"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <Map className="h-5 w-5" aria-hidden="true" />
+                        <Map className="h-4 w-4" aria-hidden="true" />
                         <span>Body Map</span>
                       </Link>
                       <Link 
                         href="/dashboard"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
+                        <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
                         <span>Dashboard</span>
                       </Link>
                       <Link 
                         href="/today"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <CalendarDays className="h-5 w-5" aria-hidden="true" />
+                        <CalendarDays className="h-4 w-4" aria-hidden="true" />
                         <span>Today</span>
                       </Link>
                       <Link 
                         href="/planner"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <Brain className="h-5 w-5" aria-hidden="true" />
+                        <Brain className="h-4 w-4" aria-hidden="true" />
                         <span>Planner</span>
                       </Link>
                       <Link 
                         href="/progress"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <LineChart className="h-5 w-5" aria-hidden="true" />
+                        <LineChart className="h-4 w-4" aria-hidden="true" />
                         <span>Progress</span>
                       </Link>
                       <Link 
                         href="/workouts"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <Dumbbell className="h-5 w-5" aria-hidden="true" />
+                        <Dumbbell className="h-4 w-4" aria-hidden="true" />
                         <span>Workouts</span>
                       </Link>
                       <Link 
                         href="/achievements"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <Trophy className="h-5 w-5" aria-hidden="true" />
+                        <Trophy className="h-4 w-4" aria-hidden="true" />
                         <span>Achievements</span>
                       </Link>
                       <Link 
                         href="/recovery"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <HeartPulse className="h-5 w-5" aria-hidden="true" />
+                        <HeartPulse className="h-4 w-4" aria-hidden="true" />
                         <span>Recovery</span>
                       </Link>
                       <Link 
                         href="/nutrition"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <HeartPulse className="h-5 w-5" aria-hidden="true" />
+                        <HeartPulse className="h-4 w-4" aria-hidden="true" />
                         <span>Nutrition</span>
                       </Link>
                       <Link 
                         href="/form-feedback"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <Bot className="h-5 w-5" aria-hidden="true" />
+                        <Bot className="h-4 w-4" aria-hidden="true" />
                         <span>Form Coach</span>
                       </Link>
                       <Link 
                         href="/ai-insights"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <LineChart className="h-5 w-5" aria-hidden="true" />
+                        <LineChart className="h-4 w-4" aria-hidden="true" />
                         <span>Insights</span>
                       </Link>
                       <Link 
                         href="/ai-features"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <Bot className="h-5 w-5" aria-hidden="true" />
+                        <Bot className="h-4 w-4" aria-hidden="true" />
                         <span>AI Features</span>
                       </Link>
                       <Link 
                         href="/tools"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <Wrench className="h-5 w-5" aria-hidden="true" />
+                        <Wrench className="h-4 w-4" aria-hidden="true" />
                         <span>Tools</span>
                       </Link>
                       <Link 
                         href="/chat"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <Bot className="h-5 w-5" aria-hidden="true" />
+                        <Bot className="h-4 w-4" aria-hidden="true" />
                         <span>AI Coach</span>
                       </Link>
                       <Link 
                         href="/favorites"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <Heart className="h-5 w-5" aria-hidden="true" />
+                        <Heart className="h-4 w-4" aria-hidden="true" />
                         <span>Favorites</span>
                       </Link>
                     </div>
 
                     {/* Subscription & New Features Section */}
-                    <div className="py-2 border-b border-gray-200 dark:border-gray-700">
+                    <div className="py-1 border-b border-gray-200 dark:border-gray-700">
                       <Link 
                         href="/pricing"
-                        className="flex items-center gap-3 px-4 py-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition font-semibold"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition font-semibold"
                         onClick={() => setShowMenu(false)}
                       >
-                        <Star className="h-5 w-5" aria-hidden="true" />
+                        <Star className="h-4 w-4" aria-hidden="true" />
                         <span>Upgrade to Premium</span>
-                        <span className="ml-auto text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded">NEW</span>
+                        <span className="ml-auto text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-0.5 rounded">NEW</span>
                       </Link>
                     </div>
 
                     {/* Settings & Logout Section */}
-                    <div className="py-2">
+                    <div className="py-1">
                       {user.isAdmin && (
                         <>
                           <Link 
                             href="/admin"
-                            className="flex items-center gap-3 px-4 py-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition font-semibold border-b border-gray-200 dark:border-gray-700"
+                            className="flex items-center gap-3 px-3 py-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition font-semibold border-b border-gray-200 dark:border-gray-700"
                             onClick={() => setShowMenu(false)}
                           >
-                            <Shield className="h-5 w-5" aria-hidden="true" />
+                            <Shield className="h-4 w-4" aria-hidden="true" />
                             <span>Admin Panel</span>
-                            <span className="ml-auto text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-1 rounded">NEW</span>
+                            <span className="ml-auto text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-0.5 rounded">NEW</span>
                           </Link>
                         </>
                       )}
                       <Link 
-                        href="/profile"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        href="/settings"
+                        className="flex items-center gap-3 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
-                        <Settings className="h-5 w-5" aria-hidden="true" />
+                        <Settings className="h-4 w-4" aria-hidden="true" />
                         <span>Settings</span>
                       </Link>
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                        className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
                       >
-                        <LogOut className="h-5 w-5" aria-hidden="true" />
+                        <LogOut className="h-4 w-4" aria-hidden="true" />
                         <span>Logout</span>
                       </button>
                     </div>

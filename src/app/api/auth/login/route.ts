@@ -154,17 +154,22 @@ async function login(request: NextRequest) {
       { status: 200 }
     )
 
-    // Set HTTP-only cookie with JWT token (24 hours for better persistence)
+    // Set HTTP-only cookies: short-lived access token + long-lived refresh token
     const isProduction = process.env.NODE_ENV === 'production'
-    const cookieDomain = isProduction ? undefined : 'localhost'
     
     response.cookies.set('session', token, {
       httpOnly: true,
       secure: isProduction, // true on Vercel (HTTPS enforced)
       sameSite: 'lax', // Allows cross-site GET requests to include the cookie
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60, // 1 hour (matches JWT expiry)
       path: '/', // Available to all paths
-      domain: cookieDomain, // undefined = use current domain (Vercel will use .vercel.app)
+    })
+    response.cookies.set('refresh_token', refreshToken.token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+      path: '/',
     })
 
     logger.info('User login successful', { userId: foundUser.id })

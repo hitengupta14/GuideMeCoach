@@ -147,7 +147,7 @@ async function addMessage(request: NextRequest) {
           },
           message: premium.isPremium 
             ? `You've used all ${quota.limit} AI chat messages this month. Resets on ${new Date(quota.resetAt).toLocaleDateString()}`
-            : 'Upgrade to Premium to access AI chat (₹199-₹299/month)',
+            : 'Upgrade to Premium to access AI chat. See /pricing for details.',
         },
         { status: 403 }
       )

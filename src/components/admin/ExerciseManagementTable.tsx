@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { 
   MagnifyingGlassIcon, 
   FunnelIcon,
@@ -197,10 +198,13 @@ export default function ExerciseManagementTable({
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     {exercise.thumbnailUrl ? (
-                      <img
+                      <Image
                         src={exercise.thumbnailUrl}
                         alt={exercise.name}
+                        width={48}
+                        height={48}
                         className="w-12 h-12 rounded-lg object-cover"
+                        unoptimized
                       />
                     ) : (
                       <div className="w-12 h-12 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
