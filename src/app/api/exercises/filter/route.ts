@@ -19,16 +19,16 @@ export async function POST(req: Request) {
 
     // Build where conditions
     const conditions: Array<SQL | undefined> = [eq(exercises.reviewStatus, 'approved')]
+    const needsHomeFallback = location === 'home'
 
     if (difficulty) {
       conditions.push(eq(exercises.difficulty, difficulty))
     }
 
     if (location) {
-      conditions.push(or(
-        eq(exercises.location, location),
-        eq(exercises.location, 'both')
-      ))
+      if (!needsHomeFallback) {
+        conditions.push(or(eq(exercises.location, location), eq(exercises.location, 'both')))
+      }
     }
 
     if (category) {
@@ -41,6 +41,23 @@ export async function POST(req: Request) {
       .select()
       .from(exercises)
       .where(whereClause)
+
+    if (needsHomeFallback) {
+      const homeFriendly = new Set([
+        'none',
+        'dumbbell',
+        'resistance_band',
+        'kettlebell',
+        'pull_up_bar',
+        'bench',
+      ])
+      filteredExercises = filteredExercises.filter((ex) => {
+        if (ex.location === 'home' || ex.location === 'both') return true
+        if (ex.location !== 'gym') return false
+        if (!Array.isArray(ex.equipment)) return false
+        return ex.equipment.every((eq) => homeFriendly.has(eq))
+      })
+    }
 
     // Filter by equipment
     if (equipment && Array.isArray(equipment)) {

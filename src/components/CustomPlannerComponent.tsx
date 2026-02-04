@@ -472,11 +472,13 @@ export default function CustomPlannerComponent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 py-8">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="container">
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-5xl font-bold text-gray-900 mb-3">🎯 Build Your Custom Plan</h1>
-          <p className="text-xl text-gray-600">Hand-pick exercises week-by-week and create your personalized workout routine</p>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-3">Build Your Custom Plan</h1>
+          <p className="text-base sm:text-lg text-gray-600">
+            Hand-pick exercises week-by-week and create your personalized workout routine
+          </p>
         </div>
 
         {/* Plan Info Section */}

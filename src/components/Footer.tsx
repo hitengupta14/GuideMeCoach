@@ -26,7 +26,7 @@ export function Footer() {
             <h4 className="text-white dark:text-gray-200 font-semibold mb-4">About</h4>
             <p className="text-sm leading-relaxed">
               Building the authoritative source for exercise knowledge in India. 
-              100+ exercises with detailed instructions, videos, and alternatives.
+              500+ exercises with detailed instructions, videos, and alternatives.
             </p>
           </div>
         </div>

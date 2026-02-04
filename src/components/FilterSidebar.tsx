@@ -8,6 +8,8 @@ interface FilterSidebarProps {
     location?: string
   }
   onFilterChange: (key: string, value: string | null) => void
+  className?: string
+  sticky?: boolean
 }
 
 const CATEGORIES = [
@@ -41,18 +43,32 @@ const LOCATIONS = [
   { value: 'both', label: 'Both' },
 ]
 
-export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
+export function FilterSidebar({
+  filters,
+  onFilterChange,
+  className = '',
+  sticky = true,
+}: FilterSidebarProps) {
   const handleToggle = (key: string, value: string) => {
     onFilterChange(key, filters[key as keyof typeof filters] === value ? null : value)
   }
 
+  const containerClassName = [
+    'bg-white dark:bg-gray-900 rounded-xl shadow-sm p-6 border border-gray-200/80 dark:border-gray-800',
+    'h-fit',
+    sticky ? 'lg:sticky lg:top-4' : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <div className="bg-white rounded-lg shadow p-6 h-fit sticky top-4">
-      <h2 className="text-lg font-bold mb-6">Filters</h2>
+    <div className={containerClassName}>
+      <h2 className="text-lg font-bold mb-6 text-gray-900 dark:text-white">Filters</h2>
 
       {/* Category */}
       <div className="mb-6">
-        <h3 className="font-semibold text-gray-700 mb-3">Category</h3>
+        <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Category</h3>
         <div className="space-y-2">
           {CATEGORIES.map((cat) => (
             <label key={cat.value} className="flex items-center cursor-pointer">
@@ -60,9 +76,9 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
                 type="checkbox"
                 checked={filters.category === cat.value}
                 onChange={() => handleToggle('category', cat.value)}
-                className="w-4 h-4 text-primary-600 rounded"
+                className="w-4 h-4 rounded text-primary-600"
               />
-              <span className="ml-2 text-sm text-gray-700">{cat.label}</span>
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{cat.label}</span>
             </label>
           ))}
         </div>
@@ -70,7 +86,7 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
 
       {/* Difficulty */}
       <div className="mb-6">
-        <h3 className="font-semibold text-gray-700 mb-3">Difficulty</h3>
+        <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Difficulty</h3>
         <div className="space-y-2">
           {DIFFICULTIES.map((diff) => (
             <label key={diff.value} className="flex items-center cursor-pointer">
@@ -78,9 +94,9 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
                 type="checkbox"
                 checked={filters.difficulty === diff.value}
                 onChange={() => handleToggle('difficulty', diff.value)}
-                className="w-4 h-4 text-primary-600 rounded"
+                className="w-4 h-4 rounded text-primary-600"
               />
-              <span className="ml-2 text-sm text-gray-700">{diff.label}</span>
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{diff.label}</span>
             </label>
           ))}
         </div>
@@ -88,7 +104,7 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
 
       {/* Equipment */}
       <div className="mb-6">
-        <h3 className="font-semibold text-gray-700 mb-3">Equipment</h3>
+        <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Equipment</h3>
         <div className="space-y-2 max-h-48 overflow-y-auto">
           {EQUIPMENT.map((eq) => (
             <label key={eq.value} className="flex items-center cursor-pointer">
@@ -96,9 +112,9 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
                 type="checkbox"
                 checked={filters.equipment === eq.value}
                 onChange={() => handleToggle('equipment', eq.value)}
-                className="w-4 h-4 text-primary-600 rounded"
+                className="w-4 h-4 rounded text-primary-600"
               />
-              <span className="ml-2 text-sm text-gray-700">{eq.label}</span>
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{eq.label}</span>
             </label>
           ))}
         </div>
@@ -106,7 +122,7 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
 
       {/* Location */}
       <div className="mb-6">
-        <h3 className="font-semibold text-gray-700 mb-3">Location</h3>
+        <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Location</h3>
         <div className="space-y-2">
           {LOCATIONS.map((loc) => (
             <label key={loc.value} className="flex items-center cursor-pointer">
@@ -114,9 +130,9 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
                 type="checkbox"
                 checked={filters.location === loc.value}
                 onChange={() => handleToggle('location', loc.value)}
-                className="w-4 h-4 text-primary-600 rounded"
+                className="w-4 h-4 rounded text-primary-600"
               />
-              <span className="ml-2 text-sm text-gray-700">{loc.label}</span>
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{loc.label}</span>
             </label>
           ))}
         </div>
@@ -131,7 +147,7 @@ export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
             onFilterChange('equipment', null)
             onFilterChange('location', null)
           }}
-          className="w-full px-4 py-2 text-sm text-primary-600 border border-primary-300 rounded-lg hover:bg-primary-50 transition"
+          className="w-full px-4 py-2 text-sm text-primary-700 dark:text-primary-200 border border-primary-200 dark:border-primary-800 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition"
         >
           Clear All Filters
         </button>

@@ -3,37 +3,26 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --foreground-rgb: 15, 23, 42;
-    --background-start-rgb: 248, 250, 252;
-    --background-end-rgb: 255, 255, 255;
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply min-h-screen bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
   }
 
   html.dark {
-    --foreground-rgb: 226, 232, 240;
-    --background-start-rgb: 15, 23, 42;
-    --background-end-rgb: 30, 41, 59;
+    color-scheme: dark;
   }
-}
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-    to bottom,
-    rgb(var(--background-start-rgb)),
-    rgb(var(--background-end-rgb))
-  );
-  min-height: 100vh;
-}
+  ::selection {
+    @apply bg-primary-200 text-slate-900 dark:bg-primary-700/40 dark:text-slate-100;
+  }
 
-/* Improved dark mode support */
-html.dark {
-  color-scheme: dark;
-}
-
-html.dark body {
-  color: #e5e7eb;
-  background: linear-gradient(to bottom, #0f172a, #1e293b);
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-slate-50 dark:ring-offset-slate-950;
+  }
 }
 
 /* Keep theme transitions explicit via Tailwind utility classes (avoid global "*" transitions). */

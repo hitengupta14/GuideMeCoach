@@ -16,9 +16,9 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
   const [isLoading, setIsLoading] = useState(false)
 
   const difficultyColors: Record<string, string> = {
-    beginner: 'bg-green-100 text-green-800',
-    intermediate: 'bg-yellow-100 text-yellow-800',
-    advanced: 'bg-red-100 text-red-800',
+    beginner: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
+    intermediate: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200',
+    advanced: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',
   }
 
   const categoryIcons: Record<string, string> = {
@@ -66,7 +66,7 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
 
   return (
     <Link href={`/exercises/${exercise.slug}`}>
-      <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer h-full overflow-hidden border border-gray-100 hover:border-indigo-300">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer h-full overflow-hidden border border-gray-200/80 dark:border-gray-800 hover:border-indigo-300 dark:hover:border-indigo-700">
         {/* Header with icon and category */}
         <div className="bg-gradient-to-r from-primary-500 to-primary-600 p-4 text-white relative">
           <div className="flex items-start justify-between">
@@ -102,15 +102,18 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
           {/* Equipment */}
           {exercise.equipment && exercise.equipment.length > 0 && (
             <div className="mb-3">
-              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1 font-semibold">Equipment</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 font-semibold">Equipment</p>
               <div className="flex flex-wrap gap-1">
                 {exercise.equipment?.slice(0, 3).map((eq: string) => (
-                  <span key={eq} className="inline-block bg-gradient-to-r from-gray-100 to-gray-200 px-2 py-1 rounded text-xs text-gray-700 font-medium">
+                  <span
+                    key={eq}
+                    className="inline-block bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs text-gray-700 dark:text-gray-200 font-medium"
+                  >
                     {eq.replace(/_/g, ' ')}
                   </span>
                 ))}
                 {exercise.equipment && exercise.equipment.length > 3 && (
-                  <span className="inline-block text-xs text-gray-600 px-2">+{exercise.equipment.length - 3}</span>
+                  <span className="inline-block text-xs text-gray-600 dark:text-gray-400 px-2">+{exercise.equipment.length - 3}</span>
                 )}
               </div>
             </div>
@@ -118,8 +121,8 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
 
           {/* Location */}
           <div className="mb-3">
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1 font-semibold">Location</p>
-            <span className="inline-block bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-medium">
+            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 font-semibold">Location</p>
+            <span className="inline-block bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded text-xs font-medium">
               {exercise.location}
             </span>
           </div>
@@ -127,10 +130,13 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
           {/* Movement Pattern */}
           {exercise.movementPattern && exercise.movementPattern.length > 0 && (
             <div className="mb-3">
-              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1 font-semibold">Movement</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 font-semibold">Movement</p>
               <div className="flex flex-wrap gap-1">
                 {exercise.movementPattern.slice(0, 2).map((pattern: string) => (
-                  <span key={pattern} className="inline-block bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs font-medium">
+                  <span
+                    key={pattern}
+                    className="inline-block bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 py-1 rounded text-xs font-medium"
+                  >
                     {pattern}
                   </span>
                 ))}
@@ -140,9 +146,9 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
 
           {/* Benefits */}
           {exercise.benefits && Object.values(exercise.benefits).some((v) => v) && (
-            <div className="pt-3 border-t">
-              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Benefits</p>
-              <p className="text-xs text-gray-600">
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-800">
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Benefits</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
                 {Object.entries(exercise.benefits)
                   .filter(([, v]) => v)
                   .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
@@ -153,7 +159,7 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
         </div>
 
         {/* CTA */}
-        <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200 hover:from-primary-50 hover:to-primary-100 transition-colors">
+        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
           <p className="text-primary-600 text-sm font-semibold">View Details →</p>
         </div>
       </div>

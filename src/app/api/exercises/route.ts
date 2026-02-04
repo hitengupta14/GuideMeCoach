@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, muscleGroups } from '@/db/schema'
-import { eq, ilike, and, inArray } from 'drizzle-orm'
+import { eq, ilike, and, or } from 'drizzle-orm'
 import { exerciseFilterSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 import { apiRateLimiter } from '@/lib/rate-limit'
@@ -62,9 +62,11 @@ export async function GET(request: NextRequest) {
       // - gym  => include {gym, both}
       // - both => only {both}
       if (filters.location === 'home') {
-        conditions.push(inArray(exercises.location, ['home', 'both'] as any))
+        // Apply location filtering after fetching so we can fall back to "home-friendly" equipment
+        // even if older seed data marked an exercise as gym.
       } else if (filters.location === 'gym') {
-        conditions.push(inArray(exercises.location, ['gym', 'both'] as any))
+        const gymCondition = or(eq(exercises.location, 'gym'), eq(exercises.location, 'both'))
+        if (gymCondition) conditions.push(gymCondition)
       } else {
         conditions.push(eq(exercises.location, filters.location as any))
       }
@@ -81,6 +83,25 @@ export async function GET(request: NextRequest) {
     }
     
     let results = await query
+
+    // Apply location filter that supports legacy data:
+    // - Home: include {home, both} PLUS exercises that are "home-friendly" by equipment.
+    if (filters.location === 'home') {
+      const homeFriendly = new Set([
+        'none',
+        'dumbbell',
+        'resistance_band',
+        'kettlebell',
+        'pull_up_bar',
+        'bench',
+      ])
+      results = results.filter((ex: any) => {
+        if (ex.location === 'home' || ex.location === 'both') return true
+        if (ex.location !== 'gym') return false
+        if (!Array.isArray(ex.equipment)) return false
+        return ex.equipment.every((eq: string) => homeFriendly.has(eq))
+      })
+    }
 
     // Filter by equipment (array contains)
     if (filters.equipment) {

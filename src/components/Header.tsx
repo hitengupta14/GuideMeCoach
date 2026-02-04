@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from './ThemeProvider'
 import { useSession } from '@/hooks/useSession'
 import {
   Bot,
+  BookOpen,
   Brain,
   CalendarDays,
   Dumbbell,
@@ -15,6 +16,7 @@ import {
   LayoutDashboard,
   LineChart,
   LogOut,
+  Map,
   Settings,
   Shield,
   Star,
@@ -23,10 +25,34 @@ import {
 } from 'lucide-react'
 
 export function Header() {
-  const { user, isLoading: loading, refetch } = useSession({ required: false })
+  const { user, refetch } = useSession({ required: false })
   const [showMenu, setShowMenu] = useState(false)
   const router = useRouter()
   const { theme, toggleTheme } = useTheme()
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!showMenu) return
+
+    const onMouseDown = (event: MouseEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setShowMenu(false)
+      }
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowMenu(false)
+    }
+
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [showMenu])
 
   const handleLogout = async () => {
     try {
@@ -45,95 +71,69 @@ export function Header() {
 
   return (
     <header className="bg-white dark:bg-gray-900 shadow-sm dark:shadow-gray-800/50 sticky top-0 z-50 backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95 border-b border-gray-200 dark:border-gray-800">
-      <nav className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
+      <nav className="container py-3 sm:py-4">
+        <div className="flex items-center justify-between gap-3">
           <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-2 hover:opacity-80 transition">
             <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
               GuideMeCoach
             </span>
           </Link>
  
-          <div className="flex items-center gap-6 text-sm font-medium">
-            {/* Logged In - Show Full Navigation */}
+          <div className="flex items-center gap-2 sm:gap-3">
             {user ? (
-              <>
-                <Link 
-                  href="/dashboard" 
+              <div className="hidden lg:flex items-center gap-5 xl:gap-6 text-sm font-medium">
+                <Link
+                  href="/dashboard"
                   className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
                   Dashboard
                 </Link>
-                <Link 
-                  href="/today" 
+                <Link
+                  href="/today"
                   className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
                   Today
                 </Link>
-                <Link 
-                  href="/exercises" 
+                <Link
+                  href="/exercises"
                   className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
                   Exercises
                 </Link>
-                <Link 
-                  href="/planner" 
-                  className="hidden md:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                <Link
+                  href="/planner"
+                  className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
                   Planner
                 </Link>
-                <Link 
-                  href="/workouts" 
-                  className="hidden md:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                <Link
+                  href="/workouts"
+                  className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
                   Workouts
                 </Link>
-                <Link 
-                  href="/ai-insights" 
-                  className="hidden lg:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
-                >
-                  Insights
-                </Link>
-                <Link 
-                  href="/nutrition" 
-                  className="hidden lg:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
-                >
-                  Nutrition
-                </Link>
-                <Link 
-                  href="/form-feedback" 
-                  className="hidden lg:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
-                >
-                  Form Coach
-                </Link>
-                <Link 
-                  href="/ai-features" 
-                  className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
-                >
-                  AI Features
-                </Link>
-                <Link 
-                  href="/pricing" 
-                  className="hidden lg:inline px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition text-sm font-semibold"
+                <Link
+                  href="/pricing"
+                  className="hidden xl:inline-flex px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition text-sm font-semibold"
                 >
                   Upgrade
                 </Link>
-              </>
+              </div>
             ) : (
-              /* Logged Out - Minimal Clean Navigation */
-              <>
-                <Link 
-                  href="/exercises" 
-                  className="hidden sm:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+              <div className="hidden sm:flex items-center gap-5 text-sm font-medium">
+                <Link
+                  href="/exercises"
+                  className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
                   Exercises
                 </Link>
-                <Link 
-                  href="/pricing" 
-                  className="hidden sm:inline text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                <Link
+                  href="/pricing"
+                  className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
                   Pricing
                 </Link>
-              </>
+              </div>
             )}
 
             {/* Theme Toggle */}
@@ -155,7 +155,7 @@ export function Header() {
 
             {/* User Section */}
             {user ? (
-              <div className="relative">
+              <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setShowMenu(!showMenu)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition"
@@ -163,7 +163,9 @@ export function Header() {
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 dark:from-indigo-500 dark:to-purple-500 text-white flex items-center justify-center font-bold text-sm">
                     {user.name?.charAt(0).toUpperCase() || 'U'}
                   </div>
-                  <span className="text-gray-700 dark:text-gray-300 hidden sm:inline max-w-[100px] truncate">{user.name?.split(' ')[0]}</span>
+                  <span className="text-gray-700 dark:text-gray-300 hidden sm:inline max-w-[100px] truncate">
+                    {user.name?.split(' ')[0]}
+                  </span>
                   <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -183,6 +185,22 @@ export function Header() {
                     {/* Navigation Section */}
                     <div className="py-2 border-b border-gray-200 dark:border-gray-700">
                       <Link 
+                        href="/exercises"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <BookOpen className="h-5 w-5" aria-hidden="true" />
+                        <span>Exercise Library</span>
+                      </Link>
+                      <Link 
+                        href="/body-map"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <Map className="h-5 w-5" aria-hidden="true" />
+                        <span>Body Map</span>
+                      </Link>
+                      <Link 
                         href="/dashboard"
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
@@ -197,6 +215,14 @@ export function Header() {
                       >
                         <CalendarDays className="h-5 w-5" aria-hidden="true" />
                         <span>Today</span>
+                      </Link>
+                      <Link 
+                        href="/planner"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <Brain className="h-5 w-5" aria-hidden="true" />
+                        <span>Planner</span>
                       </Link>
                       <Link 
                         href="/progress"
@@ -223,20 +249,44 @@ export function Header() {
                         <span>Achievements</span>
                       </Link>
                       <Link 
-                        href="/planner"
-                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
-                        onClick={() => setShowMenu(false)}
-                      >
-                        <Brain className="h-5 w-5" aria-hidden="true" />
-                        <span>Planner</span>
-                      </Link>
-                      <Link 
                         href="/recovery"
                         className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                         onClick={() => setShowMenu(false)}
                       >
                         <HeartPulse className="h-5 w-5" aria-hidden="true" />
                         <span>Recovery</span>
+                      </Link>
+                      <Link 
+                        href="/nutrition"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <HeartPulse className="h-5 w-5" aria-hidden="true" />
+                        <span>Nutrition</span>
+                      </Link>
+                      <Link 
+                        href="/form-feedback"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <Bot className="h-5 w-5" aria-hidden="true" />
+                        <span>Form Coach</span>
+                      </Link>
+                      <Link 
+                        href="/ai-insights"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <LineChart className="h-5 w-5" aria-hidden="true" />
+                        <span>Insights</span>
+                      </Link>
+                      <Link 
+                        href="/ai-features"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <Bot className="h-5 w-5" aria-hidden="true" />
+                        <span>AI Features</span>
                       </Link>
                       <Link 
                         href="/tools"
@@ -315,13 +365,13 @@ export function Header() {
               <>
                 <Link 
                   href="/auth/login" 
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  className="hidden sm:inline-flex px-3 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                 >
                   Log In
                 </Link>
                 <Link 
                   href="/auth/signup" 
-                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white transition font-medium shadow-lg shadow-indigo-500/50 dark:shadow-indigo-500/30"
+                  className="inline-flex px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white transition font-medium shadow-lg shadow-indigo-500/50 dark:shadow-indigo-500/30"
                 >
                   Sign Up
                 </Link>

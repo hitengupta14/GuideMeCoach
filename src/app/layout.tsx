@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     default: 'GuideMeCoach - Structured Exercise Knowledge Platform',
     template: '%s | GuideMeCoach'
   },
-  description: 'Comprehensive exercise library with 100+ exercises, muscle-wise navigation, video demonstrations, and medical-safe filtering. Built for Indian fitness enthusiasts.',
+  description: 'Comprehensive exercise library with 500+ exercises, muscle-wise navigation, video demonstrations, and medical-safe filtering. Built for Indian fitness enthusiasts.',
   keywords: ['exercise library', 'workout guide', 'fitness', 'muscle exercises', 'gym exercises', 'home workouts', 'India fitness', 'training guide'],
   authors: [{ name: 'GuideMeCoach' }],
   creator: 'GuideMeCoach',
@@ -55,14 +55,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="font-sans min-h-screen bg-gray-50 dark:bg-gray-950">
+      <body className="font-sans min-h-screen antialiased bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
         <ErrorBoundary>
           <Providers>
-            <HeaderWrapper />
-            <div className="min-h-screen">
-              {children}
+            <div className="min-h-screen flex flex-col">
+              <HeaderWrapper />
+              <main className="flex-1">
+                {children}
+              </main>
+              <FooterWrapper />
             </div>
-            <FooterWrapper />
           </Providers>
         </ErrorBoundary>
       </body>

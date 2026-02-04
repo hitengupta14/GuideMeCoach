@@ -10,14 +10,14 @@ export const metadata: Metadata = {
 const BodyMapClientPage = dynamic(() => import('./client'), {
   ssr: false,
   loading: () => (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white py-12">
-        <div className="container mx-auto px-4">
+        <div className="container">
           <h1 className="text-4xl font-bold mb-2">Body Map</h1>
           <p className="text-primary-100">Click on a muscle group to explore exercises</p>
         </div>
       </div>
-      <div className="container mx-auto px-4 py-12">
+      <div className="container py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <LoadingSkeleton key={i} type="card" />

@@ -55,36 +55,39 @@ export default function FavoritesPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading favorites...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading favorites...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 py-10 px-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
+      <div className="container">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-8 border border-gray-100">
-          <div className="flex items-center justify-between">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 sm:p-8 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900">❤️ Saved Exercises</h1>
-              <p className="text-gray-600 mt-2">Your collection of favorite exercises ({favorites.length})</p>
+              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">Saved Exercises</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">Your collection of favorite exercises ({favorites.length})</p>
             </div>
-            <Link href="/dashboard" className="text-indigo-600 hover:text-indigo-700 font-semibold hover:bg-indigo-50 px-4 py-2 rounded-lg transition-colors">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-indigo-200 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
+            >
               ← Back to Dashboard
             </Link>
           </div>
         </div>
 
         {favorites.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-100">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-10 sm:p-12 text-center">
             <div className="text-6xl mb-4">💭</div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">No saved exercises yet</h2>
-            <p className="text-gray-600 text-lg mb-8">Start exploring exercises and build your personalized collection</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3">No saved exercises yet</h2>
+            <p className="text-gray-600 dark:text-gray-400 text-base sm:text-lg mb-8">Start exploring exercises and build your personalized collection</p>
             <Link
               href="/exercises"
               className="inline-block px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-bold shadow-lg hover:shadow-xl"
@@ -95,16 +98,16 @@ export default function FavoritesPage() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {favorites.map((fav) => (
-              <div key={fav.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all overflow-hidden border border-gray-100 hover:border-indigo-300 group">
-                <div className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50">
+              <div key={fav.id} className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-indigo-300 dark:hover:border-indigo-700 group">
+                <div className="p-6 bg-indigo-50 dark:bg-indigo-900/20">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{fav.name || fav.exerciseId}</h3>
-                      <p className="text-sm text-gray-600 mt-1 capitalize">{fav.category || 'Exercise'}</p>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">{fav.name || fav.exerciseId}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 capitalize">{fav.category || 'Exercise'}</p>
                     </div>
                     <button
                       onClick={() => removeFavorite(fav.id, fav.exerciseId)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-full transition-colors ml-2 flex-shrink-0"
+                      className="text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-full transition-colors ml-2 flex-shrink-0"
                       title="Remove from favorites"
                     >
                       ❌
@@ -124,7 +127,7 @@ export default function FavoritesPage() {
                   </div>
                 </div>
 
-                <div className="px-6 py-4 border-t border-gray-200">
+                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800">
                   <Link
                     href={`/exercises/${fav.slug || fav.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')}`}
                     className="inline-block w-full text-center px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-bold shadow-md hover:shadow-lg"
