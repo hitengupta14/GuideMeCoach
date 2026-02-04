@@ -11,7 +11,8 @@ export default function LoginForm() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showRegisteredMessage, setShowRegisteredMessage] = useState(false)
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
+  const [banner, setBanner] = useState<{ title: string; body: string } | null>(null)
   const [redirectPath, setRedirectPath] = useState('/dashboard')
   const router = useRouter()
 
@@ -22,8 +23,16 @@ export default function LoginForm() {
     const verify = params.get('verify')
     const redirect = params.get('redirect')
     
-    if (registered || verify) {
-      setShowRegisteredMessage(true)
+    if (verify) {
+      setBanner({
+        title: 'Email verified',
+        body: 'Your email is verified. Log in to continue.',
+      })
+    } else if (registered) {
+      setBanner({
+        title: 'Account created',
+        body: 'Check your email for the verification link (or console in dev mode). After verifying, you can log in.',
+      })
     }
 
     // Store redirect path for after login
@@ -48,6 +57,7 @@ export default function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setUnverifiedEmail(null)
     setLoading(true)
 
     try {
@@ -64,6 +74,9 @@ export default function LoginForm() {
         // Show validation errors if available
         if (data.issues) {
           setError(data.issues.map((i: any) => i.message).join(', '))
+        } else if (data.code === 'EMAIL_NOT_VERIFIED') {
+          setError(data.error || 'Please verify your email before logging in')
+          setUnverifiedEmail(data.email || formData.email)
         } else {
           setError(data.error || 'Login failed')
         }
@@ -91,13 +104,13 @@ export default function LoginForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4">
       <div className="w-full max-w-md">
-        {showRegisteredMessage && (
+        {banner && (
           <div className="mb-4 rounded-xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-900/20 p-4">
             <p className="text-green-800 dark:text-green-300 text-sm font-semibold mb-1">
-              Account created successfully
+              {banner.title}
             </p>
             <p className="text-green-700 dark:text-green-200 text-xs">
-              Check your email for the verification link (or console in dev mode). You can still log in now.
+              {banner.body}
             </p>
           </div>
         )}
@@ -109,6 +122,16 @@ export default function LoginForm() {
           {error && (
             <div className="mb-4 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 p-4">
               <p className="text-red-800 dark:text-red-300 text-sm">{error}</p>
+              {unverifiedEmail ? (
+                <p className="mt-2 text-sm">
+                  <Link
+                    href={`/auth/resend-verification?email=${encodeURIComponent(unverifiedEmail)}`}
+                    className="text-indigo-700 dark:text-indigo-300 hover:underline font-semibold"
+                  >
+                    Resend verification email
+                  </Link>
+                </p>
+              ) : null}
             </div>
           )}
 

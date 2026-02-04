@@ -209,7 +209,7 @@ export const apiClient = {
 
   // ===== Nutrition =====
   async getNutritionGuidance() {
-    return this.request('/users/nutrition-guidance', { method: 'GET' });
+    return this.request('/nutrition/guidance', { method: 'GET' });
   },
   
   // ===== Muscles / Body Map =====

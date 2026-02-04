@@ -4,11 +4,12 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
-import { getFormFeedback } from '@/lib/ai'
+import { getFormFeedback, getOpenAIModel } from '@/lib/ai'
 import { aiRateLimiter } from '@/lib/rate-limit'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
 import { getPremiumStatus } from '@/lib/entitlements'
 import { withApiTelemetry } from '@/lib/api-telemetry'
+import { hashAIRequest, getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache'
 
 async function formFeedback(request: NextRequest) {
   try {
@@ -52,55 +53,74 @@ async function formFeedback(request: NextRequest) {
       )
     }
 
-    const quota = await checkQuota(userId, 'insights', userIsPremium)
-    if (!quota.allowed) {
-      return NextResponse.json(
-        {
-          error: 'AI quota exceeded',
-          quota: {
-            used: quota.used,
-            limit: quota.limit,
-            resetAt: quota.resetAt,
-          },
-        },
-        { status: 403 }
-      )
-    }
-
-    const rl = await aiRateLimiter(request)
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { error: 'Too many AI requests. Please try again later.' },
-        { status: 429, headers: { 'Retry-After': rl.retryAfter?.toString() || '3600' } }
-      )
-    }
-
     const startTime = Date.now()
 
     // Get form feedback with timeout
     let feedback
     try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      const normalizedWeight = typeof weight === 'number' ? weight : weight ? parseFloat(weight) : undefined
+      const normalizedReps = typeof reps === 'number' ? reps : reps ? parseInt(reps) : undefined
+
+      const cacheKey = hashAIRequest('exercises.form-feedback', {
+        v: 1,
+        userId,
+        exerciseName,
+        description,
+        weight: normalizedWeight ?? null,
+        reps: normalizedReps ?? null,
+        experienceLevel: user.experienceLevel || 'intermediate',
+        medicalConditions: (user.medicalConditions as string[]) || [],
+      })
+
+      const cached = await getCachedAIResponse(cacheKey, 168) // 7 days
+      if (cached) {
+        return NextResponse.json({ ...cached, cached: true })
+      }
+
+      const quota = await checkQuota(userId, 'insights', userIsPremium)
+      if (!quota.allowed) {
+        return NextResponse.json(
+          {
+            error: 'AI quota exceeded',
+            quota: {
+              used: quota.used,
+              limit: quota.limit,
+              resetAt: quota.resetAt,
+            },
+          },
+          { status: 403 }
+        )
+      }
+
+      const rl = await aiRateLimiter(request)
+      if (!rl.allowed) {
+        return NextResponse.json(
+          { error: 'Too many AI requests. Please try again later.' },
+          { status: 429, headers: { 'Retry-After': rl.retryAfter?.toString() || '3600' } }
+        )
+      }
 
       feedback = await getFormFeedback({
         exerciseName,
         userDescription: description,
-        weight: weight ? parseFloat(weight) : undefined,
-        reps: reps ? parseInt(reps) : undefined,
+        weight: normalizedWeight,
+        reps: normalizedReps,
         userExperienceLevel: user.experienceLevel || 'intermediate',
         medicalConditions: (user.medicalConditions as string[]) || [],
       })
-
-      clearTimeout(timeout)
 
       await decrementQuota(userId, 'insights', userIsPremium)
       await logAIUsage({
         userId,
         feature: 'insights',
-        model: 'gpt-4',
+        model: getOpenAIModel(),
         responseTime: Date.now() - startTime,
         success: true,
+      })
+
+      await cacheAIResponse(cacheKey, 'exercises.form-feedback', feedback, {
+        userId,
+        exerciseName,
       })
     } catch (aiError) {
       logger.error('AI call failed for form feedback', aiError as Error)
@@ -108,7 +128,7 @@ async function formFeedback(request: NextRequest) {
       await logAIUsage({
         userId,
         feature: 'insights',
-        model: 'gpt-4',
+        model: getOpenAIModel(),
         responseTime: Date.now() - startTime,
         success: false,
         errorMessage: (aiError as Error).message,

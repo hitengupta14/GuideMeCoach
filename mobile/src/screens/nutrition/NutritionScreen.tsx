@@ -54,7 +54,8 @@ export default function NutritionScreen() {
     return <ErrorView message="Failed to fetch guidance" />;
   }
 
-  const guidance: any = data || {};
+  const payload: any = data || {};
+  const guidance: any = payload.guidance || payload;
   const tdee = guidance.tdeeEstimate || {};
   const macros = guidance.macroRecommendation || {};
 

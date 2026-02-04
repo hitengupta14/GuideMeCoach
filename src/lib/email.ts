@@ -70,7 +70,8 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
  * Email verification template
  */
 export function getVerificationEmailHtml(token: string, appUrl: string): { html: string; text: string } {
-  const verifyUrl = `${appUrl}/auth/verify?token=${token}`
+  // Use API route to perform verification (then redirects to a friendly UI page).
+  const verifyUrl = `${appUrl}/api/auth/verify?token=${token}`
 
   const html = `
     <!DOCTYPE html>

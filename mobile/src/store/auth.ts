@@ -16,7 +16,7 @@ export interface AuthState {
   error: string | null;
   biometricsEnabled: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name?: string) => Promise<void>;
+  signup: (email: string, password: string, name?: string) => Promise<{ requiresEmailVerification: boolean; email?: string }>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => void;
   setToken: (token: string) => void;
@@ -68,7 +68,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isLoading: true, error: null });
       const response: any = await apiClient.signup(email, password, name || '');
 
-      // Backend returns { success: true, data: { token, user } }
+      // Backend can either:
+      // 1) Return { success: true, data: { token, user } } for immediate auth flows, or
+      // 2) Return { success: true, data: { user } } when email verification is required.
       const tokenData = response?.data?.token || response?.token;
       const userData = response?.data?.user || response?.user;
 
@@ -82,6 +84,13 @@ export const useAuthStore = create<AuthState>((set) => ({
           isLoading: false,
           biometricsEnabled: true,
         });
+        return { requiresEmailVerification: false };
+      }
+
+      if (userData && !tokenData) {
+        // Email verification required (no session until verified).
+        set({ isLoading: false });
+        return { requiresEmailVerification: true, email: userData.email || email };
       } else {
         throw new Error('Invalid response structure from server');
       }
