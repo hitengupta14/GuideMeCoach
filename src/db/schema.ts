@@ -7,6 +7,7 @@ import {
   boolean,
   jsonb,
   pgEnum,
+  uniqueIndex,
   type PgTableWithColumns
 } from 'drizzle-orm/pg-core'
 
@@ -251,6 +252,30 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+// Feature entitlements (canonical access control flags)
+export const entitlements = pgTable(
+  'entitlements',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    feature: text('feature').notNull(), // e.g., 'premium'
+    source: text('source').notNull(), // e.g., 'razorpay_webhook', 'admin', 'promo', 'legacy'
+    startsAt: timestamp('starts_at').defaultNow().notNull(),
+    endsAt: timestamp('ends_at'), // null = no expiry
+    metadata: jsonb('metadata').$type<Record<string, any>>(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    userFeatureUnique: uniqueIndex('entitlements_user_feature_unique').on(
+      t.userId,
+      t.feature
+    ),
+  })
+)
+
 // Subscription History (track all subscription changes)
 export const subscriptionHistory = pgTable('subscription_history', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -378,25 +403,74 @@ export const workoutSessions = pgTable('workout_sessions', {
 })
 
 // Progress Tracking (Individual exercise performance in a session)
-export const workoutLogs = pgTable('workout_logs', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  sessionId: uuid('session_id').references(() => workoutSessions.id, { onDelete: 'cascade' }).notNull(),
-  exerciseId: uuid('exercise_id').references(() => exercises.id, { onDelete: 'cascade' }).notNull(),
-  
-  plannedSets: integer('planned_sets'),
-  completedSets: integer('completed_sets'),
-  plannedReps: text('planned_reps'),
-  completedReps: text('completed_reps'), // e.g., "10,9,8"
-  weight: integer('weight'), // in kg
-  duration: integer('duration'), // in seconds for cardio
-  
-  rpe: integer('rpe'), // Rate of Perceived Exertion (1-10)
-  notes: text('notes'),
-  
-  performedAt: timestamp('performed_at').defaultNow(),
-  createdAt: timestamp('created_at').defaultNow(),
-})
+export const workoutLogs = pgTable(
+  'workout_logs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    sessionId: uuid('session_id')
+      .references(() => workoutSessions.id, { onDelete: 'cascade' })
+      .notNull(),
+    exerciseId: uuid('exercise_id')
+      .references(() => exercises.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    plannedSets: integer('planned_sets'),
+    completedSets: integer('completed_sets'),
+    plannedReps: text('planned_reps'),
+    completedReps: text('completed_reps'), // e.g., "10,9,8"
+    weight: integer('weight'), // in kg
+    duration: integer('duration'), // in seconds for cardio
+
+    rpe: integer('rpe'), // Rate of Perceived Exertion (1-10)
+    notes: text('notes'),
+
+    performedAt: timestamp('performed_at').defaultNow(),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => ({
+    // One log per exercise per session (idempotent writes).
+    sessionExerciseUnique: uniqueIndex('workout_logs_session_exercise_unique').on(
+      t.sessionId,
+      t.exerciseId
+    ),
+  })
+)
+
+// Workout Sets (Set-by-set performance for strength training)
+export const workoutSets = pgTable(
+  'workout_sets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    sessionId: uuid('session_id')
+      .references(() => workoutSessions.id, { onDelete: 'cascade' })
+      .notNull(),
+    exerciseId: uuid('exercise_id')
+      .references(() => exercises.id, { onDelete: 'cascade' })
+      .notNull(),
+    isWarmup: boolean('is_warmup').default(false).notNull(),
+    setNumber: integer('set_number').notNull(),
+    completedReps: integer('completed_reps'),
+    weight: integer('weight'), // kg
+    rpe: integer('rpe'), // 1-10
+    notes: text('notes'),
+    performedAt: timestamp('performed_at').defaultNow(),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => ({
+    uniqueSetPerExercise: uniqueIndex('workout_sets_session_exercise_set_unique').on(
+      t.sessionId,
+      t.exerciseId,
+      t.isWarmup,
+      t.setNumber
+    ),
+  })
+)
 
 // AI Chatbot Conversations
 export const chatConversations = pgTable('chat_conversations', {
@@ -445,6 +519,23 @@ export const systemMetrics = pgTable('system_metrics', {
   metadata: jsonb('metadata').$type<Record<string, any>>(),
   
   recordedAt: timestamp('recorded_at').defaultNow(),
+})
+
+// Metrics Counters (DB-backed, aggregated counters)
+export const metricsCounters = pgTable('metrics_counters', {
+  key: text('key').primaryKey(),
+  count: integer('count').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+// Rate Limit Entries (DB-backed fixed-window counters)
+export const rateLimitEntries = pgTable('rate_limit_entries', {
+  key: text('key').primaryKey(),
+  count: integer('count').default(0).notNull(),
+  resetAt: timestamp('reset_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
 // AI Usage Tracking
@@ -499,6 +590,20 @@ export const pushTokens = pgTable('push_tokens', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+// Notification preferences (user-configurable)
+export const notificationPreferences = pgTable('notification_preferences', {
+  userId: uuid('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .primaryKey(),
+  pushEnabled: boolean('push_enabled').default(true).notNull(),
+  dailyWorkoutReminder: boolean('daily_workout_reminder').default(true).notNull(),
+  missedWorkoutNudges: boolean('missed_workout_nudges').default(true).notNull(),
+  streakReinforcement: boolean('streak_reinforcement').default(true).notNull(),
+  renewalReminders: boolean('renewal_reminders').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // Joint Involvement (Exercise → Joint mapping with severity level)
 export const jointInvolvement = pgTable('joint_involvement', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -531,6 +636,42 @@ export const userMedicalHistory = pgTable('user_medical_history', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+// Recovery: Pain check-ins (joint pain + red flags)
+export const painEntries = pgTable('pain_entries', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  sessionId: uuid('session_id').references(() => workoutSessions.id, { onDelete: 'set null' }),
+  recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+  joints: jsonb('joints').$type<Record<string, number>>().default({}).notNull(),
+  redFlags: jsonb('red_flags').$type<string[]>().default([]).notNull(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// Recovery: Daily Soreness Check-ins
+export const sorenessEntries = pgTable('soreness_entries', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+  areas: jsonb('areas').$type<Record<string, number>>().notNull(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// Progress: Measurements history (e.g., weight over time)
+export const measurementEntries = pgTable('measurement_entries', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  type: text('type').notNull(), // e.g., 'weight'
+  value: integer('value').notNull(), // e.g., kg
+  recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
 // Export types
 export type Exercise = typeof exercises.$inferSelect
 export type NewExercise = typeof exercises.$inferInsert
@@ -539,15 +680,23 @@ export type User = typeof users.$inferSelect
 export type WorkoutPlan = typeof workoutPlans.$inferSelect
 export type WorkoutSession = typeof workoutSessions.$inferSelect
 export type WorkoutLog = typeof workoutLogs.$inferSelect
+export type WorkoutSet = typeof workoutSets.$inferSelect
 export type AchievementBadge = typeof achievementBadges.$inferSelect
 export type ChatConversation = typeof chatConversations.$inferSelect
 export type ChatMessage = typeof chatMessages.$inferSelect
 export type AdminActivityLog = typeof adminActivityLogs.$inferSelect
 export type SystemMetric = typeof systemMetrics.$inferSelect
+export type RateLimitEntry = typeof rateLimitEntries.$inferSelect
 export type AIUsageLog = typeof aiUsageLogs.$inferSelect
 export type PushToken = typeof pushTokens.$inferSelect
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect
 export type SubscriptionHistory = typeof subscriptionHistory.$inferSelect
+export type Entitlement = typeof entitlements.$inferSelect
 export type AIResponseCache = typeof aiResponseCache.$inferSelect
 export type RefreshToken = typeof refreshTokens.$inferSelect
 export type JointInvolvement = typeof jointInvolvement.$inferSelect
 export type UserMedicalHistory = typeof userMedicalHistory.$inferSelect
+export type PainEntry = typeof painEntries.$inferSelect
+export type SorenessEntry = typeof sorenessEntries.$inferSelect
+export type MeasurementEntry = typeof measurementEntries.$inferSelect
+export type MetricsCounter = typeof metricsCounters.$inferSelect

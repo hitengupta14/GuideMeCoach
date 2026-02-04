@@ -4,10 +4,12 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { SignJWT } from 'jose';
+import { getJwtSecretKey } from '@/lib/jwt';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+const JWT_SECRET = getJwtSecretKey();
 
-export async function POST(req: NextRequest) {
+async function signup(req: NextRequest) {
   try {
     const { email, password, name } = await req.json();
 
@@ -76,3 +78,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withApiTelemetry(signup, { name: 'v1.auth.signup', includeUserId: false })

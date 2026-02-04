@@ -2,10 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { userMedicalHistory } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { verifySession } from '@/lib/auth-helpers'
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: { userId: string } }) {
   try {
-    const { userId } = await params
+    const { userId } = params
+
+    const authUserId = await verifySession(req)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (authUserId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const history = await db
       .select()
@@ -33,9 +42,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: { userId: string } }) {
   try {
-    const { userId } = await params
+    const { userId } = params
+
+    const authUserId = await verifySession(req)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (authUserId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await req.json()
 
     // Check if record exists

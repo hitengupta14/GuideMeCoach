@@ -1,74 +1,100 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jwtVerify } from 'jose'
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-  
-  // Public paths that don't require authentication
-  const publicPaths = [
-    '/',
-    '/auth/login',
-    '/auth/signup',
-    '/auth/reset-password',
-    '/auth/verify',
-    '/exercises',
-    '/muscles',
-    '/body-map',
-    '/api/auth/login',
-    '/api/auth/signup',
-    '/api/auth/reset-password',
-    '/api/auth/verify-email',
-    '/api/auth/otp',
-  ]
+const publicPaths = [
+  '/',
+  '/auth/login',
+  '/auth/signup',
+  '/auth/reset-password',
+  '/auth/verify',
+  '/exercises',
+  '/muscles',
+  '/body-map',
+]
 
-  // Check if path is public
-  const isPublicPath = publicPaths.some(path => {
-    if (path === '/') {
-      return pathname === '/'
-    }
+function isPublicPathname(pathname: string): boolean {
+  return publicPaths.some(path => {
+    if (path === '/') return pathname === '/'
     return pathname.startsWith(path)
   })
+}
+
+async function hasValidSession(request: NextRequest): Promise<boolean> {
+  const token = request.cookies.get('session')?.value
+  if (!token) return false
+
+  const jwtSecret = process.env.JWT_SECRET
+  if (!jwtSecret) {
+    // Fail closed if misconfigured.
+    return false
+  }
+
+  const secretKey = new TextEncoder().encode(jwtSecret)
+  const verified = await jwtVerify(token, secretKey).catch(() => null)
+  return Boolean(verified)
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
   
-  // Get session cookie
-  const session = request.cookies.get('session')
+  const requestId =
+    request.headers.get('x-request-id') ||
+    (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
+
+  // Propagate request ID to downstream handlers (API routes, pages, etc.)
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-request-id', requestId)
+
+  // Never redirect API routes from middleware; route handlers should own auth + error shapes.
+  const isApiRoute = pathname.startsWith('/api/')
+
+  const isPublicPath = isPublicPathname(pathname)
+  
+  const sessionValid = await hasValidSession(request)
 
   // Redirect to login if accessing protected route without session
-  if (!isPublicPath && !session) {
+  if (!isApiRoute && !isPublicPath && !sessionValid) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
-    url.searchParams.set('returnTo', pathname)
-    return NextResponse.redirect(url)
+    // Keep query param name consistent with the web auth screens.
+    url.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search)
+    const res = NextResponse.redirect(url)
+    res.headers.set('x-request-id', requestId)
+    return res
   }
 
   // Redirect to dashboard if accessing auth pages with active session
-  if (session && pathname.startsWith('/auth/')) {
+  if (!isApiRoute && sessionValid && pathname.startsWith('/auth/')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    const res = NextResponse.redirect(url)
+    res.headers.set('x-request-id', requestId)
+    return res
   }
 
   // Add CSRF protection headers
-  const response = NextResponse.next()
+  const response = NextResponse.next({ request: { headers: requestHeaders } })
   
   // Set security headers
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('X-XSS-Protection', '1; mode=block')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  response.headers.set('x-request-id', requestId)
   
   // Add CSRF token to response for POST requests
-  if (request.method !== 'GET' && !isPublicPath) {
+  if (!isApiRoute && request.method !== 'GET' && !isPublicPath) {
     const csrfToken = request.cookies.get('csrf-token')
     const headerCsrfToken = request.headers.get('x-csrf-token')
     
     // Verify CSRF token for state-changing requests
     if (!csrfToken || csrfToken.value !== headerCsrfToken) {
-      // Skip CSRF check for API routes (they use other auth mechanisms)
-      if (!pathname.startsWith('/api/')) {
-        return NextResponse.json(
-          { error: 'Invalid CSRF token' },
-          { status: 403 }
-        )
-      }
+      const res = NextResponse.json(
+        { error: 'Invalid CSRF token' },
+        { status: 403 }
+      )
+      res.headers.set('x-request-id', requestId)
+      return res
     }
   }
 

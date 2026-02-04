@@ -2,10 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, jointInvolvement, userMedicalHistory } from '@/db/schema'
 import { eq, inArray } from 'drizzle-orm'
+import { verifySession } from '@/lib/auth-helpers'
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: { userId: string } }) {
   try {
-    const { userId } = await params
+    const { userId } = params
+
+    const authUserId = await verifySession(req)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (authUserId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     // Get user's medical history
     const medicalData = await db

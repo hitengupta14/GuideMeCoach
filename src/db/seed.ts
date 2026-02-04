@@ -1,12 +1,9 @@
 import 'dotenv/config'
 import { db } from '@/db'
 import { exercises, muscleGroups, exerciseMuscles } from '@/db/schema'
-import { chestExercises } from '@/db/seed-data/chest'
-import { backExercises } from '@/db/seed-data/back'
-import { legsExercises } from '@/db/seed-data/legs'
-import { shouldersExercises } from '@/db/seed-data/shoulders'
-import { armsExercises } from '@/db/seed-data/arms'
-import { coreExercises } from '@/db/seed-data/core'
+import { allSeedExercises, SEED_EXERCISE_TOTAL } from '@/db/seed-data'
+import { seedMuscleGroups } from '@/db/seed-data/muscle-groups'
+import { inArray } from 'drizzle-orm'
 
 async function seed() {
   console.log('🌱 Seeding database...')
@@ -15,87 +12,113 @@ async function seed() {
     throw new Error('Seeding blocked in production. Set ALLOW_SEED=true to override intentionally.')
   }
 
-  // Check if data already exists
-  const existingMuscles = await db.select().from(muscleGroups).limit(1)
-  if (existingMuscles.length > 0) {
-    console.log('ℹ️  Database already seeded. Skipping...')
-    return
-  }
+  console.log(`📚 Seed catalog contains ${SEED_EXERCISE_TOTAL} exercises`)
 
-  // Seed muscle groups first
-  console.log('Adding muscle groups...')
-  const muscleGroupsData = [
-    { name: 'chest', displayName: 'Chest', bodyPart: 'upper', description: 'Pectoralis major and minor' },
-    { name: 'upper_chest', displayName: 'Upper Chest', bodyPart: 'upper', description: 'Clavicular head of pectoralis' },
-    { name: 'mid_chest', displayName: 'Mid Chest', bodyPart: 'upper', description: 'Sternal fibers of pectoralis major' },
-    { name: 'lower_chest', displayName: 'Lower Chest', bodyPart: 'upper', description: 'Inferior sternal fibers of pectoralis major' },
-    { name: 'lats', displayName: 'Latissimus Dorsi', bodyPart: 'back', description: 'Large back muscles' },
-    { name: 'upper_back', displayName: 'Upper Back', bodyPart: 'back', description: 'Trapezius and rhomboids' },
-    { name: 'lower_back', displayName: 'Lower Back', bodyPart: 'back', description: 'Erector spinae' },
-    { name: 'front_delts', displayName: 'Front Deltoids', bodyPart: 'shoulders', description: 'Anterior deltoid' },
-    { name: 'side_delts', displayName: 'Side Deltoids', bodyPart: 'shoulders', description: 'Lateral deltoid' },
-    { name: 'rear_delts', displayName: 'Rear Deltoids', bodyPart: 'shoulders', description: 'Posterior deltoid' },
-    { name: 'biceps', displayName: 'Biceps', bodyPart: 'arms', description: 'Biceps brachii' },
-    { name: 'triceps', displayName: 'Triceps', bodyPart: 'arms', description: 'Triceps brachii' },
-    { name: 'forearms', displayName: 'Forearms', bodyPart: 'arms', description: 'Wrist flexors and extensors' },
-    { name: 'abs', displayName: 'Abs', bodyPart: 'core', description: 'Rectus abdominis' },
-    { name: 'upper_abs', displayName: 'Upper Abs', bodyPart: 'core', description: 'Upper rectus abdominis' },
-    { name: 'lower_abs', displayName: 'Lower Abs', bodyPart: 'core', description: 'Lower rectus abdominis' },
-    { name: 'obliques', displayName: 'Obliques', bodyPart: 'core', description: 'Internal and external obliques' },
-    { name: 'quads', displayName: 'Quadriceps', bodyPart: 'legs', description: 'Front thigh muscles' },
-    { name: 'hamstrings', displayName: 'Hamstrings', bodyPart: 'legs', description: 'Back thigh muscles' },
-    { name: 'glutes', displayName: 'Glutes', bodyPart: 'legs', description: 'Gluteus maximus, medius, minimus' },
-    { name: 'calves', displayName: 'Calves', bodyPart: 'legs', description: 'Gastrocnemius and soleus' },
-    { name: 'gastrocnemius_medial', displayName: 'Gastrocnemius (Medial)', bodyPart: 'legs', description: 'Medial head of gastrocnemius' },
-    { name: 'gastrocnemius_lateral', displayName: 'Gastrocnemius (Lateral)', bodyPart: 'legs', description: 'Lateral head of gastrocnemius' },
-    { name: 'soleus', displayName: 'Soleus', bodyPart: 'legs', description: 'Deep calf muscle for plantar flexion' },
-  ]
+  // Seed / upsert muscle groups first
+  console.log('Ensuring muscle groups...')
+  const muscleGroupsData = seedMuscleGroups
 
-  const insertedMuscles = await db.insert(muscleGroups).values(muscleGroupsData).returning()
-  console.log(`✅ Added ${insertedMuscles.length} muscle groups`)
+  await db
+    .insert(muscleGroups)
+    .values(muscleGroupsData)
+    .onConflictDoNothing()
 
-  // Create a mapping for easy reference
-  const muscleMap = Object.fromEntries(
-    insertedMuscles.map(m => [m.name, m.id])
-  )
+  const seededMuscleNames = muscleGroupsData.map((m) => m.name)
+  const allMuscles = await db
+    .select({ id: muscleGroups.id, name: muscleGroups.name })
+    .from(muscleGroups)
+    .where(inArray(muscleGroups.name, seededMuscleNames as any))
+
+  const muscleMap = Object.fromEntries(allMuscles.map((m) => [m.name, m.id]))
+  console.log(`✅ Muscle groups ready: ${allMuscles.length}`)
 
   // Combine all exercise data
-  const allExercisesData = [
-    ...chestExercises,
-    ...backExercises,
-    ...legsExercises,
-    ...shouldersExercises,
-    ...armsExercises,
-    ...coreExercises,
-  ]
+  const allExercisesData = allSeedExercises
 
-  // Process exercises and create muscle links
-  console.log('Adding exercises and linking to muscle groups...')
-  const muscleLinks = []
-  
-  for (const exerciseData of allExercisesData) {
-    const { muscleGroups: muscleGroupsData, ...exerciseWithoutMuscles } = exerciseData as any
-    
-    // Insert exercise
-    const insertedExercise = await db.insert(exercises).values(exerciseWithoutMuscles).returning()
-    
-    if (insertedExercise.length > 0 && muscleGroupsData) {
-      // Link to muscle groups
-      for (const mg of muscleGroupsData) {
-        muscleLinks.push({
-          exerciseId: insertedExercise[0].id,
-          muscleGroupId: muscleMap[mg.muscleGroup],
-          role: mg.role
-        })
-      }
+  // Safety: ensure every referenced muscle group exists.
+  const referencedMuscles = new Set<string>()
+  for (const e of allExercisesData as any[]) {
+    for (const mg of (e.muscleGroups || []) as Array<{ muscleGroup: string }>) {
+      if (mg?.muscleGroup) referencedMuscles.add(mg.muscleGroup)
+    }
+  }
+  const missingMuscles = Array.from(referencedMuscles).filter((name) => !muscleMap[name])
+  if (missingMuscles.length > 0) {
+    throw new Error(`Seed data references unknown muscle groups: ${missingMuscles.join(', ')}`)
+  }
+  const exerciseRows = allExercisesData.map((e: any) => {
+    const { muscleGroups: _mg, ...rest } = e
+    return rest
+  })
+
+  const chunk = <T,>(arr: T[], size: number): T[][] => {
+    const out: T[][] = []
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+    return out
+  }
+
+  // Insert exercises (idempotent)
+  console.log('Ensuring exercises...')
+  let insertedCount = 0
+  for (const batch of chunk(exerciseRows, 200)) {
+    const inserted = await db
+      .insert(exercises)
+      .values(batch as any)
+      .onConflictDoNothing()
+      .returning({ id: exercises.id })
+    insertedCount += inserted.length
+  }
+  console.log(`✅ Inserted ${insertedCount} new exercises (existing kept)`)
+
+  // Fetch exercise ids for all slugs in the seed catalog
+  const slugs = allExercisesData.map((e: any) => e.slug).filter(Boolean)
+  const slugToId = new Map<string, string>()
+  for (const batch of chunk(slugs, 500)) {
+    const rows = await db
+      .select({ id: exercises.id, slug: exercises.slug })
+      .from(exercises)
+      .where(inArray(exercises.slug, batch as any))
+    for (const r of rows) slugToId.set(r.slug, r.id)
+  }
+
+  // Build desired exercise-muscle relationships
+  console.log('Ensuring exercise ↔ muscle links...')
+  const desiredLinks: Array<{ exerciseId: string; muscleGroupId: string; role: string }> = []
+  const seenDesired = new Set<string>()
+
+  for (const e of allExercisesData as any[]) {
+    const exId = e?.slug ? slugToId.get(e.slug) : undefined
+    if (!exId) continue
+    for (const mg of (e.muscleGroups || []) as Array<{ muscleGroup: string; role: string }>) {
+      const mgId = muscleMap[mg.muscleGroup]
+      if (!mgId) continue
+      const key = `${exId}|${mgId}|${mg.role}`
+      if (seenDesired.has(key)) continue
+      seenDesired.add(key)
+      desiredLinks.push({ exerciseId: exId, muscleGroupId: mgId, role: mg.role })
     }
   }
 
-  console.log(`✅ Added ${allExercisesData.length} exercises`)
+  // Fetch existing links for these exercises, then insert only missing ones.
+  const exerciseIds = Array.from(new Set(desiredLinks.map((l) => l.exerciseId)))
+  const existingKeys = new Set<string>()
+  for (const batch of chunk(exerciseIds, 500)) {
+    const rows = await db
+      .select({
+        exerciseId: exerciseMuscles.exerciseId,
+        muscleGroupId: exerciseMuscles.muscleGroupId,
+        role: exerciseMuscles.role,
+      })
+      .from(exerciseMuscles)
+      .where(inArray(exerciseMuscles.exerciseId, batch as any))
+    for (const r of rows) existingKeys.add(`${r.exerciseId}|${r.muscleGroupId}|${r.role}`)
+  }
 
-  // Insert all muscle links
-  await db.insert(exerciseMuscles).values(muscleLinks)
-  console.log(`✅ Created ${muscleLinks.length} exercise-muscle relationships`)
+  const linksToInsert = desiredLinks.filter((l) => !existingKeys.has(`${l.exerciseId}|${l.muscleGroupId}|${l.role}`))
+  for (const batch of chunk(linksToInsert, 500)) {
+    await db.insert(exerciseMuscles).values(batch as any)
+  }
+  console.log(`✅ Added ${linksToInsert.length} new exercise-muscle relationships`)
 
   console.log('✅ Database seeded successfully!')
 }

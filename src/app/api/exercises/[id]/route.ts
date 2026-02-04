@@ -1,18 +1,32 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, exerciseAlternatives, muscleGroups } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { verifySession } from '@/lib/auth-helpers'
+import { requireAdmin } from '@/lib/admin-auth'
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const exerciseId = params.id
+    const identifier = params.id
+    const identifierType = isUuid(identifier) ? 'id' : 'slug'
+
+    // Admins can view drafts; everyone else only sees approved content.
+    const sessionUserId = await verifySession(request)
+    const admin = sessionUserId ? await requireAdmin(request) : null
+    const isAdmin = admin && !(admin instanceof NextResponse)
     
     // Fetch exercise
     const exercise = await db.query.exercises.findFirst({
-      where: eq(exercises.id, exerciseId),
+      where: identifierType === 'id'
+        ? eq(exercises.id, identifier)
+        : eq(exercises.slug, identifier),
     })
     
     if (!exercise) {
@@ -21,13 +35,21 @@ export async function GET(
         { status: 404 }
       )
     }
+
+    if (!isAdmin && exercise.reviewStatus !== 'approved') {
+      return NextResponse.json(
+        { error: 'Exercise not found' },
+        { status: 404 }
+      )
+    }
+
+    const exerciseId = exercise.id
     
     // Fetch muscle groups
     const muscles = await db
       .select({
-        id: muscleGroups.id,
-        name: muscleGroups.name,
-        displayName: muscleGroups.displayName,
+        muscleGroupId: muscleGroups.id,
+        muscleGroupName: muscleGroups.displayName,
         role: exerciseMuscles.role,
       })
       .from(exerciseMuscles)
@@ -48,7 +70,10 @@ export async function GET(
       .where(eq(exerciseAlternatives.exerciseId, exerciseId))
     
     return NextResponse.json({
-      exercise,
+      exercise: {
+        ...exercise,
+        muscles,
+      },
       muscles,
       alternatives,
     })
@@ -62,13 +87,24 @@ export async function GET(
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const admin = await requireAdmin(request)
+    if (admin instanceof NextResponse) return admin
+
     const exerciseId = params.id
     const body = await request.json()
-    
+
+    // Prevent accidental updates of immutable/unsafe fields.
+    const disallowed = new Set(['id', 'createdAt'])
+    for (const key of Object.keys(body || {})) {
+      if (disallowed.has(key)) {
+        delete body[key]
+      }
+    }
+
     const updatedExercise = await db
       .update(exercises)
       .set({
@@ -96,10 +132,13 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const admin = await requireAdmin(request)
+    if (admin instanceof NextResponse) return admin
+
     const exerciseId = params.id
     
     await db.delete(exercises).where(eq(exercises.id, exerciseId))

@@ -1,15 +1,11 @@
 'use client'
 
 import ProgressInsightsComponent from '@/components/ProgressInsightsComponent'
-import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import { useSession } from '@/hooks/useSession'
 import { PremiumPageGuard } from '@/components/PremiumPageGuard'
 
 export default function ProgressPage() {
   const { user, isLoading } = useSession()
-  const { hasAccess, isPremium } = useSubscriptionStatus(
-    typeof window !== 'undefined' ? localStorage.getItem('token') : null
-  )
 
   if (isLoading) {
     return (

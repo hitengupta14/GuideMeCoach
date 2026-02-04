@@ -70,9 +70,7 @@ function PricingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isLoading } = useSession({ required: false })
-  const { subscriptionStatus, isPremium, refetch } = useSubscriptionStatus(
-    typeof window !== 'undefined' ? localStorage.getItem('token') : null
-  )
+  const { subscriptionStatus, isPremium, refetch } = useSubscriptionStatus()
 
   // Refetch subscription status when pricing page comes into focus
   useEffect(() => {
@@ -100,11 +98,11 @@ function PricingContent() {
     setIsCancelling(true)
 
     try {
-      const response = await fetch('/api/subscription/cancel-renewal', {
+      const response = await fetch('/api/v1/subscription/cancel', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       })
 
@@ -129,27 +127,6 @@ function PricingContent() {
         <div className="animate-pulse text-center">
           <div className="w-20 h-20 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto text-center">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Please log in to view pricing
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-8">
-            Sign in to see your subscription status and upgrade options.
-          </p>
-          <Link
-            href={`/auth/login?redirect=/pricing`}
-            className="inline-block px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
-          >
-            Log In
-          </Link>
         </div>
       </div>
     )
@@ -203,6 +180,31 @@ function PricingContent() {
           )}
         </div>
 
+        {!user && (
+          <div className="max-w-3xl mx-auto mb-12 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-gray-900/50 backdrop-blur p-6 text-center">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              Create a free account to upgrade anytime
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              You can browse pricing now. To start a trial or manage billing, you’ll need to sign in.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                href={`/auth/signup?redirect=/pricing`}
+                className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Create account
+              </Link>
+              <Link
+                href={`/auth/login?redirect=/pricing`}
+                className="inline-block px-6 py-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg font-semibold border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Log in
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Regional Pricing Selector - Only show if not premium */}
         {!isPremium && (
           <div className="max-w-2xl mx-auto mb-12">
@@ -219,6 +221,7 @@ function PricingContent() {
             const isCurrentPlan = isPremium && subscriptionStatus?.planType === plan.id;
             const hasPendingPlan = subscriptionStatus?.pendingPlanType;
             const isPendingPlan = hasPendingPlan && subscriptionStatus?.pendingPlanType === plan.id;
+            const isLoggedIn = Boolean(user);
             
             // User can only change plan if:
             // 1. They're not on this plan already
@@ -311,14 +314,18 @@ function PricingContent() {
                     </div>
                   ) : plan.id === 'free' ? (
                     <button
-                      onClick={() => router.push('/dashboard')}
+                      onClick={() => router.push(isLoggedIn ? '/dashboard' : '/auth/signup?redirect=/dashboard')}
                       className="block w-full text-center py-3 rounded-lg font-semibold mb-8 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
                     >
                       {isPremium ? 'Current Features' : "You're on Free"}
                     </button>
                   ) : (
                     <button
-                      onClick={() => router.push(`/subscribe/${plan.id}`)}
+                      onClick={() => router.push(
+                        isLoggedIn
+                          ? `/subscribe/${plan.id}`
+                          : `/auth/signup?redirect=${encodeURIComponent(`/subscribe/${plan.id}`)}`
+                      )}
                       className="block w-full text-center py-3 rounded-lg font-semibold mb-8 bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                     >
                       {plan.cta}

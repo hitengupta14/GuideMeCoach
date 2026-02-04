@@ -70,21 +70,6 @@ export default function LoginForm() {
         return
       }
 
-      console.log('[LoginForm] Login successful. Response data:', {
-        hasToken: !!data.data?.token,
-        tokenPreview: data.data?.token?.substring(0, 20),
-        isAdmin: data.data?.user?.isAdmin,
-        adminRole: data.data?.user?.adminRole,
-      })
-
-      // Save token to localStorage for API calls that need Bearer token
-      if (data.data?.token) {
-        localStorage.setItem('token', data.data.token)
-        console.log('[LoginForm] Token saved to localStorage')
-      } else {
-        console.warn('[LoginForm] No token in response')
-      }
-
       // Determine redirect path
       let finalRedirect = redirectPath
       
@@ -94,7 +79,6 @@ export default function LoginForm() {
         finalRedirect = '/dashboard'
       }
 
-      console.log('[LoginForm] Redirecting to:', finalRedirect)
       router.push(finalRedirect)
     } catch (err) {
       setError('Network error. Please try again.')
@@ -105,96 +89,108 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4">
+      <div className="w-full max-w-md">
         {showRegisteredMessage && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-700 text-sm font-semibold mb-1">✅ Account created successfully!</p>
-            <p className="text-green-600 text-xs">Check your email for verification link (or console in dev mode). You can still login now.</p>
+          <div className="mb-4 rounded-xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-900/20 p-4">
+            <p className="text-green-800 dark:text-green-300 text-sm font-semibold mb-1">
+              Account created successfully
+            </p>
+            <p className="text-green-700 dark:text-green-200 text-xs">
+              Check your email for the verification link (or console in dev mode). You can still log in now.
+            </p>
           </div>
         )}
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Login</h1>
-        <p className="text-gray-600 mb-6">Welcome back to GuideMeCoach</p>
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-6 sm:p-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Log in</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">Welcome back to GuideMeCoach</p>
 
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700 text-sm">{error}</p>
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 p-4">
+              <p className="text-red-800 dark:text-red-300 text-sm">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                autoComplete="email"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="you@example.com"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Password
+              </label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                autoComplete="current-password"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="••••••••"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Logging in...' : 'Log in'}
+            </button>
+          </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <div className="w-full border-t border-gray-200 dark:border-gray-800" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white dark:bg-gray-900 px-3 text-sm text-gray-500">or</span>
+            </div>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="you@example.com"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
-
-        <div className="flex items-center gap-4 my-6">
-          <div className="flex-1 border-t border-gray-300"></div>
-          <span className="text-gray-500 text-sm">or</span>
           <a
             href="/api/auth/google/start"
-            className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-900 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+            className="w-full inline-flex items-center justify-center gap-2 bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white py-2.5 rounded-lg font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
             <span>Continue with Google</span>
           </a>
-          <div className="flex-1 border-t border-gray-300"></div>
+
+          <p className="mt-6 text-center text-gray-600 dark:text-gray-400">
+            Don&apos;t have an account?{' '}
+            <Link href="/auth/signup" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+              Sign up now
+            </Link>
+          </p>
+
+          <p className="text-center text-sm text-gray-500 mt-4">
+            <Link href="/auth/reset-password" className="hover:underline">
+              Forgot your password?
+            </Link>
+          </p>
+
+          <p className="text-center text-gray-500 text-xs mt-4">
+            <Link href="/" className="hover:underline">
+              Back to Home
+            </Link>
+          </p>
         </div>
-
-        <p className="text-center text-gray-600">
-          Don't have an account?{' '}
-          <Link href="/auth/signup" className="text-indigo-600 hover:underline font-semibold">
-            Sign up now
-          </Link>
-        </p>
-
-        <p className="text-center text-sm text-gray-500 mt-4">
-          <Link href="/auth/reset-password" className="hover:underline">
-            Forgot your password?
-          </Link>
-        </p>
-
-        <p className="text-center text-gray-500 text-xs mt-4">
-          <Link href="/" className="hover:underline">
-            Back to Home
-          </Link>
-        </p>
       </div>
     </div>
   )

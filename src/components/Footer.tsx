@@ -16,6 +16,9 @@ export function Footer() {
             <ul className="space-y-2 text-sm">
               <li><a href="/exercises" className="hover:text-white dark:hover:text-gray-200 transition">Exercise Library</a></li>
               <li><a href="/body-map" className="hover:text-white dark:hover:text-gray-200 transition">Body Map</a></li>
+              <li><a href="/terms" className="hover:text-white dark:hover:text-gray-200 transition">Terms</a></li>
+              <li><a href="/privacy" className="hover:text-white dark:hover:text-gray-200 transition">Privacy</a></li>
+              <li><a href="/medical-disclaimer" className="hover:text-white dark:hover:text-gray-200 transition">Medical Disclaimer</a></li>
             </ul>
           </div>
           
@@ -23,7 +26,7 @@ export function Footer() {
             <h4 className="text-white dark:text-gray-200 font-semibold mb-4">About</h4>
             <p className="text-sm leading-relaxed">
               Building the authoritative source for exercise knowledge in India. 
-              100+ exercises with detailed instructions, videos, and alternatives.
+              500+ exercises with detailed instructions, videos, and alternatives.
             </p>
           </div>
         </div>

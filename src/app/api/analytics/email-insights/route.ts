@@ -6,13 +6,19 @@ import { users, workoutSessions, workoutLogs, exercises } from '@/db/schema'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { analyzeProgress } from '@/lib/ai'
+import { aiRateLimiter } from '@/lib/rate-limit'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
-export async function POST(request: NextRequest) {
+async function emailInsights(request: NextRequest) {
   try {
     const userId = await verifySession(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const premium = await getPremiumStatus(userId)
 
     const body = await request.json()
     const weeksBack = body.weeksBack || 4
@@ -34,6 +40,34 @@ export async function POST(request: NextRequest) {
 
     if (!user || !user.email) {
       return NextResponse.json({ error: 'User email not found' }, { status: 404 })
+    }
+
+    const userIsPremium = premium.isPremium
+
+    if (!userIsPremium) {
+      return NextResponse.json(
+        { error: 'Premium subscription required to email AI insights' },
+        { status: 403 }
+      )
+    }
+
+    const rl = await aiRateLimiter(request)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many AI requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': rl.retryAfter?.toString() || '3600' } }
+      )
+    }
+
+    const quota = await checkQuota(userId, 'insights', userIsPremium)
+    if (!quota.allowed) {
+      return NextResponse.json(
+        {
+          error: 'AI insights quota exceeded',
+          quota: { used: quota.used, limit: quota.limit, resetAt: quota.resetAt },
+        },
+        { status: 403 }
+      )
     }
 
     // Get recent workout data
@@ -85,6 +119,7 @@ export async function POST(request: NextRequest) {
     // Generate insights with timeout
     let insights
     try {
+      const startTime = Date.now()
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
@@ -115,8 +150,26 @@ export async function POST(request: NextRequest) {
       })
 
       clearTimeout(timeout)
+
+      await decrementQuota(userId, 'insights', userIsPremium)
+      await logAIUsage({
+        userId,
+        feature: 'insights',
+        model: 'gpt-4',
+        responseTime: Date.now() - startTime,
+        success: true,
+      })
     } catch (aiError) {
       logger.error('AI analysis failed for email', aiError as Error)
+
+      await logAIUsage({
+        userId,
+        feature: 'insights',
+        model: 'gpt-4',
+        success: false,
+        errorMessage: (aiError as Error).message,
+      })
+
       // Return fallback insights if AI fails
       insights = {
         summary: 'Your weekly workout summary is ready.',
@@ -169,3 +222,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to send email' }, { status: 500 })
   }
 }
+
+export const POST = withApiTelemetry(emailInsights, { name: 'analytics.email-insights' })

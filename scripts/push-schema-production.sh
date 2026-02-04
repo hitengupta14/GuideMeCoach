@@ -14,8 +14,14 @@ if [ "$confirm" != "yes" ]; then
   exit 1
 fi
 
-# Export production DATABASE_URL
-export DATABASE_URL="postgresql://postgres.pezjeesjrnzqabwrssyb:guidemecoach@0705@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
+# Require production DATABASE_URL from environment (do not hardcode secrets in repo)
+if [ -z "$PROD_DATABASE_URL" ]; then
+  echo "❌ PROD_DATABASE_URL is not set."
+  echo "   Example: PROD_DATABASE_URL=\"postgresql://USER:PASSWORD@HOST:PORT/DB\" npm run db:push:prod"
+  exit 1
+fi
+
+export DATABASE_URL="$PROD_DATABASE_URL"
 
 # Run drizzle push
 npm run db:push

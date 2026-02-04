@@ -16,7 +16,7 @@ import crypto from 'crypto'
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
-    const rateLimitResult = authRateLimiter(request)
+    const rateLimitResult = await authRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many password reset attempts' },

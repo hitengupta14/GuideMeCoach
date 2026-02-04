@@ -47,12 +47,12 @@ export function ExerciseAlternatives({ slug, alternatives }: AlternativesProps) 
             <Link
               key={item}
               href={`/exercises/${item}`}
-              className="block p-3 bg-gray-50 hover:bg-primary-50 rounded-lg border border-gray-200 hover:border-primary-300 transition"
+              className="block p-3 bg-gray-50 dark:bg-gray-950 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-primary-300 dark:hover:border-primary-700 transition"
             >
-              <div className="text-sm font-medium text-gray-900 hover:text-primary-700">
+              <div className="text-sm font-medium text-gray-900 dark:text-white hover:text-primary-700 dark:hover:text-primary-300">
                 {getExerciseName(item)}
               </div>
-              <div className="text-xs text-gray-500">View details →</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">View details →</div>
             </Link>
           ))}
         </div>
@@ -61,41 +61,41 @@ export function ExerciseAlternatives({ slug, alternatives }: AlternativesProps) 
   }
 
   return (
-    <section className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-2xl font-bold mb-6">💡 Exercise Alternatives</h3>
+    <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">💡 Exercise Alternatives</h3>
 
       <div className="space-y-8">
         <AlternativeSection
           title="Easier Variations"
           items={alternatives.easier}
           icon="📉"
-          color="text-green-700"
+          color="text-green-700 dark:text-green-300"
         />
 
         <AlternativeSection
           title="Harder Variations"
           items={alternatives.harder}
           icon="📈"
-          color="text-orange-700"
+          color="text-orange-700 dark:text-orange-300"
         />
 
         <AlternativeSection
           title="Equipment-Free Options"
           items={alternatives.equipment_free}
           icon="🏠"
-          color="text-blue-700"
+          color="text-blue-700 dark:text-blue-300"
         />
 
         <AlternativeSection
           title="Same Level Alternatives"
           items={alternatives.same_level}
           icon="⚖️"
-          color="text-purple-700"
+          color="text-purple-700 dark:text-purple-300"
         />
       </div>
 
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-900">
+      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900 rounded-lg">
+        <p className="text-sm text-blue-900 dark:text-blue-200">
           💡 <span className="font-semibold">Tip:</span> Can't do this exercise? Try one of the alternatives above based on your current fitness level or available equipment.
         </p>
       </div>

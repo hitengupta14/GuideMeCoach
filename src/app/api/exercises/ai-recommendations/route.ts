@@ -6,13 +6,18 @@ import { logger } from '@/lib/logger'
 import { generateChatResponse, isOpenAIConfigured } from '@/lib/ai'
 import { verifySession } from '@/lib/auth-helpers'
 import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { aiRateLimiter } from '@/lib/rate-limit'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
-export async function GET(request: NextRequest) {
+async function getAIRecommendations(request: NextRequest) {
   try {
     const userId = await verifySession(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const premium = await getPremiumStatus(userId)
 
     const searchParams = request.nextUrl.searchParams
     const context = searchParams.get('context') || 'next_exercise' // next_exercise, muscle_balance, alternative
@@ -23,7 +28,6 @@ export async function GET(request: NextRequest) {
         experienceLevel: users.experienceLevel,
         goals: users.goals,
         medicalConditions: users.medicalConditions,
-        isPremium: users.isPremium,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -34,7 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check AI quota before generating recommendations
-    const quota = await checkQuota(userId, 'insights', user.isPremium || false)
+    const quota = await checkQuota(userId, 'insights', premium.isPremium)
     
     if (!quota.allowed) {
       return NextResponse.json(
@@ -45,7 +49,7 @@ export async function GET(request: NextRequest) {
             limit: quota.limit,
             resetAt: quota.resetAt,
           },
-          message: user.isPremium 
+          message: premium.isPremium 
             ? `You've used all ${quota.limit} AI insights this month. Resets on ${new Date(quota.resetAt).toLocaleDateString()}`
             : 'Upgrade to Premium to access AI-powered exercise recommendations (₹199-₹299/month)',
         },
@@ -90,6 +94,14 @@ export async function GET(request: NextRequest) {
       // Fallback: Rule-based recommendations
       recommendations = getFallbackRecommendations(context, recentLogs, muscleGroupCounts)
     } else {
+      const rl = await aiRateLimiter(request)
+      if (!rl.allowed) {
+        return NextResponse.json(
+          { error: 'Too many AI requests. Please try again later.' },
+          { status: 429, headers: { 'Retry-After': rl.retryAfter?.toString() || '3600' } }
+        )
+      }
+
       // AI-powered recommendations
       const prompt = buildRecommendationPrompt(context, {
         recentExercises: recentLogs,
@@ -115,7 +127,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Decrement quota after successful AI call
-        await decrementQuota(userId, 'insights', user.isPremium || false)
+        await decrementQuota(userId, 'insights', premium.isPremium)
 
         // Log AI usage
         await logAIUsage({
@@ -149,6 +161,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to generate recommendations' }, { status: 500 })
   }
 }
+
+export const GET = withApiTelemetry(getAIRecommendations, { name: 'exercises.ai-recommendations' })
 
 function buildRecommendationPrompt(context: string, data: any): string {
   const { recentExercises, muscleBalance, userProfile } = data

@@ -1,7 +1,20 @@
+import 'server-only'
+
 /**
- * Rate limiting middleware using in-memory LRU cache
- * For production, use Redis-based rate limiting
+ * Rate limiting helpers.
+ *
+ * IMPORTANT:
+ * - In-memory rate limiting is not reliable on serverless/multi-instance.
+ * - Primary backend here is Postgres (via Drizzle) so limits apply across instances.
+ * - We keep an in-memory fallback only to avoid hard-breaking environments where
+ *   the DB table isn't migrated yet (dev/preview). Production should migrate.
  */
+
+import { jwtVerify } from 'jose'
+import { getJwtSecretKey } from '@/lib/jwt'
+import { db } from '@/db'
+import { rateLimitEntries } from '@/db/schema'
+import { sql } from 'drizzle-orm'
 
 interface RateLimitState {
   count: number
@@ -19,47 +32,87 @@ const rateLimitStore = new Map<string, RateLimitState>()
 export function createRateLimiter(
   windowMs = 60 * 1000, // 1 minute
   maxRequests = 30,
-  keyGenerator?: (request: Request) => string
+  keyGenerator?: (request: Request) => string | Promise<string>
 ) {
-  return (request: Request) => {
+  return async (request: Request) => {
     // Generate cache key
     const key = keyGenerator
-      ? keyGenerator(request)
+      ? await keyGenerator(request)
       : getClientIp(request) + ':' + new URL(request.url).pathname
 
-    const now = Date.now()
-    const current = rateLimitStore.get(key)
+    const nowMs = Date.now()
+    const nextResetAt = new Date(nowMs + windowMs)
 
-    // Initialize or reset if window expired
-    if (!current || now > current.reset) {
-      rateLimitStore.set(key, {
-        count: 1,
-        reset: now + windowMs,
-      })
+    // DB-backed limiter (preferred)
+    try {
+      const [row] = await db
+        .insert(rateLimitEntries)
+        .values({
+          key,
+          count: 1,
+          resetAt: nextResetAt,
+        })
+        .onConflictDoUpdate({
+          target: rateLimitEntries.key,
+          set: {
+            count: sql`CASE WHEN ${rateLimitEntries.resetAt} < now() THEN 1 ELSE ${rateLimitEntries.count} + 1 END`,
+            resetAt: sql`CASE WHEN ${rateLimitEntries.resetAt} < now() THEN ${nextResetAt} ELSE ${rateLimitEntries.resetAt} END`,
+            updatedAt: sql`now()`,
+          },
+        })
+        .returning({
+          count: rateLimitEntries.count,
+          resetAt: rateLimitEntries.resetAt,
+        })
+
+      const count = row?.count ?? 1
+      const resetAtMs = (row?.resetAt instanceof Date ? row.resetAt : nextResetAt).getTime()
+
+      if (count > maxRequests) {
+        const retryAfter = Math.max(1, Math.ceil((resetAtMs - nowMs) / 1000))
+        return { allowed: false, remaining: 0, retryAfter }
+      }
+
       return {
         allowed: true,
-        remaining: maxRequests - 1,
-        resetIn: windowMs,
+        remaining: Math.max(0, maxRequests - count),
+        resetIn: Math.max(0, resetAtMs - nowMs),
       }
-    }
+    } catch {
+      // Fall back to in-memory limiter if DB is unavailable or table is missing.
+      const current = rateLimitStore.get(key)
 
-    // Increment counter
-    current.count++
+      // Initialize or reset if window expired
+      if (!current || nowMs > current.reset) {
+        rateLimitStore.set(key, {
+          count: 1,
+          reset: nowMs + windowMs,
+        })
+        return {
+          allowed: true,
+          remaining: maxRequests - 1,
+          resetIn: windowMs,
+        }
+      }
 
-    // Check if exceeded
-    if (current.count > maxRequests) {
-      const retryAfter = Math.ceil((current.reset - now) / 1000)
+      // Increment counter
+      current.count++
+
+      // Check if exceeded
+      if (current.count > maxRequests) {
+        const retryAfter = Math.ceil((current.reset - nowMs) / 1000)
+        return {
+          allowed: false,
+          remaining: 0,
+          retryAfter,
+        }
+      }
+
       return {
-        allowed: false,
-        remaining: 0,
-        retryAfter,
+        allowed: true,
+        remaining: maxRequests - current.count,
+        resetIn: current.reset - nowMs,
       }
-    }
-
-    return {
-      allowed: true,
-      remaining: maxRequests - current.count,
-      resetIn: current.reset - now,
     }
   }
 }
@@ -87,12 +140,7 @@ export const apiRateLimiter = createRateLimiter(
 export const aiRateLimiter = createRateLimiter(
   60 * 60 * 1000, // 1 hour
   20, // 20 AI requests per hour per user
-  (request) => {
-    // Rate limit per user ID if authenticated, otherwise per IP
-    const authHeader = request.headers.get('authorization')
-    const userId = authHeader ? authHeader.split(' ')[1] : null
-    return userId || getClientIp(request)
-  }
+  async (request) => (await getVerifiedUserId(request)) || getClientIp(request)
 )
 
 /**
@@ -101,11 +149,7 @@ export const aiRateLimiter = createRateLimiter(
 export const chatRateLimiter = createRateLimiter(
   60 * 1000, // 1 minute
   10, // 10 messages per minute
-  (request) => {
-    const authHeader = request.headers.get('authorization')
-    const userId = authHeader ? authHeader.split(' ')[1] : null
-    return userId || getClientIp(request)
-  }
+  async (request) => (await getVerifiedUserId(request)) || getClientIp(request)
 )
 
 /**
@@ -117,6 +161,53 @@ function getClientIp(request: Request): string {
     request.headers.get('x-real-ip') ||
     'unknown'
   )
+}
+
+function getCookieValue(request: Request, name: string): string | null {
+  const cookieHeader = request.headers.get('cookie')
+  if (!cookieHeader) return null
+
+  // Simple cookie parser (sufficient for our needs here).
+  for (const part of cookieHeader.split(';')) {
+    const [rawKey, ...rawValueParts] = part.trim().split('=')
+    if (!rawKey) continue
+    if (rawKey === name) {
+      return rawValueParts.join('=') || ''
+    }
+  }
+
+  return null
+}
+
+async function getVerifiedUserId(request: Request): Promise<string | null> {
+  let jwtSecret: Uint8Array
+  try {
+    jwtSecret = getJwtSecretKey()
+  } catch {
+    // If JWT isn't configured, we can't derive a stable userId. Fall back to IP-based limiting.
+    return null
+  }
+
+  // 1) Bearer token (mobile / API clients)
+  const authHeader = request.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.substring(7)
+    const verified = await jwtVerify(token, jwtSecret).catch(() => null)
+    if (verified?.payload?.userId) {
+      return String(verified.payload.userId)
+    }
+  }
+
+  // 2) Session cookie (web clients)
+  const sessionCookie = getCookieValue(request, 'session')
+  if (sessionCookie) {
+    const verified = await jwtVerify(sessionCookie, jwtSecret).catch(() => null)
+    if (verified?.payload?.userId) {
+      return String(verified.payload.userId)
+    }
+  }
+
+  return null
 }
 
 /**
@@ -135,6 +226,3 @@ export function cleanupRateLimitStore() {
 
   keysToDelete.forEach(key => rateLimitStore.delete(key))
 }
-
-// Run cleanup every 5 minutes
-setInterval(cleanupRateLimitStore, 5 * 60 * 1000)

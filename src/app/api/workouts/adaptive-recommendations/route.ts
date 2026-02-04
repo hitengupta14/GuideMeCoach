@@ -5,6 +5,10 @@ import { users, workoutSessions, workoutLogs } from '@/db/schema'
 import { eq, and, desc, gte, inArray, sql } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { getAdaptiveWorkoutRecommendations, isOpenAIConfigured } from '@/lib/ai'
+import { aiRateLimiter } from '@/lib/rate-limit'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
 function difficultyToNumber(difficulty: string | null): number {
   if (!difficulty) return 5
@@ -18,12 +22,14 @@ function clamp(num: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, num))
 }
 
-export async function GET(request: NextRequest) {
+async function getAdaptiveRecommendations(request: NextRequest) {
   try {
     const userId = await verifySession(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const premium = await getPremiumStatus(userId)
 
     // Get user profile with premium and health data
     const [user] = await db
@@ -34,8 +40,6 @@ export async function GET(request: NextRequest) {
         medicalConditions: users.medicalConditions,
         painAreas: users.painAreas,
         availableEquipment: users.availableEquipment,
-        isPremium: users.isPremium,
-        subscriptionEndsAt: users.subscriptionEndsAt,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -120,13 +124,31 @@ export async function GET(request: NextRequest) {
     })
 
     // Get adaptive recommendations with timeout
-    const userIsPremium = user.isPremium && user.subscriptionEndsAt && new Date(user.subscriptionEndsAt) > new Date()
+    const userIsPremium = premium.isPremium
     let recommendations
     let type: 'ai' | 'formula' = 'formula'
+    let quotaInfo: any = null
     
     try {
       // Premium users get AI-powered recommendations with medical conditions
       if (userIsPremium && isOpenAIConfigured()) {
+        const rl = await aiRateLimiter(request)
+        if (!rl.allowed) {
+          return NextResponse.json(
+            { error: 'Too many AI requests. Please try again later.' },
+            { status: 429, headers: { 'Retry-After': rl.retryAfter?.toString() || '3600' } }
+          )
+        }
+
+        const quota = await checkQuota(userId, 'insights', userIsPremium)
+        quotaInfo = quota
+        if (!quota.allowed) {
+          // Fall back to formula-based recommendations when AI quota is exhausted.
+          recommendations = generateSimpleRecommendations(recovery10, avgRpe, workoutsThisWeek)
+          type = 'formula'
+        } else {
+          const startTime = Date.now()
+
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
@@ -145,6 +167,16 @@ export async function GET(request: NextRequest) {
         
         type = 'ai'
         clearTimeout(timeout)
+
+          await decrementQuota(userId, 'insights', userIsPremium)
+          await logAIUsage({
+            userId,
+            feature: 'insights',
+            model: 'gpt-4',
+            responseTime: Date.now() - startTime,
+            success: true,
+          })
+        }
       } else {
         // Free users get simple formula-based recommendations
         recommendations = generateSimpleRecommendations(recovery10, avgRpe, workoutsThisWeek)
@@ -167,6 +199,14 @@ export async function GET(request: NextRequest) {
       recommendations,
       isPremium: userIsPremium,
       type,
+      quota: quotaInfo
+        ? {
+            used: quotaInfo.used,
+            remaining: quotaInfo.remaining,
+            limit: quotaInfo.limit,
+            resetAt: quotaInfo.resetAt,
+          }
+        : undefined,
       stats: {
         totalWorkouts: recentWorkouts.length,
         averageRecovery: recovery10,
@@ -179,6 +219,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch recommendations' }, { status: 500 })
   }
 }
+
+export const GET = withApiTelemetry(getAdaptiveRecommendations, { name: 'workouts.adaptive-recommendations' })
 
 function calculateStreak(workouts: typeof workoutSessions.$inferSelect[]): number {
   if (workouts.length === 0) return 0

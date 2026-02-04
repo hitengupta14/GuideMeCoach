@@ -28,11 +28,7 @@ export function useAIQuota() {
     async function fetchQuotas() {
       try {
         setLoading(true)
-        const response = await fetch('/api/user/quotas', {
-          headers: {
-            'Authorization': `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('token') : ''}`,
-          },
-        })
+        const response = await fetch('/api/user/quotas', { credentials: 'include' })
 
         if (!response.ok) {
           if (response.status === 401) {
@@ -120,11 +116,7 @@ export function useAIQuota() {
    */
   const refreshQuotas = useCallback(async () => {
     try {
-      const response = await fetch('/api/user/quotas', {
-        headers: {
-          'Authorization': `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('token') : ''}`,
-        },
-      })
+      const response = await fetch('/api/user/quotas', { credentials: 'include' })
 
       if (response.ok) {
         const data = await response.json()

@@ -6,6 +6,7 @@
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { getPremiumStatus } from '@/lib/entitlements';
 
 export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'none';
 export type PlanType = 'premium' | 'premium-yearly' | 'none';
@@ -25,12 +26,10 @@ export interface UserSubscriptionStatus {
  * Get user's current subscription status
  */
 export async function getUserSubscriptionStatus(userId: string): Promise<UserSubscriptionStatus> {
+  const now = new Date();
   const [user] = await db
     .select({
       id: users.id,
-      isPremium: users.isPremium,
-      subscriptionEndsAt: users.subscriptionEndsAt,
-      createdAt: users.createdAt,
       pendingPlanType: users.pendingPlanType,
       pendingPlanStartsAt: users.pendingPlanStartsAt,
     })
@@ -51,15 +50,15 @@ export async function getUserSubscriptionStatus(userId: string): Promise<UserSub
     };
   }
 
-  const now = new Date();
-  const subscriptionEndsAt = user.subscriptionEndsAt;
+  const premium = await getPremiumStatus(userId);
+  const subscriptionEndsAt = premium.subscriptionEndsAt;
 
   // Determine if subscription is active
   let status: SubscriptionStatus = 'none';
   let daysRemaining = 0;
   let isExpired = false;
 
-  if (user.isPremium && subscriptionEndsAt) {
+  if (premium.isPremium && subscriptionEndsAt) {
     const timeRemaining = subscriptionEndsAt.getTime() - now.getTime();
     daysRemaining = Math.ceil(timeRemaining / (1000 * 60 * 60 * 24));
 
@@ -71,20 +70,10 @@ export async function getUserSubscriptionStatus(userId: string): Promise<UserSub
     }
   }
 
-  // Determine plan type from subscription end date
-  let planType: PlanType = 'none';
-  if (user.isPremium && subscriptionEndsAt) {
-    const createdAt = user.createdAt || new Date();
-    const monthDiff = Math.round(
-      (subscriptionEndsAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24 * 30)
-    );
-
-    // Rough heuristic: if duration > 11 months, it's likely yearly
-    planType = monthDiff > 11 ? 'premium-yearly' : 'premium';
-  }
+  const planType: PlanType = premium.isPremium ? (premium.planType === 'premium-yearly' ? 'premium-yearly' : 'premium') : 'none';
 
   return {
-    isPremium: (user.isPremium || false) && !isExpired,
+    isPremium: premium.isPremium && !isExpired,
     planType,
     subscriptionEndsAt,
     status,

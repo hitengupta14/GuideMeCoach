@@ -4,8 +4,9 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import jwt from 'jsonwebtoken'
+import { requireJwtSecret } from '@/lib/jwt'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+const JWT_SECRET = requireJwtSecret()
 
 // This endpoint handles Google Sign-In from mobile apps
 // Mobile apps use expo-auth-session which gets the ID token directly from Google

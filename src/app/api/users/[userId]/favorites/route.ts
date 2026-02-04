@@ -2,11 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { favoriteExercises, exercises } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { verifySession } from '@/lib/auth-helpers'
 
 // Get user's favorite exercises
 export async function GET(request: NextRequest, { params }: { params: { userId: string } }) {
   try {
     const { userId } = params
+    const authUserId = await verifySession(request)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (authUserId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const favorites = await db
       .select({
@@ -32,6 +40,14 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
 export async function POST(request: NextRequest, { params }: { params: { userId: string } }) {
   try {
     const { userId } = params
+    const authUserId = await verifySession(request)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (authUserId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { exerciseId } = body
 
@@ -74,6 +90,14 @@ export async function POST(request: NextRequest, { params }: { params: { userId:
 export async function DELETE(request: NextRequest, { params }: { params: { userId: string } }) {
   try {
     const { userId } = params
+    const authUserId = await verifySession(request)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (authUserId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { exerciseId } = body
 

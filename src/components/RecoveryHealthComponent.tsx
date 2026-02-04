@@ -38,7 +38,7 @@ interface RestDaysData {
 
 export default function RecoveryHealthComponent() {
   const { handleError, handleSuccess } = useAPIError()
-  const [activeTab, setActiveTab] = useState<'recovery' | 'soreness' | 'warmup' | 'rest'>('recovery')
+  const [activeTab, setActiveTab] = useState<'recovery' | 'soreness' | 'pain' | 'warmup' | 'rest'>('recovery')
   const [recoveryData, setRecoveryData] = useState<RecoveryData | null>(null)
   const [restDaysData, setRestDaysData] = useState<RestDaysData | null>(null)
   const [sorenessAreas, setSorenessAreas] = useState<Record<string, number>>({
@@ -48,6 +48,27 @@ export default function RecoveryHealthComponent() {
     quads: 4,
     hamstrings: 2,
   })
+  const [painAreas, setPainAreas] = useState<Record<string, number>>({
+    shoulder: 0,
+    elbow: 0,
+    wrist: 0,
+    lower_back: 0,
+    hip: 0,
+    knee: 0,
+    ankle: 0,
+    neck: 0,
+  })
+  const [painRedFlags, setPainRedFlags] = useState<Record<string, boolean>>({
+    chest_pain: false,
+    dizziness: false,
+    numbness_tingling: false,
+    sharp_radiating_pain: false,
+    swelling: false,
+    unusual_weakness: false,
+  })
+  const [painNotes, setPainNotes] = useState('')
+  const [painEntries, setPainEntries] = useState<any[]>([])
+  const [painLoading, setPainLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [workoutFocus, setWorkoutFocus] = useState('upper_body')
   const [warmupType, setWarmupType] = useState<'warmup' | 'cooldown'>('warmup')
@@ -56,6 +77,13 @@ export default function RecoveryHealthComponent() {
   useEffect(() => {
     fetchRecoveryData()
   }, [])
+
+  useEffect(() => {
+    if (activeTab === 'pain') {
+      fetchPainEntries()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
 
   const fetchRecoveryData = async () => {
     try {
@@ -93,6 +121,54 @@ export default function RecoveryHealthComponent() {
     }
 
     handleSuccess('Soreness recorded successfully')
+  }
+
+  const fetchPainEntries = async () => {
+    try {
+      setPainLoading(true)
+      const { data, error } = await apiWrapper.get<{ entries: any[] }>('/api/recovery/pain')
+      if (error) {
+        await handleError(error)
+        return
+      }
+      setPainEntries(Array.isArray(data?.entries) ? data?.entries : [])
+    } finally {
+      setPainLoading(false)
+    }
+  }
+
+  const handlePainSubmit = async () => {
+    const selectedFlags = Object.entries(painRedFlags)
+      .filter(([, v]) => v)
+      .map(([k]) => k)
+
+    const { data, error } = await apiWrapper.post<{ entry: any }>(
+      '/api/recovery/pain',
+      {
+        joints: painAreas,
+        redFlags: selectedFlags,
+        notes: painNotes || undefined,
+      }
+    )
+
+    if (error) {
+      await handleError(error)
+      return
+    }
+
+    if (data?.entry) {
+      handleSuccess('Pain check-in saved')
+      setPainNotes('')
+      setPainRedFlags({
+        chest_pain: false,
+        dizziness: false,
+        numbness_tingling: false,
+        sharp_radiating_pain: false,
+        swelling: false,
+        unusual_weakness: false,
+      })
+      await fetchPainEntries()
+    }
   }
 
   const generateWarmup = async () => {
@@ -151,10 +227,11 @@ export default function RecoveryHealthComponent() {
 
       {/* Tab Navigation */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="grid grid-cols-2 md:grid-cols-4 border-b border-gray-200">
+        <div className="grid grid-cols-2 md:grid-cols-5 border-b border-gray-200">
           {[
             { id: 'recovery', label: '💚 Recovery Score' },
             { id: 'soreness', label: '🩹 Soreness' },
+            { id: 'pain', label: '🚑 Pain' },
             { id: 'warmup', label: '🔥 Warm-up' },
             { id: 'rest', label: '😴 Rest Days' },
           ].map(tab => (
@@ -296,6 +373,124 @@ export default function RecoveryHealthComponent() {
               >
                 Record Soreness
               </button>
+            </div>
+          )}
+
+          {/* Pain Tab */}
+          {activeTab === 'pain' && (
+            <div className="space-y-6">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm text-yellow-900">
+                  This is not medical advice. If you have severe pain or red flags, stop training and seek professional help.
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Rate pain in each joint (0 = none, 10 = severe)
+                </p>
+                <div className="space-y-4">
+                  {Object.entries(painAreas).map(([joint, level]) => (
+                    <div key={joint} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium text-gray-900 capitalize">
+                          {joint.replace(/_/g, ' ')}
+                        </label>
+                        <span className="text-lg font-bold text-indigo-600">{level}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="10"
+                        value={level}
+                        onChange={(e) =>
+                          setPainAreas({
+                            ...painAreas,
+                            [joint]: parseInt(e.target.value),
+                          })
+                        }
+                        className="w-full"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-gray-900 mb-2">Red flags (check any)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-800">
+                  {[
+                    { key: 'chest_pain', label: 'Chest pain or pressure' },
+                    { key: 'dizziness', label: 'Dizziness / faintness' },
+                    { key: 'numbness_tingling', label: 'Numbness / tingling' },
+                    { key: 'sharp_radiating_pain', label: 'Sharp or radiating pain' },
+                    { key: 'swelling', label: 'Swelling / sudden inflammation' },
+                    { key: 'unusual_weakness', label: 'Unusual weakness or loss of strength' },
+                  ].map((f) => (
+                    <label key={f.key} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(painRedFlags[f.key])}
+                        onChange={(e) =>
+                          setPainRedFlags({
+                            ...painRedFlags,
+                            [f.key]: e.target.checked,
+                          })
+                        }
+                      />
+                      <span>{f.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Notes (optional)</label>
+                <textarea
+                  value={painNotes}
+                  onChange={(e) => setPainNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="e.g., right knee felt sharp on squats"
+                  maxLength={2000}
+                />
+              </div>
+
+              <button
+                onClick={handlePainSubmit}
+                className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
+              >
+                Save Pain Check-in
+              </button>
+
+              <div className="border-t border-gray-200 pt-6">
+                <h4 className="font-bold text-gray-900 mb-3">Recent Check-ins</h4>
+                {painLoading ? (
+                  <p className="text-sm text-gray-600">Loading…</p>
+                ) : painEntries.length === 0 ? (
+                  <p className="text-sm text-gray-600">No pain check-ins yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {painEntries.slice(0, 5).map((entry) => {
+                      const joints = (entry?.joints || {}) as Record<string, number>
+                      const maxPain = Object.values(joints).reduce((m, v) => Math.max(m, Number(v) || 0), 0)
+                      const flags = Array.isArray(entry?.redFlags) ? entry.redFlags.length : 0
+                      return (
+                        <div key={entry.id} className="p-4 rounded-lg border border-gray-200 bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-semibold text-gray-900">
+                              {entry.recordedAt ? new Date(entry.recordedAt).toLocaleString() : 'Check-in'}
+                            </div>
+                            <div className="text-xs font-semibold text-indigo-700">
+                              Max pain {maxPain}/10 • Flags {flags}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

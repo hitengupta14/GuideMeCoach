@@ -4,14 +4,27 @@ import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import crypto from 'crypto'
 import { SignJWT } from 'jose'
+import { getJwtSecretKey } from '@/lib/jwt'
+import { authRateLimiter } from '@/lib/rate-limit'
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+const JWT_SECRET = getJwtSecretKey()
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResult = await authRateLimiter(request)
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many attempts. Please try again later.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimitResult.retryAfter) },
+        }
+      )
+    }
+
     const { email, otp } = await request.json()
     if (!email || !otp) {
-      return NextResponse.json({ error: 'Email and OTP are required' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 })
     }
 
     const found = await db
@@ -25,22 +38,23 @@ export async function POST(request: NextRequest) {
       .where(eq(users.email, email.toLowerCase()))
       .limit(1)
     if (found.length === 0) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      // Prevent user enumeration.
+      return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 })
     }
 
     const user = found[0]
     const hashed = crypto.createHash('sha256').update(otp).digest('hex')
 
     if (!user.emailVerificationToken || !user.emailVerificationTokenExpiry) {
-      return NextResponse.json({ error: 'No OTP request found' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 })
     }
 
     if (new Date(user.emailVerificationTokenExpiry).getTime() < Date.now()) {
-      return NextResponse.json({ error: 'OTP expired' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 })
     }
 
     if (user.emailVerificationToken !== hashed) {
-      return NextResponse.json({ error: 'Invalid OTP' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 })
     }
 
     // Mark email verified and clear token

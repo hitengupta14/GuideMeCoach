@@ -1,16 +1,17 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { exercises, exerciseMuscles, muscleGroups } from '@/db/schema'
-import { eq, ilike, and } from 'drizzle-orm'
+import { eq, ilike, and, or } from 'drizzle-orm'
 import { exerciseFilterSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 import { apiRateLimiter } from '@/lib/rate-limit'
 import { z } from 'zod'
+import { requireAdmin } from '@/lib/admin-auth'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     // Rate limiting
-    const rateLimitResult = apiRateLimiter(request)
+    const rateLimitResult = await apiRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many requests' },
@@ -37,7 +38,8 @@ export async function GET(request: Request) {
     const pageParam = Number(searchParams.get('page') || '1')
     const limitParam = Number(searchParams.get('limit') || '20')
     const offsetParam = Number(searchParams.get('offset') || '0')
-    const limit = Number.isFinite(limitParam) && limitParam > 0 && limitParam <= 100 ? limitParam : 20
+    const MAX_LIMIT = 1000
+    const limit = Number.isFinite(limitParam) && limitParam > 0 && limitParam <= MAX_LIMIT ? limitParam : 20
     // If legacy offset is provided, map it to page
     const pageFromOffset = Number.isFinite(offsetParam) && offsetParam >= 0 ? (Math.floor(offsetParam / limit) + 1) : null
     const page = pageFromOffset ?? (Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1)
@@ -55,7 +57,19 @@ export async function GET(request: Request) {
     }
     
     if (filters.location) {
-      conditions.push(eq(exercises.location, filters.location as any))
+      // Interpret location as "where you can do it":
+      // - home => include {home, both}
+      // - gym  => include {gym, both}
+      // - both => only {both}
+      if (filters.location === 'home') {
+        // Apply location filtering after fetching so we can fall back to "home-friendly" equipment
+        // even if older seed data marked an exercise as gym.
+      } else if (filters.location === 'gym') {
+        const gymCondition = or(eq(exercises.location, 'gym'), eq(exercises.location, 'both'))
+        if (gymCondition) conditions.push(gymCondition)
+      } else {
+        conditions.push(eq(exercises.location, filters.location as any))
+      }
     }
     
     if (filters.search) {
@@ -69,6 +83,25 @@ export async function GET(request: Request) {
     }
     
     let results = await query
+
+    // Apply location filter that supports legacy data:
+    // - Home: include {home, both} PLUS exercises that are "home-friendly" by equipment.
+    if (filters.location === 'home') {
+      const homeFriendly = new Set([
+        'none',
+        'dumbbell',
+        'resistance_band',
+        'kettlebell',
+        'pull_up_bar',
+        'bench',
+      ])
+      results = results.filter((ex: any) => {
+        if (ex.location === 'home' || ex.location === 'both') return true
+        if (ex.location !== 'gym') return false
+        if (!Array.isArray(ex.equipment)) return false
+        return ex.equipment.every((eq: string) => homeFriendly.has(eq))
+      })
+    }
 
     // Filter by equipment (array contains)
     if (filters.equipment) {
@@ -85,7 +118,7 @@ export async function GET(request: Request) {
           const muscles = await db
             .select({
               muscleGroupId: exerciseMuscles.muscleGroupId,
-              muscleGroupName: muscleGroups.name,
+              muscleGroupName: muscleGroups.displayName,
               role: exerciseMuscles.role,
             })
             .from(exerciseMuscles)
@@ -135,8 +168,11 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const admin = await requireAdmin(request)
+    if (admin instanceof NextResponse) return admin
+
     const body = await request.json()
     
     // Validate required fields
@@ -151,8 +187,28 @@ export async function POST(request: Request) {
     const slug = body.name.toLowerCase().replace(/\s+/g, '-')
     
     const newExercise = await db.insert(exercises).values({
-      ...body,
       slug,
+      name: body.name,
+      category: body.category,
+      difficulty: body.difficulty,
+      equipment: body.equipment,
+      location: body.location,
+      movementPattern: body.movementPattern,
+      description: body.description,
+      stepByStep: body.stepByStep,
+      breathingTechnique: body.breathingTechnique,
+      tempo: body.tempo,
+      commonMistakes: body.commonMistakes,
+      injuryRisks: body.injuryRisks,
+      benefits: body.benefits,
+      medicalFlags: body.medicalFlags,
+      videos: body.videos,
+      thumbnailUrl: body.thumbnailUrl,
+      baseExerciseId: body.baseExerciseId,
+      source: body.source,
+      confidenceScore: body.confidenceScore,
+      // New content should go through the approval workflow.
+      reviewStatus: 'draft',
     }).returning()
     
     return NextResponse.json({ exercise: newExercise[0] }, { status: 201 })

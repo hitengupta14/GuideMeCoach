@@ -16,15 +16,46 @@ class Logger {
   private isDevelopment = process.env.NODE_ENV === 'development'
   private isProduction = process.env.NODE_ENV === 'production'
 
-  private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
+  private buildEntry(level: LogLevel, message: string, context?: LogContext, error?: Error | any) {
     const timestamp = new Date().toISOString()
-    const contextStr = context ? ` ${JSON.stringify(context)}` : ''
-    return `[${timestamp}] [${level.toUpperCase()}] ${message}${contextStr}`
+
+    const entry: Record<string, any> = {
+      timestamp,
+      level,
+      message,
+      ...(context || {}),
+    }
+
+    if (error) {
+      entry.error = {
+        message: error?.message || String(error),
+        stack: error?.stack,
+      }
+    }
+
+    return entry
+  }
+
+  private emit(level: LogLevel, entry: Record<string, any>) {
+    const line = JSON.stringify(entry)
+    if (level === 'error') {
+      console.error(line)
+      return
+    }
+    if (level === 'warn') {
+      console.warn(line)
+      return
+    }
+    if (level === 'debug') {
+      console.debug(line)
+      return
+    }
+    console.log(line)
   }
 
   info(message: string, context?: LogContext) {
-    const formatted = this.formatMessage('info', message, context)
-    console.log(formatted)
+    const entry = this.buildEntry('info', message, context)
+    this.emit('info', entry)
     
     // Send to monitoring service in production
     if (this.isProduction) {
@@ -33,12 +64,8 @@ class Logger {
   }
 
   error(message: string, error?: Error | any, context?: LogContext) {
-    const formatted = this.formatMessage('error', message, {
-      ...context,
-      error: error?.message || String(error),
-      stack: error?.stack,
-    })
-    console.error(formatted)
+    const entry = this.buildEntry('error', message, context, error)
+    this.emit('error', entry)
     
     // Send to error tracking service
     if (this.isProduction) {
@@ -47,8 +74,8 @@ class Logger {
   }
 
   warn(message: string, context?: LogContext) {
-    const formatted = this.formatMessage('warn', message, context)
-    console.warn(formatted)
+    const entry = this.buildEntry('warn', message, context)
+    this.emit('warn', entry)
     
     if (this.isProduction) {
       this.sendToMonitoring('warn', message, context)
@@ -57,8 +84,8 @@ class Logger {
 
   debug(message: string, context?: LogContext) {
     if (this.isDevelopment) {
-      const formatted = this.formatMessage('debug', message, context)
-      console.debug(formatted)
+      const entry = this.buildEntry('debug', message, context)
+      this.emit('debug', entry)
     }
   }
 

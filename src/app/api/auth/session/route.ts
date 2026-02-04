@@ -5,37 +5,39 @@ import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { jwtVerify } from 'jose'
+import { getJwtSecretKey } from '@/lib/jwt'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
 export const dynamic = 'force-dynamic'
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+const JWT_SECRET = getJwtSecretKey()
 
-export async function GET() {
+async function getSession() {
   try {
     const cookieStore = await cookies()
     const sessionCookie = cookieStore.get('session')
-    
-    console.log('[Session] Checking for session cookie')
-    console.log('[Session] Available cookies:', Array.from(cookieStore.getAll()).map(c => c.name))
-    console.log('[Session] Session cookie:', sessionCookie ? 'Found' : 'Not found')
-    
+
     const token = sessionCookie?.value
 
     if (!token) {
-      console.log('[Session] No token found in cookie')
-      return NextResponse.json({ user: null }, { status: 401 })
+      // Not logged in is not an error state for the web app; return a stable shape.
+      return NextResponse.json({ user: null }, { status: 200 })
     }
 
     // Verify JWT token
     const verified = await jwtVerify(token, JWT_SECRET).catch(() => null)
     if (!verified) {
       logger.warn('Invalid JWT token')
-      console.log('[Session] JWT verification failed')
-      return NextResponse.json({ user: null }, { status: 401 })
+      const res = NextResponse.json({ user: null }, { status: 200 })
+      // Clear invalid cookie to prevent loops.
+      res.cookies.set('session', '', { httpOnly: true, path: '/', maxAge: 0 })
+      return res
     }
 
     const userId = verified.payload.userId as string
-    console.log('[Session] JWT verified for user:', userId)
+
+    const premium = await getPremiumStatus(userId)
 
     // Find user by ID from token
     const [user] = await db
@@ -57,8 +59,6 @@ export async function GET() {
         painAreas: users.painAreas,
         currentWeight: users.currentWeight,
         targetWeight: users.targetWeight,
-        isPremium: users.isPremium,
-        subscriptionEndsAt: users.subscriptionEndsAt,
         emailVerified: users.emailVerified,
         isAdmin: users.isAdmin,
         adminRole: users.adminRole,
@@ -69,15 +69,25 @@ export async function GET() {
 
     if (!user) {
       logger.warn('User not found for JWT token')
-      return NextResponse.json({ user: null }, { status: 401 })
+      const res = NextResponse.json({ user: null }, { status: 200 })
+      res.cookies.set('session', '', { httpOnly: true, path: '/', maxAge: 0 })
+      return res
     }
 
     logger.info('Session validated', { userId: user.id })
-    console.log('[Session] User found and verified')
-    
-    return NextResponse.json({ user, token })
+
+    // Do not return the raw JWT. Web clients should rely on HTTP-only cookies.
+    return NextResponse.json({
+      user: {
+        ...user,
+        isPremium: premium.isPremium,
+        subscriptionEndsAt: premium.subscriptionEndsAt,
+      },
+    })
   } catch (error) {
     logger.error('Session validation error', error as Error)
     return NextResponse.json({ user: null }, { status: 500 })
   }
 }
+
+export const GET = withApiTelemetry(getSession, { name: 'auth.session' })

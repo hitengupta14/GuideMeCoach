@@ -6,11 +6,14 @@ import { logger } from '@/lib/logger'
 import { analyzeProgress } from '@/lib/ai'
 import { aiRateLimiter } from '@/lib/rate-limit'
 import { verifySession } from '@/lib/auth-helpers'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
-export async function GET(request: NextRequest) {
+async function aiInsights(request: NextRequest) {
   try {
     // Rate limiting for AI insights
-    const rateLimitResult = aiRateLimiter(request)
+    const rateLimitResult = await aiRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many AI insight requests. Please try again later.' },
@@ -31,14 +34,8 @@ export async function GET(request: NextRequest) {
     const weeksBack = parseInt(searchParams.get('weeks') || '4')
 
     // Check if user is premium (AI insights is a premium feature)
-    const [userCheck] = await db
-      .select({ isPremium: users.isPremium, subscriptionEndsAt: users.subscriptionEndsAt })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-
-    const isPremium = userCheck?.isPremium && 
-      (!userCheck.subscriptionEndsAt || new Date(userCheck.subscriptionEndsAt) > new Date())
+    const premium = await getPremiumStatus(userId)
+    const isPremium = premium.isPremium
 
     // Get user profile
     const [user] = await db
@@ -133,6 +130,23 @@ export async function GET(request: NextRequest) {
     } else {
       // Premium users get full AI analysis
       try {
+        const quota = await checkQuota(userId, 'insights', isPremium)
+        if (!quota.allowed) {
+          return NextResponse.json(
+            {
+              error: 'AI insights quota exceeded',
+              quota: {
+                used: quota.used,
+                limit: quota.limit,
+                resetAt: quota.resetAt,
+              },
+              message: `You've used all ${quota.limit} AI insights this month. Resets on ${new Date(quota.resetAt).toLocaleDateString()}`,
+            },
+            { status: 403 }
+          )
+        }
+
+        const startTime = Date.now()
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
@@ -163,8 +177,26 @@ export async function GET(request: NextRequest) {
       })
 
         clearTimeout(timeout)
+
+        await decrementQuota(userId, 'insights', isPremium)
+        await logAIUsage({
+          userId,
+          feature: 'insights',
+          model: 'gpt-4',
+          responseTime: Date.now() - startTime,
+          success: true,
+        })
       } catch (aiError) {
         logger.error('AI analysis failed', aiError as Error)
+
+        await logAIUsage({
+          userId,
+          feature: 'insights',
+          model: 'gpt-4',
+          success: false,
+          errorMessage: (aiError as Error).message,
+        })
+
         // Return fallback insights if AI fails
         insights = {
           summary: 'Unable to generate AI insights at this time. Please try again later.',
@@ -197,3 +229,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to generate insights' }, { status: 500 })
   }
 }
+
+export const GET = withApiTelemetry(aiInsights, { name: 'analytics.ai-insights' })

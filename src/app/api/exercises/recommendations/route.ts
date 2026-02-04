@@ -5,13 +5,19 @@ import { users, workoutLogs, exercises, workoutSessions } from '@/db/schema'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { logger } from '@/lib/logger'
 import { getExerciseRecommendations } from '@/lib/ai'
+import { aiRateLimiter } from '@/lib/rate-limit'
+import { checkQuota, decrementQuota, logAIUsage } from '@/lib/ai-quota'
+import { getPremiumStatus } from '@/lib/entitlements'
+import { withApiTelemetry } from '@/lib/api-telemetry'
 
-export async function POST(request: NextRequest) {
+async function recommendExercises(request: NextRequest) {
   try {
     const userId = await verifySession(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const premium = await getPremiumStatus(userId)
 
     const body = await request.json()
     const { lastExercises, availableEquipment, sessionId } = body
@@ -60,11 +66,42 @@ export async function POST(request: NextRequest) {
       .orderBy(desc(sql`count(*)`))
       .limit(15)
 
+    if (!premium.isPremium) {
+      return NextResponse.json(
+        { error: 'Premium subscription required for AI recommendations' },
+        { status: 403 }
+      )
+    }
+
+    const quota = await checkQuota(userId, 'insights', premium.isPremium)
+    if (!quota.allowed) {
+      return NextResponse.json(
+        {
+          error: 'AI recommendations quota exceeded',
+          quota: {
+            used: quota.used,
+            limit: quota.limit,
+            resetAt: quota.resetAt,
+          },
+        },
+        { status: 403 }
+      )
+    }
+
+    const rl = await aiRateLimiter(request)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many AI requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': rl.retryAfter?.toString() || '3600' } }
+      )
+    }
+
     const userGoal = user.goals?.[0] || 'general_fitness'
     const equipment = availableEquipment || (user.availableEquipment as string[] | null) || ['dumbbell', 'barbell', 'machine']
 
     // Get recommendations with timeout
     let recommendations
+    const startTime = Date.now()
     try {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
@@ -83,8 +120,27 @@ export async function POST(request: NextRequest) {
       })
 
       clearTimeout(timeout)
+
+      await decrementQuota(userId, 'insights', premium.isPremium)
+      await logAIUsage({
+        userId,
+        feature: 'insights',
+        model: 'gpt-4',
+        responseTime: Date.now() - startTime,
+        success: true,
+      })
     } catch (aiError) {
       logger.error('AI recommendations failed', aiError as Error)
+
+      await logAIUsage({
+        userId,
+        feature: 'insights',
+        model: 'gpt-4',
+        responseTime: Date.now() - startTime,
+        success: false,
+        errorMessage: (aiError as Error).message,
+      })
+
       // Return fallback recommendations if AI fails
       recommendations = {
         nextSuggestions: [
@@ -117,3 +173,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to generate recommendations' }, { status: 500 })
   }
 }
+
+export const POST = withApiTelemetry(recommendExercises, { name: 'exercises.recommendations' })

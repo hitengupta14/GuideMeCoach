@@ -95,34 +95,39 @@ function ResetPasswordContent() {
   if (step === 'request') {
     if (success) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-          <div className="bg-white p-8 rounded-lg shadow-xl text-center max-w-md">
-            <div className="text-6xl mb-4">📧</div>
-            <h2 className="text-2xl font-bold text-green-600 mb-4">Check Your Email</h2>
-            <p className="text-gray-600 mb-4">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 sm:p-8 rounded-2xl shadow-xl text-center max-w-md w-full">
+            <div className="text-5xl mb-4">📧</div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Check your email</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
               If an account exists with that email, you'll receive a password reset link.
             </p>
-            <p className="text-sm text-gray-500">(In dev mode, check the console for the link)</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">(In dev mode, check the console for the link)</p>
+            <div className="mt-6">
+              <Link href="/auth/login" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+                Back to login
+              </Link>
+            </div>
           </div>
         </div>
       )
     }
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
-          <p className="text-gray-600 mb-6">Enter your email to receive a reset link</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 w-full max-w-md">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Reset password</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">Enter your email to receive a reset link</p>
 
           {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm">{error}</p>
+            <div className="mb-4 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 p-4">
+              <p className="text-red-800 dark:text-red-300 text-sm">{error}</p>
             </div>
           )}
 
           <form onSubmit={handleRequestReset} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Email
               </label>
               <input
@@ -131,7 +136,8 @@ function ResetPasswordContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                autoComplete="email"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="you@example.com"
               />
             </div>
@@ -145,9 +151,9 @@ function ResetPasswordContent() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-600">
+          <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
             Remember your password?{' '}
-            <Link href="/auth/login" className="text-indigo-600 hover:underline font-medium">
+            <Link href="/auth/login" className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
               Login
             </Link>
           </p>
@@ -159,32 +165,32 @@ function ResetPasswordContent() {
   // Reset step
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="bg-white p-8 rounded-lg shadow-xl text-center max-w-md">
-          <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-green-600 mb-4">Password Reset!</h2>
-          <p className="text-gray-600 mb-4">Your password has been successfully reset.</p>
-          <p className="text-sm text-gray-500">Redirecting to login...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 sm:p-8 rounded-2xl shadow-xl text-center max-w-md w-full">
+          <div className="text-5xl mb-4">✅</div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Password reset</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Your password has been successfully reset.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Redirecting to login...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Set New Password</h1>
-        <p className="text-gray-600 mb-6">Enter your new password</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 w-full max-w-md">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Set new password</h1>
+        <p className="text-gray-600 dark:text-gray-400 mb-6">Enter your new password</p>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700 text-sm">{error}</p>
+          <div className="mb-4 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 p-4">
+            <p className="text-red-800 dark:text-red-300 text-sm">{error}</p>
           </div>
         )}
 
         <form onSubmit={handleResetPassword} className="space-y-4">
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               New Password
             </label>
             <input
@@ -193,13 +199,14 @@ function ResetPasswordContent() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              autoComplete="new-password"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="At least 8 characters"
             />
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Confirm Password
             </label>
             <input
@@ -208,7 +215,8 @@ function ResetPasswordContent() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              autoComplete="new-password"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="Repeat your password"
             />
           </div>
@@ -227,7 +235,7 @@ function ResetPasswordContent() {
 }
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-300">Loading...</div>}>
       <ResetPasswordContent />
     </Suspense>
   )

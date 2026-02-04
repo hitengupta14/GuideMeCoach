@@ -6,11 +6,12 @@ import { userProfileSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
 import { apiRateLimiter } from '@/lib/rate-limit'
 import { z } from 'zod'
+import { verifySession } from '@/lib/auth-helpers'
 
 // Get user profile
 export async function GET(request: NextRequest, { params }: { params: { userId: string } }) {
   try {
-    const rateLimitResult = apiRateLimiter(request)
+    const rateLimitResult = await apiRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many requests' },
@@ -19,6 +20,14 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
     }
 
     const { userId } = params
+
+    const authUserId = await verifySession(request)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (authUserId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     // Validate userId is a valid UUID format
     if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
@@ -65,7 +74,7 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
 // Update user profile
 export async function PUT(request: NextRequest, { params }: { params: { userId: string } }) {
   try {
-    const rateLimitResult = apiRateLimiter(request)
+    const rateLimitResult = await apiRateLimiter(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many requests' },
@@ -74,6 +83,14 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
     }
 
     const { userId } = params
+
+    const authUserId = await verifySession(request)
+    if (!authUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (authUserId !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     // Validate userId is a valid UUID format
     if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
@@ -99,7 +116,7 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
         ...(validated.goals && { goals: validated.goals }),
         ...(validated.medicalConditions && { medicalConditions: validated.medicalConditions }),
         ...(validated.availableEquipment && { availableEquipment: validated.availableEquipment }),
-        ...(validated.timeAvailability && { timeAvailability: validated.timeAvailability }),
+        ...(validated.timeAvailability !== undefined && { timeAvailability: validated.timeAvailability }),
         ...(validated.preferredLocation && { preferredLocation: validated.preferredLocation }),
         ...(validated.weakAreas && { weakAreas: validated.weakAreas }),
         ...(validated.painAreas && { painAreas: validated.painAreas }),

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -30,13 +30,142 @@ ChartJS.register(
 )
 
 export default function AnalyticsDashboard() {
-  const { workoutHistory, streak, measurements, loading, error, updateMeasurements } = useAnalytics()
+  const { workoutHistory, streak, measurements, prs, volume, monthlySummary, loading, error, updateMeasurements } = useAnalytics()
   const [showMeasurementForm, setShowMeasurementForm] = useState(false)
+  const [strengthTrend, setStrengthTrend] = useState<{ exerciseName: string; series: Array<{ date: string; e1rm: number }> } | null>(null)
   const [measurementInput, setMeasurementInput] = useState({
     weight: measurements?.current.weight || 0,
     height: measurements?.current.height || 0,
     targetWeight: measurements?.current.targetWeight || 0,
   })
+
+  useEffect(() => {
+    const loadTrend = async () => {
+      try {
+        if (!prs?.prs?.length) return
+        const top = prs.prs[0]
+        const res = await fetch(`/api/analytics/e1rm?exerciseId=${encodeURIComponent(top.exerciseId)}&days=180`)
+        const json = await res.json().catch(() => null)
+        if (!res.ok) return
+        if (!json?.series || !Array.isArray(json.series)) return
+        setStrengthTrend({ exerciseName: top.exerciseName, series: json.series })
+      } catch {
+        // Optional; ignore failures
+      }
+    }
+
+    loadTrend()
+  }, [prs])
+
+  // Prepare chart data (must be before early returns)
+  const weeklyChartData = {
+    labels: streak?.weeklyData.map(w => `Week ${w.week}`) || [],
+    datasets: [
+      {
+        label: 'Workouts per Week',
+        data: streak?.weeklyData.map(w => w.workouts) || [],
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+      },
+    ],
+  }
+
+  const volumeChartData = React.useMemo(() => {
+    if (!volume?.weeks || !Array.isArray(volume.weeks) || !Array.isArray(volume.data)) return null
+
+    const palette = [
+      'rgba(99, 102, 241, 0.7)',
+      'rgba(16, 185, 129, 0.7)',
+      'rgba(234, 179, 8, 0.7)',
+      'rgba(239, 68, 68, 0.7)',
+      'rgba(59, 130, 246, 0.7)',
+      'rgba(168, 85, 247, 0.7)',
+    ]
+
+    const sorted = volume.data
+      .map((d: any) => ({
+        muscle: d.muscle,
+        weeklyVolume: Array.isArray(d.weeklyVolume) ? d.weeklyVolume : [],
+        total: Array.isArray(d.weeklyVolume) ? d.weeklyVolume.reduce((a: number, b: number) => a + b, 0) : 0,
+      }))
+      .sort((a: any, b: any) => b.total - a.total)
+      .slice(0, 6)
+
+    return {
+      labels: volume.weeks.map((w: string) => w),
+      datasets: sorted.map((d: any, idx: number) => ({
+        label: d.muscle,
+        data: d.weeklyVolume,
+        backgroundColor: palette[idx % palette.length],
+        stack: 'volume',
+      })),
+    }
+  }, [volume])
+
+  const strengthTrendData = React.useMemo(() => {
+    if (!strengthTrend?.series?.length) return null
+    return {
+      labels: strengthTrend.series.map((p) => p.date),
+      datasets: [
+        {
+          label: 'Estimated 1RM (kg)',
+          data: strengthTrend.series.map((p) => p.e1rm),
+          borderColor: 'rgba(16, 185, 129, 1)',
+          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.35,
+        },
+      ],
+    }
+  }, [strengthTrend])
+
+  const weightTrendData = React.useMemo(() => {
+    const history = measurements?.history
+    if (!history || history.length < 2) return null
+
+    const smoothed = Array.isArray(measurements?.smoothed) ? measurements?.smoothed : null
+
+    return {
+      labels: history.map((p) => p.date),
+      datasets: [
+        {
+          label: 'Weight (kg)',
+          data: history.map((p) => p.weight),
+          borderColor: 'rgba(59, 130, 246, 1)',
+          backgroundColor: 'rgba(59, 130, 246, 0.12)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 1,
+        },
+        ...(smoothed
+          ? [
+              {
+                label: '7-day avg',
+                data: smoothed.map((p) => p.weight),
+                borderColor: 'rgba(16, 185, 129, 1)',
+                backgroundColor: 'rgba(16, 185, 129, 0.0)',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.35,
+                pointRadius: 0,
+              },
+            ]
+          : []),
+      ],
+    }
+  }, [measurements])
+
+  const weightProgressValue = React.useMemo(() => {
+    const p = measurements?.weightProgress?.progress
+    if (p === null || p === undefined) return null
+    const n = typeof p === 'number' ? p : Number(p)
+    return Number.isFinite(n) ? n : null
+  }, [measurements])
 
   if (loading) {
     return (
@@ -55,22 +184,6 @@ export default function AnalyticsDashboard() {
         Error: {error}
       </div>
     )
-  }
-
-  // Prepare chart data
-  const weeklyChartData = {
-    labels: streak?.weeklyData.map(w => `Week ${w.week}`) || [],
-    datasets: [
-      {
-        label: 'Workouts per Week',
-        data: streak?.weeklyData.map(w => w.workouts) || [],
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-        borderColor: 'rgba(99, 102, 241, 1)',
-        borderWidth: 2,
-        fill: true,
-        tension: 0.4,
-      },
-    ],
   }
 
   const handleMeasurementSubmit = async (e: React.FormEvent) => {
@@ -135,6 +248,45 @@ export default function AnalyticsDashboard() {
         </div>
       </div>
 
+      {/* Monthly Summary */}
+      {monthlySummary ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">What Changed Since Last Month</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Last {monthlySummary.periodDays || 30} days vs the previous {monthlySummary.periodDays || 30} days.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { key: 'workouts', label: 'Workouts', suffix: '' },
+              { key: 'volume', label: 'Training Volume', suffix: ' kg-reps' },
+              { key: 'avgDurationMins', label: 'Avg Duration', suffix: ' min' },
+            ].map((m) => {
+              const row = monthlySummary[m.key]
+              if (!row) return null
+              const delta = typeof row.delta === 'number' ? row.delta : 0
+              const pct = row.pct !== null && row.pct !== undefined ? row.pct : null
+              const positive = delta >= 0
+              return (
+                <div key={m.key} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="text-sm font-semibold text-gray-700">{m.label}</div>
+                  <div className="text-2xl font-bold text-gray-900 mt-2">
+                    {row.current}
+                    {m.suffix}
+                  </div>
+                  <div className={`text-sm font-semibold mt-1 ${positive ? 'text-green-700' : 'text-red-700'}`}>
+                    {positive ? '+' : ''}
+                    {delta}
+                    {m.suffix}
+                    {pct !== null ? ` (${positive ? '+' : ''}${pct}%)` : ''}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">Prev: {row.previous}{m.suffix}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {/* Weekly Activity Chart */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Weekly Activity</h2>
@@ -161,6 +313,85 @@ export default function AnalyticsDashboard() {
             }}
           />
         </div>
+      </div>
+
+      {/* Personal Records */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-lg font-bold text-gray-900 mb-4">Personal Records (Estimated 1RM)</h2>
+        {!prs?.prs || prs.prs.length === 0 ? (
+          <p className="text-gray-600">No PR data yet — log a few workouts and we’ll start tracking it here.</p>
+        ) : (
+          <div className="space-y-3">
+            {prs.prs.slice(0, 10).map((pr: any) => (
+              <div
+                key={`${pr.exerciseId}-${pr.achievedAt}`}
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
+              >
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">{pr.exerciseName}</p>
+                  <p className="text-sm text-gray-600">
+                    e1RM {pr.e1rm} kg • {pr.weight} kg × {pr.reps} reps
+                  </p>
+                </div>
+                <div className="text-xs text-gray-500">{new Date(pr.achievedAt).toLocaleDateString()}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Weekly Volume */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-lg font-bold text-gray-900 mb-4">Weekly Volume by Muscle Group</h2>
+        {!volumeChartData ? (
+          <p className="text-gray-600">
+            Volume tracking will show up after you log set-by-set workouts (or once the DB migration for sets is applied).
+          </p>
+        ) : (
+          <div style={{ height: '340px' }}>
+            <Bar
+              data={volumeChartData as any}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: 'bottom' as const },
+                },
+                scales: {
+                  x: { stacked: true },
+                  y: { stacked: true, beginAtZero: true },
+                },
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Strength Trend */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-lg font-bold text-gray-900 mb-4">Strength Trend (Top Exercise)</h2>
+        {!strengthTrendData ? (
+          <p className="text-gray-600">Log a few sets with weight + reps to see your estimated 1RM trend.</p>
+        ) : (
+          <div style={{ height: '320px' }}>
+            <Line
+              data={strengthTrendData as any}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: true, position: 'bottom' as const },
+                },
+                scales: {
+                  y: { beginAtZero: true },
+                },
+              }}
+            />
+          </div>
+        )}
+        {strengthTrend?.exerciseName ? (
+          <p className="text-xs text-gray-500 mt-3">Exercise: {strengthTrend.exerciseName}</p>
+        ) : null}
       </div>
 
       {/* Body Measurements */}
@@ -244,19 +475,40 @@ export default function AnalyticsDashboard() {
           </div>
         )}
 
-        {measurements?.weightProgress.progress && (
+        {weightProgressValue !== null && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-sm text-green-700">
-              Progress: <span className="font-bold">{measurements.weightProgress.progress}%</span> towards your goal
+              Progress: <span className="font-bold">{weightProgressValue}%</span> towards your goal
             </p>
             <div className="w-full bg-green-200 rounded-full h-2 mt-2">
               <div
                 className="bg-green-600 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(parseFloat(measurements.weightProgress.progress), 100)}%` }}
+                style={{ width: `${Math.min(weightProgressValue, 100)}%` }}
               />
             </div>
           </div>
         )}
+
+        {weightTrendData ? (
+          <div className="mt-8">
+            <h3 className="text-sm font-bold text-gray-900 mb-3">Weight Trend (Last 180 Days)</h3>
+            <div style={{ height: '260px' }}>
+              <Line
+                data={weightTrendData as any}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { position: 'bottom' as const },
+                  },
+                  scales: {
+                    y: { beginAtZero: false },
+                  },
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Recent Workouts */}
