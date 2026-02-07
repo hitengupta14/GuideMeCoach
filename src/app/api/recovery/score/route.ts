@@ -3,6 +3,7 @@ import { workoutSessions, workoutLogs } from '@/db/schema'
 import { eq, gte, desc, and } from 'drizzle-orm'
 import { NextRequest } from 'next/server'
 import { verifySession } from '@/lib/auth-helpers'
+import { wearableData } from '@/db/schema-mobile'
 
 export const dynamic = 'force-dynamic'
 
@@ -184,6 +185,50 @@ export async function GET(req: Request) {
 
     recoveryScore = Math.max(0, Math.min(100, recoveryScore))
 
+    // Generate recommendations
+    const recommendations: string[] = []
+
+    // Factor 7: Wearables (sleep) if available
+    try {
+      const sleepRows = await db
+        .select({ value: wearableData.value })
+        .from(wearableData)
+        .where(
+          and(
+            eq(wearableData.userId, userId),
+            eq(wearableData.metricType, 'sleep_minutes'),
+            gte(wearableData.recordedAt, sevenDaysAgo)
+          )
+        )
+
+      const sleepMinutes = sleepRows
+        .map((r) => (typeof r.value === 'string' ? Number(r.value) : typeof (r.value as any) === 'number' ? (r.value as any) : NaN))
+        .filter((n) => Number.isFinite(n) && n >= 0)
+
+      if (sleepMinutes.length > 0) {
+        const avgMinutes = sleepMinutes.reduce((s, n) => s + n, 0) / sleepMinutes.length
+        const avgHours = avgMinutes / 60
+
+        if (avgHours < 6) {
+          recoveryScore -= 15
+          factors.push({ factor: 'Low Sleep', impact: -15, value: `Avg: ${avgHours.toFixed(1)}h/night` })
+          recommendations.push('💤 Aim for at least 7 hours of sleep to improve recovery.')
+        } else if (avgHours < 7) {
+          recoveryScore -= 5
+          factors.push({ factor: 'Sleep', impact: -5, value: `Avg: ${avgHours.toFixed(1)}h/night` })
+        } else if (avgHours >= 8) {
+          recoveryScore += 5
+          factors.push({ factor: 'Great Sleep', impact: 5, value: `Avg: ${avgHours.toFixed(1)}h/night` })
+        } else {
+          factors.push({ factor: 'Sleep', impact: 0, value: `Avg: ${avgHours.toFixed(1)}h/night` })
+        }
+
+        recoveryScore = Math.max(0, Math.min(100, recoveryScore))
+      }
+    } catch {
+      // Ignore wearables errors; recovery score should still compute from workouts.
+    }
+
     // Determine status
     let status: 'excellent' | 'good' | 'fair' | 'poor'
     if (recoveryScore >= 80) status = 'excellent'
@@ -191,8 +236,6 @@ export async function GET(req: Request) {
     else if (recoveryScore >= 40) status = 'fair'
     else status = 'poor'
 
-    // Generate recommendations
-    const recommendations: string[] = []
     if (recoveryScore < 50) {
       recommendations.push('⚠️ Your recovery is compromised. Add a full rest day ASAP.')
       recommendations.push('💤 Prioritize sleep - aim for 7-9 hours')

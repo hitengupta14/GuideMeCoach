@@ -2,17 +2,21 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/auth';
-// import { useThemeStore } from '../../store/theme' from '../../store/auth';
 import { useGoogleAuth } from '../../services/google-auth';
+import { useThemeStore } from '../../store/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button } from '../../components/Button';
+import { TextInput } from '../../components/TextInput';
+import { spacing, typography } from '../../theme/spacing';
 
 export default function SignupScreen({ navigation }: any) {
   const [name, setName] = useState('');
@@ -22,6 +26,8 @@ export default function SignupScreen({ navigation }: any) {
   const store = useAuthStore();
   const { signup, loginWithGoogle, isLoading, error } = store;
   const { promptAsync } = useGoogleAuth();
+  const { theme, colors } = useThemeStore();
+  const isDark = theme === 'dark';
 
   const handleSignup = async () => {
     if (!name || !email || !password || !confirmPassword) {
@@ -62,7 +68,7 @@ export default function SignupScreen({ navigation }: any) {
       const result = await promptAsync();
       
       if (result?.type === 'success') {
-        const { id_token } = result.params;
+        const id_token = (result as any)?.params?.id_token || (result as any)?.authentication?.idToken;
         if (id_token) {
           await loginWithGoogle(id_token);
         }
@@ -75,176 +81,127 @@ export default function SignupScreen({ navigation }: any) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.content}>
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join GuideMeCoach today</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Full Name"
-          value={name}
-          onChangeText={setName}
-          editable={!isLoading}
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          editable={!isLoading}
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          editable={!isLoading}
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm Password"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          editable={!isLoading}
-        />
-
-        {error && <Text style={styles.error}>{error}</Text>}
-
-        <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleSignup}
-          disabled={isLoading}
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Creating Account...' : 'Sign Up'}
-          </Text>
-        </TouchableOpacity>
+          <View style={styles.hero}>
+            <Text style={[typography.display2, { color: colors.text }]}>Create Account</Text>
+            <Text style={[typography.body2, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+              Join GuideMeCoach today
+            </Text>
+          </View>
 
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.dividerLine} />
-        </View>
+          <View style={styles.form}>
+            <TextInput
+              label="Full Name"
+              placeholder="Your name"
+              value={name}
+              onChangeText={setName}
+              isDark={isDark}
+              disabled={isLoading}
+            />
+            <TextInput
+              label="Email"
+              placeholder="you@example.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              isDark={isDark}
+              disabled={isLoading}
+            />
+            <TextInput
+              label="Password"
+              placeholder="Create a password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              isDark={isDark}
+              disabled={isLoading}
+            />
+            <TextInput
+              label="Confirm Password"
+              placeholder="Repeat password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              isDark={isDark}
+              disabled={isLoading}
+            />
 
-        <TouchableOpacity
-          style={[styles.googleButton, isLoading && styles.buttonDisabled]}
-          onPress={handleGoogleSignup}
-          disabled={isLoading}
-        >
-          <MaterialCommunityIcons name="google" size={20} color="#4285F4" />
-          <Text style={styles.googleButtonText}>Sign up with Google</Text>
-        </TouchableOpacity>
+            {error ? (
+              <Text style={[typography.caption1, { color: colors.error, marginTop: spacing.sm }]}>
+                {error}
+              </Text>
+            ) : null}
 
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.link}>
-            Already have an account? <Text style={styles.linkBold}>Sign In</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+            <View style={{ marginTop: spacing.lg }}>
+              <Button
+                label={isLoading ? 'Creating Account…' : 'Sign Up'}
+                onPress={handleSignup}
+                loading={isLoading}
+                disabled={isLoading}
+                fullWidth
+                isDark={isDark}
+              />
+            </View>
+
+            <View style={styles.dividerRow}>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <Text style={[typography.caption1, { color: colors.textTertiary }]}>OR</Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            </View>
+
+            <Button
+              label="Continue with Google"
+              onPress={handleGoogleSignup}
+              disabled={isLoading}
+              variant="outline"
+              fullWidth
+              isDark={isDark}
+              icon={<MaterialCommunityIcons name="google" size={18} color={colors.text} />}
+            />
+
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} disabled={isLoading}>
+              <Text style={[styles.link, { color: colors.textSecondary }]}>
+                Already have an account?{' '}
+                <Text style={[styles.linkBold, { color: colors.primary }]}>Sign In</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
+  safe: { flex: 1 },
+  container: { flex: 1 },
   content: {
     flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: '#000',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 30,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  error: {
-    color: '#FF3B30',
-    marginBottom: 16,
-    fontSize: 14,
-  },
-  link: {
-    marginTop: 20,
-    textAlign: 'center',
-    color: '#666',
-    fontSize: 14,
-  },
-  linkBold: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing['2xl'],
+    paddingBottom: spacing['3xl'],
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#ddd',
   },
-  dividerText: {
-    marginHorizontal: 10,
-    color: '#999',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  googleButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 16,
+  hero: { marginBottom: spacing['2xl'] },
+  form: { gap: spacing.lg },
+  dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
+    gap: spacing.md,
+    marginVertical: spacing.sm,
   },
-  googleButtonText: {
-    color: '#333',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  link: { marginTop: spacing.lg, textAlign: 'center' },
+  linkBold: { fontWeight: '700' },
 });

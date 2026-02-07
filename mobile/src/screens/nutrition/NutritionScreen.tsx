@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, TextInput, Alert, Keyboard } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useNavigation } from '@react-navigation/native';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
-// import { useThemeStore } from '../../store/theme' from '../../store/auth';
+import { useThemeStore } from '../../store/theme';
+import ScreenHeader from '../../components/ScreenHeader';
 import { LoadingView, ErrorView } from '../../components/State';
+import { borderRadius, shadows, spacing, typography } from '../../theme/spacing';
 
 export default function NutritionScreen() {
   const user = useAuthStore((s) => s.user);
+  const navigation = useNavigation<any>();
+  const { colors } = useThemeStore();
   const [showPreferences, setShowPreferences] = useState(false);
   const [restrictions, setRestrictions] = useState('');
 
@@ -60,31 +65,53 @@ export default function NutritionScreen() {
   const macros = guidance.macroRecommendation || {};
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <MaterialCommunityIcons name="food-apple" size={28} color="#34C759" />
-        <Text style={styles.headerTitle}>Nutrition Guidance</Text>
-        <View style={{ width: 28 }} />
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScreenHeader
+        title="Nutrition Guidance"
+        onBackPress={() => navigation.goBack()}
+        rightAction={
+          <TouchableOpacity
+            onPress={() => refetch()}
+            activeOpacity={0.8}
+            style={[styles.headerIconBtn, { backgroundColor: `${colors.primary}14` }]}
+            accessibilityRole="button"
+            accessibilityLabel="Refresh nutrition guidance"
+          >
+            <MaterialCommunityIcons name="refresh" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        }
+      />
 
-      <ScrollView style={styles.scrollContent}>
-        <TouchableOpacity style={styles.prefButton} onPress={() => setShowPreferences(!showPreferences)}>
-          <MaterialCommunityIcons name="cog" size={18} color="#fff" />
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <TouchableOpacity
+          style={[styles.prefButton, { backgroundColor: colors.primary }]}
+          onPress={() => setShowPreferences(!showPreferences)}
+          activeOpacity={0.85}
+        >
+          <MaterialCommunityIcons name="cog" size={18} color={colors.textInverse} />
           <Text style={styles.prefButtonText}>Edit Preferences</Text>
         </TouchableOpacity>
 
         {showPreferences && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Dietary Preferences</Text>
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Dietary Preferences</Text>
             <TextInput
-              style={styles.preferenceInput}
+              style={[
+                styles.preferenceInput,
+                { borderColor: colors.border, backgroundColor: colors.backgroundSecondary, color: colors.text },
+              ]}
               placeholder="e.g., Vegetarian, Dairy-free, Low-carb"
+              placeholderTextColor={colors.textTertiary}
               value={restrictions}
               onChangeText={setRestrictions}
               multiline
             />
             <TouchableOpacity
-              style={[styles.saveBtn, updateMutation.isPending && styles.saveBtnDisabled]}
+              style={[
+                styles.saveBtn,
+                { backgroundColor: colors.primary },
+                updateMutation.isPending && styles.saveBtnDisabled,
+              ]}
               onPress={() => {
                 Keyboard.dismiss();
                 updateMutation.mutate({
@@ -97,7 +124,7 @@ export default function NutritionScreen() {
               disabled={updateMutation.isPending}
             >
               {updateMutation.isPending ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.textInverse} />
               ) : (
                 <Text style={styles.saveBtnText}>Save Preferences</Text>
               )}
@@ -105,50 +132,50 @@ export default function NutritionScreen() {
           </View>
         )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>TDEE Estimate</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>TDEE Estimate</Text>
           <View style={styles.statRow}>
-            <Text style={styles.statLabel}>BMR</Text>
-            <Text style={styles.statValue}>{tdee.bmr ? Math.round(tdee.bmr) : '—'} kcal</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>BMR</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{tdee.bmr ? Math.round(tdee.bmr) : '—'} kcal</Text>
           </View>
           <View style={styles.statRow}>
-            <Text style={styles.statLabel}>TDEE</Text>
-            <Text style={styles.statValue}>{tdee.tdee ? Math.round(tdee.tdee) : '—'} kcal</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>TDEE</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{tdee.tdee ? Math.round(tdee.tdee) : '—'} kcal</Text>
           </View>
-          {tdee.explanation && <Text style={styles.noteText}>{tdee.explanation}</Text>}
+          {tdee.explanation && <Text style={[styles.noteText, { color: colors.textSecondary }]}>{tdee.explanation}</Text>}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Macros</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Macros</Text>
           {macros.protein && (
             <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Protein</Text>
-              <Text style={styles.statValue}>{macros.protein.grams}g ({macros.protein.percentage}%)</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Protein</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>{macros.protein.grams}g ({macros.protein.percentage}%)</Text>
             </View>
           )}
           {macros.carbs && (
             <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Carbs</Text>
-              <Text style={styles.statValue}>{macros.carbs.grams}g ({macros.carbs.percentage}%)</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Carbs</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>{macros.carbs.grams}g ({macros.carbs.percentage}%)</Text>
             </View>
           )}
           {macros.fats && (
             <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Fats</Text>
-              <Text style={styles.statValue}>{macros.fats.grams}g ({macros.fats.percentage}%)</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Fats</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>{macros.fats.grams}g ({macros.fats.percentage}%)</Text>
             </View>
           )}
         </View>
 
         {guidance.mealTiming && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Meal Timing</Text>
-            <Text style={styles.noteText}>Pre-workout: {guidance.mealTiming.preWorkout}</Text>
-            <Text style={styles.noteText}>Post-workout: {guidance.mealTiming.postWorkout}</Text>
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Meal Timing</Text>
+            <Text style={[styles.noteText, { color: colors.textSecondary }]}>Pre-workout: {guidance.mealTiming.preWorkout}</Text>
+            <Text style={[styles.noteText, { color: colors.textSecondary }]}>Post-workout: {guidance.mealTiming.postWorkout}</Text>
             {guidance.mealTiming.tips && (
               <View style={{ marginTop: 8 }}>
                 {guidance.mealTiming.tips.map((tip: string, idx: number) => (
-                  <Text key={idx} style={styles.tipText}>• {tip}</Text>
+                  <Text key={idx} style={[styles.tipText, { color: colors.textSecondary }]}>• {tip}</Text>
                 ))}
               </View>
             )}
@@ -156,17 +183,17 @@ export default function NutritionScreen() {
         )}
 
         {guidance.hydrationGuide && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Hydration</Text>
-            <Text style={styles.noteText}>{guidance.hydrationGuide}</Text>
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Hydration</Text>
+            <Text style={[styles.noteText, { color: colors.textSecondary }]}>{guidance.hydrationGuide}</Text>
           </View>
         )}
 
         {guidance.generalTips && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tips</Text>
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Tips</Text>
             {guidance.generalTips.map((tip: string, idx: number) => (
-              <Text key={idx} style={styles.tipText}>• {tip}</Text>
+              <Text key={idx} style={[styles.tipText, { color: colors.textSecondary }]}>• {tip}</Text>
             ))}
           </View>
         )}
@@ -176,25 +203,26 @@ export default function NutritionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#e0e0e0',
+  container: { flex: 1 },
+  headerIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#000', flex: 1, textAlign: 'center' },
-  scrollContent: { flex: 1, padding: 16 },
-  section: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 8 },
+  scrollContent: { flex: 1, padding: spacing.lg },
+  section: { borderRadius: borderRadius.xl, padding: spacing.lg, marginBottom: spacing.lg, borderWidth: 1, ...shadows.md },
+  sectionTitle: { ...typography.heading3, marginBottom: spacing.md },
   statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
-  statLabel: { fontSize: 14, color: '#666' },
-  statValue: { fontSize: 16, fontWeight: '700', color: '#000' },
-  noteText: { fontSize: 13, color: '#666', marginTop: 6 },
-  tipText: { fontSize: 13, color: '#333', marginTop: 4 },
-  prefButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#007AFF', marginHorizontal: 16, marginTop: 16, padding: 12, borderRadius: 8 },
+  statLabel: { ...typography.body3 },
+  statValue: { ...typography.heading3 },
+  noteText: { ...typography.body3, marginTop: spacing.sm },
+  tipText: { ...typography.body3, marginTop: spacing.xs },
+  prefButton: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg, padding: spacing.lg, borderRadius: borderRadius.lg, ...shadows.sm },
   prefButtonText: { marginLeft: 8, color: '#fff', fontWeight: '600' },
-  preferenceInput: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 8, padding: 12, minHeight: 60, marginBottom: 12, fontSize: 14 },
-  saveBtn: { backgroundColor: '#007AFF', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  saveBtnDisabled: { backgroundColor: '#007AFF', opacity: 0.6 },
+  preferenceInput: { borderWidth: 1, borderRadius: borderRadius.lg, padding: spacing.lg, minHeight: 60, marginBottom: spacing.lg, ...typography.body2 },
+  saveBtn: { paddingVertical: spacing.md, borderRadius: borderRadius.lg, alignItems: 'center' },
+  saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 });

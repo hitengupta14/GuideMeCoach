@@ -163,31 +163,38 @@ export async function validateFileBuffer(
   buffer: Buffer,
   expectedType: 'image' | 'video' | 'document'
 ): Promise<FileValidationResult> {
-  // Check magic numbers (file signatures) to verify actual file type
-  const magicNumbers = buffer.slice(0, 12)
+  // Check magic numbers (file signatures) to verify actual file type.
+  // We keep this intentionally lightweight and avoid pulling in external libs.
+  const magicNumbers = buffer.slice(0, 16)
 
-  const signatures: Record<string, Buffer[]> = {
-    image: [
-      Buffer.from([0xff, 0xd8, 0xff]), // JPEG
-      Buffer.from([0x89, 0x50, 0x4e, 0x47]), // PNG
-      Buffer.from([0x47, 0x49, 0x46]), // GIF
-      Buffer.from([0x52, 0x49, 0x46, 0x46]), // WebP
-    ],
-    video: [
-      Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]), // MP4
-      Buffer.from([0x00, 0x00, 0x00, 0x14, 0x66, 0x74, 0x79, 0x70]), // MOV
-    ],
-    document: [
-      Buffer.from([0x25, 0x50, 0x44, 0x46]), // PDF
-      Buffer.from([0xd0, 0xcf, 0x11, 0xe0]), // DOC
-      Buffer.from([0x50, 0x4b, 0x03, 0x04]), // DOCX (ZIP)
-    ],
-  }
+  const isJpeg = magicNumbers.slice(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))
+  const isPng = magicNumbers
+    .slice(0, 8)
+    .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  const isGif = magicNumbers.slice(0, 3).equals(Buffer.from([0x47, 0x49, 0x46])) // GIF
 
-  const expectedSignatures = signatures[expectedType]
-  const isValid = expectedSignatures.some(sig =>
-    magicNumbers.slice(0, sig.length).equals(sig)
-  )
+  const isRiff = magicNumbers.slice(0, 4).equals(Buffer.from([0x52, 0x49, 0x46, 0x46])) // RIFF
+  const isWebp = isRiff && magicNumbers.slice(8, 12).equals(Buffer.from([0x57, 0x45, 0x42, 0x50])) // WEBP
+
+  // ISO Base Media File Format (MP4/MOV): "ftyp" at offset 4.
+  const isIsoBmff = magicNumbers.slice(4, 8).equals(Buffer.from([0x66, 0x74, 0x79, 0x70])) // ftyp
+
+  // WebM is EBML: 1A 45 DF A3
+  const isWebm = magicNumbers.slice(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+
+  // AVI: RIFF .... AVI  (bytes 8-11)
+  const isAvi = isRiff && magicNumbers.slice(8, 12).equals(Buffer.from([0x41, 0x56, 0x49, 0x20])) // AVI␠
+
+  const isPdf = magicNumbers.slice(0, 4).equals(Buffer.from([0x25, 0x50, 0x44, 0x46])) // %PDF
+  const isDoc = magicNumbers.slice(0, 4).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0])) // DOC
+  const isZip = magicNumbers.slice(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])) // ZIP (DOCX)
+
+  const isValid =
+    expectedType === 'image'
+      ? isJpeg || isPng || isGif || isWebp
+      : expectedType === 'video'
+        ? isIsoBmff || isWebm || isAvi
+        : isPdf || isDoc || isZip
 
   if (!isValid) {
     return {

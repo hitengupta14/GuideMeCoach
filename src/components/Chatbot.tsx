@@ -130,19 +130,19 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
             if (line.startsWith('data: ')) {
               const data = line.slice(6)
               if (data === '[DONE]') {
-                // Save the complete message
-                const savedMessages = await saveStreamedMessage(conversationId, userMessage, accumulatedContent)
-                if (savedMessages) {
-                  setMessages((prev) => {
-                    // Remove temp user message
-                    const filtered = prev.filter(m => m.id !== tempUserMessage.id)
-                    return [
-                      ...filtered,
-                      savedMessages.userMessage,
-                      savedMessages.assistantMessage,
-                    ]
-                  })
+                // Persisted server-side by the streaming endpoint; refresh from DB.
+                if (accumulatedContent.trim().length > 0) {
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: `stream-${Date.now()}`,
+                      role: 'assistant',
+                      content: accumulatedContent,
+                      createdAt: new Date().toISOString(),
+                    },
+                  ])
                 }
+                await fetchMessages(conversationId)
                 break
               }
 
@@ -195,40 +195,12 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
     } finally {
       setLoading(false)
     }
-  }
+	  }
 
-  // Helper to save streamed message to DB
-  const saveStreamedMessage = async (conversationId: string, userContent: string, assistantContent: string) => {
-    try {
-      const response = await csrfFetch('/api/chat/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversationId,
-          content: userContent,
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        return {
-          userMessage: data.userMessage,
-          assistantMessage: {
-            ...data.assistantMessage,
-            content: assistantContent, // Use streamed content
-          },
-        }
-      }
-    } catch (error) {
-      console.error('Error saving streamed message:', error)
-    }
-    return null
-  }
-
-  // Topic selection view
-  if (!conversationId) {
-    return (
-      <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+	  // Topic selection view
+	  if (!conversationId) {
+	    return (
+	      <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Ask Your Fitness Coach</h2>
 
         <div className="grid md:grid-cols-2 gap-4">

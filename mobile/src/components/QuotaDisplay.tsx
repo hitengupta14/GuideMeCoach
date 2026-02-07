@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeStore } from '../store/theme';
-import { lightColors, darkColors } from '../theme/colors';
 import { useAIQuota } from '../hooks/useAIQuota';
 
 interface QuotaDisplayProps {
@@ -11,10 +10,9 @@ interface QuotaDisplayProps {
 }
 
 export default function QuotaDisplay({ compact = false }: QuotaDisplayProps) {
-  const { theme } = useThemeStore();
-  const colors = theme === 'dark' ? darkColors : lightColors;
+  const { colors } = useThemeStore();
   const { quotas, loading } = useAIQuota();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
 
   if (loading || !quotas) {
     return null;
@@ -117,7 +115,7 @@ export default function QuotaDisplay({ compact = false }: QuotaDisplayProps) {
           </Text>
           <TouchableOpacity
             style={styles.upgradeButton}
-            onPress={() => navigation.navigate('Pricing' as never)}
+            onPress={() => navigation.navigate('More', { screen: 'Pricing' })}
           >
             <MaterialCommunityIcons name="star" size={18} color="#FFFFFF" />
             <Text style={styles.upgradeButtonText}>View Plans</Text>

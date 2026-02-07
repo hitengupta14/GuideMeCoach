@@ -7,28 +7,26 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-// @ts-ignore - React Native Razorpay types
-import RazorpayCheckout from 'react-native-razorpay';
+import Constants from 'expo-constants';
 import { useThemeStore } from '../../store/theme';
 import { lightColors, darkColors } from '../../theme/colors';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type CheckoutRouteParams = {
   Checkout: {
     planId: 'premium' | 'premium-yearly';
+    displayRegion?: 'india' | 'international';
   };
 };
 
 interface PlanDetails {
   id: string;
   name: string;
-  price: string;
-  priceValue: number;
   period: string;
   features: string[];
   savings?: string;
@@ -38,8 +36,6 @@ const PLAN_DETAILS: Record<string, PlanDetails> = {
   premium: {
     id: 'premium',
     name: 'Premium Monthly',
-    price: '₹299',
-    priceValue: 29900, // in paise
     period: '/month',
     features: [
       'AI Workout Planner (2/month)',
@@ -53,8 +49,6 @@ const PLAN_DETAILS: Record<string, PlanDetails> = {
   'premium-yearly': {
     id: 'premium-yearly',
     name: 'Premium Yearly',
-    price: '₹2,499',
-    priceValue: 249900, // in paise
     period: '/year',
     features: [
       'All Premium features included',
@@ -66,10 +60,47 @@ const PLAN_DETAILS: Record<string, PlanDetails> = {
   },
 };
 
+const DISPLAY_PRICES: Record<
+  'india' | 'international',
+  Record<'premium' | 'premium-yearly', string>
+> = {
+  india: {
+    premium: '₹299',
+    'premium-yearly': '₹2,499',
+  },
+  international: {
+    premium: '$5',
+    'premium-yearly': '$49',
+  },
+};
+
+const BILLED_PAISE: Record<
+  'india' | 'international',
+  Record<'premium' | 'premium-yearly', number>
+> = {
+  india: {
+    premium: 29900,
+    'premium-yearly': 249900,
+  },
+  international: {
+    premium: 41500,
+    'premium-yearly': 406700,
+  },
+};
+
+function formatInrFromPaise(paise: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+  }).format(paise / 100);
+}
+
 export default function CheckoutScreen() {
   const { theme } = useThemeStore();
   const colors = theme === 'dark' ? darkColors : lightColors;
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<CheckoutRouteParams, 'Checkout'>>();
   const { user } = useAuthStore();
 
@@ -77,7 +108,13 @@ export default function CheckoutScreen() {
   const plan = PLAN_DETAILS[planId];
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedRegion, setSelectedRegion] = useState<'india' | 'international'>('india');
+  const [selectedRegion, setSelectedRegion] = useState<'india' | 'international'>(
+    route.params?.displayRegion || 'india'
+  );
+  const checkoutLogoUrl = process.env.EXPO_PUBLIC_RAZORPAY_LOGO_URL;
+  const displayPrice = DISPLAY_PRICES[selectedRegion]?.[planId] || DISPLAY_PRICES.india.premium;
+  const billedLabel = formatInrFromPaise(BILLED_PAISE[selectedRegion]?.[planId] || BILLED_PAISE.india.premium);
+  const isExpoGo = (Constants as any)?.appOwnership === 'expo';
 
   useEffect(() => {
     if (!user) {
@@ -89,6 +126,14 @@ export default function CheckoutScreen() {
 
   const handlePayment = async () => {
     if (isProcessing) return;
+
+    if (isExpoGo) {
+      Alert.alert(
+        'Development Build Required',
+        'Razorpay payments require a development build and are not supported in Expo Go.'
+      );
+      return;
+    }
 
     setIsProcessing(true);
 
@@ -111,7 +156,7 @@ export default function CheckoutScreen() {
       // Step 2: Open Razorpay checkout
       const options = {
         description: plan.name,
-        image: 'https://your-logo-url.com/logo.png', // TODO: Replace with your logo
+        ...(checkoutLogoUrl ? { image: checkoutLogoUrl } : {}),
         currency: currency,
         key: keyId,
         amount: amount.toString(),
@@ -125,6 +170,9 @@ export default function CheckoutScreen() {
         theme: { color: '#667eea' },
       };
 
+      // Lazy-load to avoid crashing Expo Go due to missing native module
+      // @ts-ignore - React Native Razorpay types
+      const RazorpayCheckout = require('react-native-razorpay');
       const data = await RazorpayCheckout.open(options);
 
       // Step 3: Verify payment on backend
@@ -133,7 +181,7 @@ export default function CheckoutScreen() {
       setIsProcessing(false);
 
       // Check if user cancelled
-      if (error.code === RazorpayCheckout.PAYMENT_CANCELLED) {
+      if (error.code === 'PAYMENT_CANCELLED' || error.code === 2) {
         Alert.alert('Payment Cancelled', 'You cancelled the payment process');
         return;
       }
@@ -158,6 +206,7 @@ export default function CheckoutScreen() {
             razorpay_order_id: paymentData.razorpay_order_id,
             razorpay_payment_id: paymentData.razorpay_payment_id,
             razorpay_signature: paymentData.razorpay_signature,
+            planType: planId,
           }),
         }
       );
@@ -173,11 +222,7 @@ export default function CheckoutScreen() {
           {
             text: 'Continue',
             onPress: () => {
-              navigation.reset({
-                index: 0,
-                // @ts-ignore
-                routes: [{ name: 'AppTabs' }],
-              });
+              navigation.reset({ index: 0, routes: [{ name: 'MoreMenu' }] });
             },
           },
         ]);
@@ -371,6 +416,8 @@ export default function CheckoutScreen() {
 
   return (
     <View style={styles.container}>
+      <ScreenHeader title="Checkout" onBackPress={() => navigation.goBack()} />
+
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Plan Details */}
         <View style={styles.section}>
@@ -386,9 +433,14 @@ export default function CheckoutScreen() {
             </View>
 
             <View style={styles.priceRow}>
-              <Text style={styles.price}>{plan.price}</Text>
+              <Text style={styles.price}>{displayPrice}</Text>
               <Text style={styles.period}>{plan.period}</Text>
             </View>
+            {selectedRegion === 'international' && (
+              <Text style={styles.disclaimer}>
+                Billed in INR via Razorpay: {billedLabel} (your bank converts)
+              </Text>
+            )}
 
             <View style={styles.featuresList}>
               {plan.features.map((feature, index) => (
@@ -443,7 +495,7 @@ export default function CheckoutScreen() {
             </TouchableOpacity>
           </View>
           <Text style={styles.disclaimer}>
-            * Final pricing is determined by your payment method
+            * Final price is decided server-side based on your detected country at checkout. Razorpay charges in INR; USD is display-only.
           </Text>
         </View>
 

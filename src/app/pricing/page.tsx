@@ -8,6 +8,7 @@ import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import { useSession } from '@/hooks/useSession'
 import { PricingRegionSelector } from '@/components/PricingRegionSelector'
 import { csrfFetch } from '@/lib/csrf-client'
+import { decidePricing, type PlanType } from '@/lib/pricing'
 
 const PRICING_PLANS = [
   {
@@ -72,6 +73,14 @@ function PricingContent() {
   const searchParams = useSearchParams()
   const { user, isLoading } = useSession({ required: false })
   const { subscriptionStatus, isPremium, refetch } = useSubscriptionStatus()
+
+  const formatInrFromPaise = (paise: number) =>
+    new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+    }).format(paise / 100)
 
   // Refetch subscription status when pricing page comes into focus
   useEffect(() => {
@@ -265,13 +274,25 @@ function PricingContent() {
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-6 h-12">{plan.description}</p>
 
-                  {/* Price */}
-                  <div className="mb-6">
-                    <span className="text-4xl font-bold text-gray-900 dark:text-white">
-                      {selectedRegion === 'india' ? plan.priceIndia : plan.priceInternational}
-                    </span>
-                    <span className="text-gray-600 dark:text-gray-400 ml-2">{plan.period}</span>
-                  </div>
+	                  {/* Price */}
+	                  <div className="mb-6">
+	                    <span className="text-4xl font-bold text-gray-900 dark:text-white">
+	                      {selectedRegion === 'india' ? plan.priceIndia : plan.priceInternational}
+	                    </span>
+	                    <span className="text-gray-600 dark:text-gray-400 ml-2">{plan.period}</span>
+	                    {selectedRegion === 'international' && plan.id !== 'free' && (
+	                      <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+	                        Billed in INR via Razorpay:{' '}
+	                        {formatInrFromPaise(
+	                          decidePricing({
+	                            planType: plan.id as PlanType,
+	                            lockedTier: 'international',
+	                          }).amountPaise
+	                        )}{' '}
+	                        (your bank converts)
+	                      </p>
+	                    )}
+	                  </div>
 
                   {/* CTA Button */}
                   {isCurrentPlan ? (

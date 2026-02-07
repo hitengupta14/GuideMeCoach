@@ -6,12 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
-  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeStore } from '../store/theme';
-import { lightColors, darkColors } from '../theme/colors';
 
 type AIFeature = 'planner' | 'chat' | 'insights' | 'edits';
 
@@ -76,15 +74,15 @@ const FEATURE_MESSAGES: Record<AIFeature, FeatureMessage> = {
 };
 
 export default function UpgradeModal({ visible, feature, onClose }: UpgradeModalProps) {
-  const { theme } = useThemeStore();
-  const colors = theme === 'dark' ? darkColors : lightColors;
-  const navigation = useNavigation();
+  const { colors } = useThemeStore();
+  const navigation = useNavigation<any>();
 
   const message = FEATURE_MESSAGES[feature];
 
   const handleUpgrade = () => {
     onClose();
-    navigation.navigate('Pricing' as never);
+    // Pricing lives in the `More` stack; route through the tab so this works from any screen.
+    navigation.navigate('More', { screen: 'Pricing' });
   };
 
   const styles = StyleSheet.create({

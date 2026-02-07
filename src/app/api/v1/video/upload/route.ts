@@ -6,12 +6,26 @@ import { verifySession } from '@/lib/auth-helpers'
 import { getGlobalAppSettings } from '@/lib/app-settings'
 import { db } from '@/db'
 import { videos } from '@/db/schema-mobile'
+import { createRateLimiter } from '@/lib/rate-limit'
+
+const videoUploadRateLimiter = createRateLimiter(60 * 60 * 1000, 20, async (request) => {
+  const userId = await verifySession(request as any).catch(() => null)
+  return `${userId || request.headers.get('x-forwarded-for') || 'unknown'}:v1.video.upload`
+})
 
 // This endpoint handles video upload
 // Videos are stored in a cloud storage service (AWS S3, Cloudinary, or Firebase)
 
 export async function POST(req: NextRequest) {
   try {
+    const rate = await videoUploadRateLimiter(req)
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many uploads. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } }
+      )
+    }
+
     const userId = await verifySession(req)
     if (!userId) {
       return NextResponse.json(
@@ -49,13 +63,6 @@ export async function POST(req: NextRequest) {
       (typeof (file as any)?.size === 'number' ? String((file as any).size) : null) ||
       null
     const fileSize = fileSizeRaw ? Number(fileSizeRaw) : (typeof file?.size === 'number' ? file.size : NaN)
-
-    if (!exerciseId) {
-      return NextResponse.json(
-        { success: false, error: 'exerciseId is required' },
-        { status: 400 }
-      )
-    }
 
     // Enhanced file validation
     const appSettings = await getGlobalAppSettings()

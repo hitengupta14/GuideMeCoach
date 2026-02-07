@@ -34,7 +34,8 @@ export function useAIQuota(): UseAIQuotaResult {
       setLoading(true);
       setError(null);
 
-      const response: any = await apiClient.request('/api/user/quotas', {
+      // `apiClient.baseURL` is normalized to end with `/api`, so endpoints should not include `/api`.
+      const response: any = await apiClient.request('/user/quotas', {
         method: 'GET',
       });
 

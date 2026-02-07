@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { users, workoutSessions } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { weeklyCheckins } from '@/db/schema'
 import { verifySession } from '@/lib/auth-helpers'
 import { analyzeRecentPerformance, calculateAdjustments, getAdjustmentMessage } from '@/lib/planner/adaptive'
+
+function getWeekStartUtc(date: Date): Date {
+  const d = new Date(date)
+  d.setUTCHours(0, 0, 0, 0)
+  const day = d.getUTCDay() // 0=Sun..6=Sat
+  const diff = (day + 6) % 7 // days since Monday
+  d.setUTCDate(d.getUTCDate() - diff)
+  return d
+}
 
 /**
  * POST /api/feedback/weekly-checkin
@@ -58,9 +66,53 @@ export async function POST(request: NextRequest) {
 
     const message = getAdjustmentMessage(adjustments)
 
-    // Store feedback in a simple JSON format on user record (optional: create a feedback table)
-    // For now, we just return the adjustment
-    // TODO: Store feedback history in a dedicated table if needed
+    const now = new Date()
+    const weekStart = getWeekStartUtc(now)
+
+    await db
+      .insert(weeklyCheckins)
+      .values({
+        userId,
+        weekStart,
+        feltStrongerOrLighter,
+        planEasyToFollow,
+        hadPainOrDiscomfort,
+        adjustments: {
+          shouldDeload: adjustments.shouldDeload,
+          volumeChange: adjustments.volumeChange,
+          intensityChange: adjustments.intensityChange,
+          reason: adjustments.reason,
+        },
+        performanceData: {
+          averageRPE: performanceData.averageRPE,
+          averageEnergy: performanceData.averageEnergy,
+          completionRate: performanceData.completionRate,
+          missedWorkouts: performanceData.missedWorkouts,
+        },
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [weeklyCheckins.userId, weeklyCheckins.weekStart],
+        set: {
+          feltStrongerOrLighter,
+          planEasyToFollow,
+          hadPainOrDiscomfort,
+          adjustments: {
+            shouldDeload: adjustments.shouldDeload,
+            volumeChange: adjustments.volumeChange,
+            intensityChange: adjustments.intensityChange,
+            reason: adjustments.reason,
+          },
+          performanceData: {
+            averageRPE: performanceData.averageRPE,
+            averageEnergy: performanceData.averageEnergy,
+            completionRate: performanceData.completionRate,
+            missedWorkouts: performanceData.missedWorkouts,
+          },
+          updatedAt: now,
+        },
+      })
 
     return NextResponse.json({
       feedback: {

@@ -25,14 +25,16 @@ export const lightColors = {
   errorDark: '#DC2626',
   
   // Backgrounds
-  background: '#FFFFFF',
-  backgroundSecondary: '#F9FAFB',
+  // `background` is the app-level page background (slightly off-white for better depth).
+  background: '#F9FAFB',
+  // `backgroundSecondary` is a pure surface (used where you want white on the app background).
+  backgroundSecondary: '#FFFFFF',
   backgroundTertiary: '#F3F4F6',
   
   // Surface colors
   surface: '#FFFFFF',
-  surfaceSecondary: '#F9FAFB',
-  surfaceTertiary: '#F3F4F6',
+  surfaceSecondary: '#F3F4F6',
+  surfaceTertiary: '#E5E7EB',
   
   // Text colors
   text: '#1F2937',

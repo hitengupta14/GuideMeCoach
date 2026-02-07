@@ -3,16 +3,25 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { spacing, typography, shadows } from '../theme/spacing';
-import { lightColors, darkColors } from '../theme/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useThemeStore } from '../store/theme';
 
 export function NetworkStatusBanner() {
   const netInfo = useNetInfo();
   const offline = !netInfo.isConnected || netInfo.isInternetReachable === false;
+  const insets = useSafeAreaInsets();
+  const colors = useThemeStore((s) => s.colors);
 
   if (!offline) return null;
 
   return (
-    <View style={[styles.container, styles.shadow]}>
+    <View
+      style={[
+        styles.container,
+        styles.shadow,
+        { backgroundColor: colors.error, paddingTop: Math.max(insets.top, 0) + spacing.sm },
+      ]}
+    >
       <View style={styles.content}>
         <MaterialCommunityIcons name="wifi-off" size={16} color="#fff" />
         <Text style={[styles.text, typography.body3]}>
@@ -25,7 +34,6 @@ export function NetworkStatusBanner() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: darkColors.error,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
   },

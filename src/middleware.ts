@@ -15,6 +15,7 @@ const publicPaths = [
   '/exercises',
   '/muscles',
   '/body-map',
+  '/wearables',
 ]
 
 function isPublicPathname(pathname: string): boolean {
@@ -41,6 +42,7 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const isProd = process.env.NODE_ENV === 'production'
   
   const requestId =
     request.headers.get('x-request-id') ||
@@ -112,6 +114,44 @@ export async function middleware(request: NextRequest) {
   response.headers.set('X-XSS-Protection', '1; mode=block')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.headers.set('x-request-id', requestId)
+
+  if (isProd) {
+    // HSTS (only meaningful over HTTPS)
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
+
+    // Permissions Policy
+    response.headers.set(
+      'Permissions-Policy',
+      [
+        'geolocation=()',
+        'microphone=()',
+        'camera=()',
+        'usb=()',
+        'magnetometer=()',
+        'gyroscope=()',
+        'accelerometer=()',
+        'payment=()',
+      ].join(', ')
+    )
+
+    // Content Security Policy (kept compatible with Next.js + Razorpay checkout)
+    const csp = [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data: https:",
+      "style-src 'self' 'unsafe-inline' https:",
+      "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com",
+      "frame-src 'self' https://*.razorpay.com",
+      "connect-src 'self' https: wss:",
+      "media-src 'self' blob: https:",
+      'upgrade-insecure-requests',
+    ].join('; ')
+    response.headers.set('Content-Security-Policy', csp)
+  }
 
   return response
 }

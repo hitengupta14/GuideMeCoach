@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useThemeStore } from '../../store/theme';
-import { lightColors, darkColors } from '../../theme/colors';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { useAIQuota } from '../../hooks/useAIQuota';
 import UpgradeModal from '../../components/UpgradeModal';
+import { useThemeStore } from '../../store/theme';
+import { spacing, typography, borderRadius, shadows } from '../../theme/spacing';
 
 export default function AiInsightsScreen() {
   const [weeks, setWeeks] = useState(4);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { canAccessFeature } = useAIQuota();
+  const { colors } = useThemeStore();
 
   useEffect(() => {
     // Check access on mount
@@ -33,56 +34,98 @@ export default function AiInsightsScreen() {
   const stats = (data as any)?.stats;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
-      <Text style={styles.title}>AI Insights</Text>
-      <Text style={styles.subtitle}>Weekly summaries and plateau detection.</Text>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={{ paddingBottom: spacing['3xl'] }}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={[typography.heading1, { color: colors.text }]}>AI Insights</Text>
+      <Text style={[typography.body3, { color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.lg }]}>
+        Weekly summaries and plateau detection.
+      </Text>
 
       <View style={styles.row}>
         {[2, 4, 8, 12].map((w) => (
           <TouchableOpacity
             key={w}
-            style={[styles.chip, weeks === w && styles.chipActive]}
+            style={[
+              styles.chip,
+              { backgroundColor: colors.surfaceSecondary },
+              weeks === w && { backgroundColor: `${colors.primary}15`, borderColor: `${colors.primary}55` },
+            ]}
             onPress={() => setWeeks(w)}
           >
-            <Text style={[styles.chipText, weeks === w && styles.chipTextActive]}>Last {w}w</Text>
+            <Text
+              style={[
+                typography.label2,
+                { color: colors.text, fontWeight: '700' },
+                weeks === w && { color: colors.primary },
+              ]}
+            >
+              Last {w}w
+            </Text>
           </TouchableOpacity>
         ))}
-        <TouchableOpacity style={styles.refresh} onPress={() => refetch()}>
-          <Text style={styles.refreshText}>{isFetching ? 'Refreshing...' : 'Refresh'}</Text>
+        <TouchableOpacity
+          style={[styles.refresh, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => refetch()}
+          activeOpacity={0.8}
+        >
+          <Text style={[typography.label2, { color: colors.text }]}>
+            {isFetching ? 'Refreshing…' : 'Refresh'}
+          </Text>
         </TouchableOpacity>
       </View>
 
       {(isLoading || isFetching) && (
-        <View style={styles.center}> <ActivityIndicator size="large" color="#007AFF" /> </View>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
       )}
 
-      {error && <Text style={styles.error}>Failed to load insights</Text>}
+      {error && (
+        <Text style={[typography.body3, { color: colors.error, marginBottom: spacing.md }]}>
+          Failed to load insights
+        </Text>
+      )}
 
       {stats && (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Key Stats</Text>
-          <Text style={styles.meta}>Workouts: {stats.totalWorkouts}</Text>
-          <Text style={styles.meta}>Avg duration: {Math.round(stats.avgDuration || 0)} min</Text>
-          <Text style={styles.meta}>Energy: {Math.round(stats.avgEnergyLevel || 0)}/10</Text>
-          <Text style={styles.meta}>Exercises tracked: {stats.exercisesTracked}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[typography.heading3, { color: colors.text, marginBottom: spacing.sm }]}>
+            Key Stats
+          </Text>
+          <Text style={[typography.body3, { color: colors.textSecondary }]}>Workouts: {stats.totalWorkouts}</Text>
+          <Text style={[typography.body3, { color: colors.textSecondary }]}>Avg duration: {Math.round(stats.avgDuration || 0)} min</Text>
+          <Text style={[typography.body3, { color: colors.textSecondary }]}>Energy: {Math.round(stats.avgEnergyLevel || 0)}/10</Text>
+          <Text style={[typography.body3, { color: colors.textSecondary }]}>Exercises tracked: {stats.exercisesTracked}</Text>
         </View>
       )}
 
       {insights && (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>AI Summary</Text>
-          <Text style={styles.meta}>{typeof insights === 'string' ? insights : JSON.stringify(insights, null, 2)}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[typography.heading3, { color: colors.text, marginBottom: spacing.sm }]}>
+            AI Summary
+          </Text>
+          <Text style={[typography.body3, { color: colors.textSecondary }]}>
+            {typeof insights === 'string' ? insights : JSON.stringify(insights, null, 2)}
+          </Text>
         </View>
       )}
 
       {plateauData?.plateaus?.length ? (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Plateau Risks</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[typography.heading3, { color: colors.text, marginBottom: spacing.sm }]}>
+            Plateau Risks
+          </Text>
           {plateauData.plateaus.map((p: any) => (
-            <View key={p.exerciseName} style={styles.plateauItem}>
-              <Text style={styles.cardTitle}>{p.exerciseName}</Text>
-              <Text style={styles.meta}>Trend: {p.trend} • Streak: {p.streak}</Text>
-              <Text style={styles.meta}>{p.recommendation}</Text>
+            <View key={p.exerciseName} style={[styles.plateauItem, { borderTopColor: colors.border }]}>
+              <Text style={[typography.label1, { color: colors.text }]}>{p.exerciseName}</Text>
+              <Text style={[typography.body3, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                Trend: {p.trend} • Streak: {p.streak}
+              </Text>
+              <Text style={[typography.body3, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                {p.recommendation}
+              </Text>
             </View>
           ))}
         </View>
@@ -99,31 +142,23 @@ export default function AiInsightsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', padding: 16 },
-  title: { fontSize: 26, fontWeight: '700', color: '#111', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#555', marginBottom: 12 },
+  container: { flex: 1, padding: spacing.lg },
   card: {
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    ...shadows.md,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111', marginBottom: 6 },
-  meta: { fontSize: 13, color: '#444', marginBottom: 4 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#111' },
-  plateauItem: { marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#eee' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  error: { color: '#d00', marginBottom: 8 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 },
-  chip: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 999, backgroundColor: '#e5e7eb', marginRight: 8, marginBottom: 6 },
-  chipActive: { backgroundColor: '#DBEAFE' },
-  chipText: { color: '#111', fontWeight: '600' },
-  chipTextActive: { color: '#1D4ED8' },
-  refresh: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb' },
-  refreshText: { color: '#111', fontWeight: '600' },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: spacing.md, gap: spacing.sm },
+  chip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  refresh: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: borderRadius.lg, borderWidth: 1 },
+  plateauItem: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1 },
 });

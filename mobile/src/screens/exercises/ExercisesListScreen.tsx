@@ -13,14 +13,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
-import { LoadingView, ErrorView, EmptyView } from '../../components/State';
+import { EmptyView } from '../../components/State';
 import { Image } from 'expo-image';
 import { ListSkeleton } from '../../components/SkeletonLoader';
 import { useThemeStore } from '../../store/theme';
 import { Card, CardBody } from '../../components/Card';
 import { Badge } from '../../components/UI';
 import { spacing, borderRadius, typography, shadows } from '../../theme/spacing';
-import { lightColors, darkColors } from '../../theme/colors';
 
 interface Exercise {
   id: string;
@@ -32,14 +31,10 @@ interface Exercise {
   thumbnailUrl?: string;
 }
 
-interface ExercisesListScreenProps {
-  onSelectExercise: (exercise: Exercise) => void;
-}
-
 const PAGE_SIZE = 20;
 const PLACEHOLDER_BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
-export default function ExercisesListScreen({ onSelectExercise }: ExercisesListScreenProps) {
+export default function ExercisesListScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [rawSearch, setRawSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -100,7 +95,12 @@ export default function ExercisesListScreen({ onSelectExercise }: ExercisesListS
   const renderExerciseItem = ({ item }: { item: Exercise }) => (
     <Card variant="elevated" isDark={isDark} style={styles.exerciseCard}>
       <TouchableOpacity
-        onPress={() => onSelectExercise(item)}
+        onPress={() =>
+          navigation.navigate('ExerciseDetail', {
+            exerciseId: item.id,
+            exerciseName: item.name,
+          })
+        }
         activeOpacity={0.7}
       >
         <CardBody>

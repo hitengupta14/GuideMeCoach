@@ -3,9 +3,11 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
-// import { useThemeStore } from '../../store/theme' from '../../store/auth';
+import { useThemeStore } from '../../store/theme';
+import { borderRadius, shadows, spacing, typography } from '../../theme/spacing';
 
-export default function FavoritesScreen() {
+export default function FavoritesScreen({ navigation }: any) {
+  const { colors } = useThemeStore();
   const { user } = useAuthStore();
   const qc = useQueryClient();
 
@@ -22,24 +24,24 @@ export default function FavoritesScreen() {
 
   if (!user) {
     return (
-      <View style={styles.center}> 
-        <Text style={styles.error}>Login required.</Text>
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <Text style={[styles.error, { color: colors.error }]}>Login required.</Text>
       </View>
     );
   }
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>Failed to load favorites</Text>
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <Text style={[styles.error, { color: colors.error }]}>Failed to load favorites</Text>
       </View>
     );
   }
@@ -47,21 +49,35 @@ export default function FavoritesScreen() {
   const favorites = data || [];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Favorites</Text>
-      <Text style={styles.subtitle}>{favorites.length} saved exercises</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.text }]}>Favorites</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{favorites.length} saved exercises</Text>
       {favorites.length === 0 ? (
-        <View style={styles.center}> 
-          <Text style={styles.meta}>No favorites yet.</Text>
+        <View style={[styles.center, { backgroundColor: colors.background }]}>
+          <Text style={[styles.meta, { color: colors.textSecondary }]}>No favorites yet.</Text>
         </View>
       ) : (
         <FlatList
           data={favorites}
           keyExtractor={(item: any) => item.id}
           renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>{item.name || item.exerciseId}</Text>
-              <Text style={styles.meta}>{item.category || 'Exercise'} • {item.difficulty || ''}</Text>
+            <TouchableOpacity
+              style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+              activeOpacity={0.85}
+              onPress={() =>
+                navigation.navigate('Exercises', {
+                  screen: 'ExerciseDetail',
+                  params: {
+                    exerciseId: item.exerciseId,
+                    exerciseName: item.name,
+                  },
+                })
+              }
+            >
+              <Text style={[styles.cardTitle, { color: colors.text }]}>{item.name || item.exerciseId}</Text>
+              <Text style={[styles.meta, { color: colors.textSecondary }]}>
+                {item.category || 'Exercise'} • {item.difficulty || ''}
+              </Text>
               <TouchableOpacity
                 style={styles.remove}
                 onPress={() => Alert.alert('Remove', 'Remove from favorites?', [
@@ -69,9 +85,9 @@ export default function FavoritesScreen() {
                   { text: 'Remove', style: 'destructive', onPress: () => removeMutation.mutate(item.exerciseId) },
                 ])}
               >
-                <Text style={styles.removeText}>Remove</Text>
+                <Text style={[styles.removeText, { color: colors.error }]}>Remove</Text>
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}
@@ -80,24 +96,20 @@ export default function FavoritesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', padding: 16 },
-  title: { fontSize: 26, fontWeight: '700', color: '#111', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#555', marginBottom: 12 },
+  container: { flex: 1, padding: spacing.lg },
+  title: { ...typography.heading1, marginBottom: spacing.xs },
+  subtitle: { ...typography.body3, marginBottom: spacing.lg },
   card: {
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    ...shadows.md,
   },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
-  meta: { fontSize: 13, color: '#666', marginTop: 4 },
+  cardTitle: { ...typography.heading3 },
+  meta: { ...typography.body3, marginTop: spacing.xs },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  error: { color: '#d00' },
   remove: { marginTop: 10, paddingVertical: 8, alignItems: 'center' },
-  removeText: { color: '#d00', fontWeight: '700' },
+  removeText: { ...typography.label1 },
+  error: { ...typography.body2 },
 });

@@ -28,6 +28,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.anonymous.guidemecoachmobile</string>
+				<string>guidemecoach</string>
 			</array>
 		</dict>
 	</array>

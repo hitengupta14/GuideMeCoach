@@ -9,14 +9,15 @@ A structured exercise knowledge platform with personalized training engine for I
 ### New Features (January 2026)
 - ✅ **Exercise Data Integrity** - Admin approval system for quality control
 - ✅ **AI Usage Quotas** - Prevent unlimited AI costs with per-feature limits
-- ✅ **Pricing Page** - 3 tiers (Free, Premium ₹249/mo, Yearly ₹2,490/yr)
+- ✅ **Pricing Page** - 3 tiers (Free, Premium ₹299/mo, Yearly ₹2,499/yr)
 - ✅ **Upgrade Modals** - Convert free users at point of need
 - ✅ **Mobile Parity** - All features implemented for React Native app
 - ✅ **Admin Dashboard** - Exercise management and approval workflow
 
 📚 **Documentation:**
-- [Phase 1 & 2 Features](./PHASE_1_2_FEATURES.md) - Complete feature map
-- [Implementation Report](./IMPLEMENTATION_COMPLETE_REPORT.md) - Full technical details
+- [AI Cost Optimization](./AI_COST_OPTIMIZATION.md) - Quotas, caching, and cost controls
+- [Joint Involvement Feature](./FEATURE_JOINT_INVOLVEMENT.md) - Exercise metadata + filtering
+- [Production Plan](./production-ready-plan.md) - Deployment checklist and hardening notes
 - [Mobile Guide](./mobile/MOBILE_IMPLEMENTATION_COMPLETE.md) - Mobile usage examples
 
 ---
@@ -75,6 +76,17 @@ npm run dev
 
 Visit [http://localhost:3000](http://localhost:3000)
 
+### Mobile (Expo)
+
+```bash
+cd mobile
+cp .env.example .env
+npm install
+npm run dev
+```
+
+If testing on a physical device, set `EXPO_PUBLIC_DEV_API_URL` in `mobile/.env` to your machine’s LAN URL (e.g. `http://192.168.x.x:3000/api`).
+
 ## 📚 Tech Stack
 
 - **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
@@ -93,45 +105,35 @@ src/
 │   ├── schema.ts     # Drizzle schema
 │   ├── index.ts      # Database client
 │   └── seed.ts       # Seed script
-└── components/       # React components (to be added)
+├── components/       # UI components
+└── lib/              # Auth, AI, payments, utilities
+
+mobile/               # Expo + React Native app
 ```
 
 ## 🎯 Features
 
-### MVP (Current) - ✅ 100% COMPLETE
-- ✅ Exercise library with 100+ exercises
-- ✅ Muscle-wise navigation (15+ muscle groups)
-- ✅ Detailed exercise pages with step-by-step instructions
-- ✅ Search and advanced filtering
-- ✅ Video integration (31+ exercises with YouTube embeds)
-- ✅ Exercise alternatives system (easier, harder, equipment-free)
-- ✅ Medical safety flags and benefits
-- ✅ Responsive design (mobile-first)
-- ✅ SEO optimization
+### Core - ✅ Implemented
+- ✅ Authentication (email/password + Google)
+- ✅ Exercise library with muscle-wise navigation, filters, videos, and alternatives
+- ✅ Workout planner (AI + custom) and daily “Today” flow
+- ✅ Workout logging, progress tracking, achievements, and insights
+- ✅ Premium subscriptions (Razorpay) + feature gating + quotas for AI features
+- ✅ Admin dashboard (exercise approval + analytics + system health)
+- ✅ Email (Resend), push notifications, exports, and scheduled cron jobs (Vercel)
 
 **🚀 Status: Production-ready for soft launch!**
 
-See [MVP_COMPLETION_STATUS.md](MVP_COMPLETION_STATUS.md) for detailed completion status.
-
-### Upcoming
-- User authentication
-- Personalized workout plans
-- Progress tracking
-- AI chatbot assistance
-- Premium features
+### Next Good Adds (Recommended)
+- Automated tests (API + planner + auth flows) and CI checks
+- Native wearable integrations (HealthKit/Google Fit) and deeper data sync
+- Better observability (Sentry release tracking, dashboards, alerting)
+- Onboarding and retention (coach-led programs, habit/streak journeys, referrals)
 
 ## 📖 API Endpoints
 
-### Exercises
-- `GET /api/exercises` - List all exercises with filters
-- `GET /api/exercises/:id` - Get single exercise
-- `POST /api/exercises` - Create exercise (admin)
-- `PATCH /api/exercises/:id` - Update exercise
-- `DELETE /api/exercises/:id` - Delete exercise
-
-### Muscle Groups
-- `GET /api/muscles` - List muscle groups
-- `GET /api/muscles/:id/exercises` - Get exercises for muscle
+This repo exposes many endpoints (auth, exercises, planner, workouts, subscriptions, admin, analytics, cron).
+Browse `src/app/api/` and `src/app/api/v1/` for the complete list.
 
 ## 🛠️ Development
 

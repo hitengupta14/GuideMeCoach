@@ -402,6 +402,39 @@ export const workoutSessions = pgTable('workout_sessions', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+// Weekly Check-ins (retention + adaptive adjustments history)
+export const weeklyCheckins = pgTable(
+  'weekly_checkins',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    weekStart: timestamp('week_start').notNull(), // UTC start-of-week (Mon 00:00)
+
+    feltStrongerOrLighter: boolean('felt_stronger_or_lighter').notNull(),
+    planEasyToFollow: integer('plan_easy_to_follow').notNull(), // 1-5
+    hadPainOrDiscomfort: boolean('had_pain_or_discomfort').notNull(),
+
+    adjustments: jsonb('adjustments').$type<{
+      shouldDeload: boolean
+      volumeChange: number
+      intensityChange: string
+      reason: string
+    }>(),
+    performanceData: jsonb('performance_data').$type<{
+      averageRPE: number
+      averageEnergy: number
+      completionRate: number
+      missedWorkouts: number
+    }>(),
+
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+  },
+  (t) => ({
+    uniqueUserWeek: uniqueIndex('weekly_checkins_user_week_unique').on(t.userId, t.weekStart),
+  })
+)
+
 // Progress Tracking (Individual exercise performance in a session)
 export const workoutLogs = pgTable(
   'workout_logs',

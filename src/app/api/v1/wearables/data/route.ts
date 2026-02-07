@@ -29,8 +29,8 @@ function dayIso(date: Date): string {
 
 export async function GET(req: NextRequest) {
   try {
-    // Gate in production until the wearable sync pipeline is enabled.
-    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_WEARABLES !== 'true') {
+    // Hide wearables in production only if explicitly disabled.
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_WEARABLES === 'false') {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
     }
 

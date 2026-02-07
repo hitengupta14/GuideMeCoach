@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,50 +9,58 @@ import {
   Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
-// import { useThemeStore } from '../../store/theme' from '../../store/auth';
+import { useThemeStore } from '../../store/theme';
+import { borderRadius, shadows, spacing, typography } from '../../theme/spacing';
 
-interface ExerciseDetailScreenProps {
-  exerciseId: string;
-  exerciseName: string;
-  onBack: () => void;
+type ExerciseBenefitKey =
+  | 'muscleGrowth'
+  | 'fatLoss'
+  | 'posture'
+  | 'mobility'
+  | 'rehab'
+  | 'sportsPerformance';
+
+const BENEFIT_LABELS: Record<ExerciseBenefitKey, string> = {
+  muscleGrowth: 'Muscle Growth',
+  fatLoss: 'Fat Loss',
+  posture: 'Posture',
+  mobility: 'Mobility',
+  rehab: 'Rehabilitation',
+  sportsPerformance: 'Sports Performance',
+};
+
+function humanizeEnum(input: string): string {
+  return input.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
-interface MuscleGroup {
-  id: string;
-  name: string;
-  displayName: string;
-  role: 'primary' | 'secondary' | 'stabilizer';
+function normalizeRole(role: string): 'primary' | 'secondary' | 'stabilizer' {
+  const v = String(role || '').toLowerCase();
+  if (v === 'secondary' || v === 'stabilizer') return v;
+  return 'primary';
 }
 
-interface ExerciseDetail {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  difficulty: string;
-  equipment: string[];
-  instructions: string[];
-  benefits: string[];
-  commonMistakes: string[];
-  injuryRisks: string[];
-  tips: string[];
-}
-
-export default function ExerciseDetailScreen({
-  exerciseId,
-  exerciseName,
-  onBack,
-}: ExerciseDetailScreenProps) {
-  const [isFavorite, setIsFavorite] = useState(false);
+export default function ExerciseDetailScreen({ route, navigation }: any) {
+  const { exerciseId, exerciseName } = route.params || {};
+  const insets = useSafeAreaInsets();
+  const { colors } = useThemeStore();
   const { user } = useAuthStore();
   const qc = useQueryClient();
 
-  const { data: exerciseDetail, isLoading } = useQuery({
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  const {
+    data: exerciseDetail,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['exerciseDetail', exerciseId],
-    queryFn: () => apiClient.request(`/exercises/${exerciseId}`),
+    enabled: Boolean(exerciseId),
+    queryFn: () => apiClient.getExercise(exerciseId),
   });
 
   const { data: favoriteList } = useQuery({
@@ -61,25 +69,41 @@ export default function ExerciseDetailScreen({
     queryFn: () => apiClient.listFavorites(user!.id),
   });
 
-  useEffect(() => {
-    if (!favoriteList || !Array.isArray(favoriteList)) return;
-    const found = favoriteList.some((f: any) => f.exerciseId === exerciseId);
-    setIsFavorite(found);
-  }, [favoriteList, exerciseId]);
+  const favoriteExerciseIds = useMemo(() => {
+    const list = Array.isArray(favoriteList) ? favoriteList : [];
+    return new Set<string>(list.map((f: any) => f.exerciseId).filter(Boolean));
+  }, [favoriteList]);
 
-  const addFav = useMutation({
-    mutationFn: () => apiClient.addFavorite(user!.id, exerciseId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['favorites', user?.id] });
-      setIsFavorite(true);
+  useEffect(() => {
+    if (!exerciseId) return;
+    setIsFavorite(favoriteExerciseIds.has(exerciseId));
+  }, [exerciseId, favoriteExerciseIds]);
+
+  const addFavoriteMutation = useMutation({
+    mutationFn: (id: string) => apiClient.addFavorite(user!.id, id),
+    onSuccess: async (_data, id) => {
+      await qc.invalidateQueries({ queryKey: ['favorites', user?.id] });
+      if (id === exerciseId) setIsFavorite(true);
+    },
+    onError: async (err: any, id) => {
+      // Treat "already favorited" as success to keep UX smooth.
+      if (typeof err?.status === 'number' && err.status === 409) {
+        await qc.invalidateQueries({ queryKey: ['favorites', user?.id] });
+        if (id === exerciseId) setIsFavorite(true);
+        return;
+      }
+      Alert.alert('Error', err?.message || 'Failed to add to favorites');
     },
   });
 
-  const removeFav = useMutation({
-    mutationFn: () => apiClient.removeFavorite(user!.id, exerciseId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['favorites', user?.id] });
-      setIsFavorite(false);
+  const removeFavoriteMutation = useMutation({
+    mutationFn: (id: string) => apiClient.removeFavorite(user!.id, id),
+    onSuccess: async (_data, id) => {
+      await qc.invalidateQueries({ queryKey: ['favorites', user?.id] });
+      if (id === exerciseId) setIsFavorite(false);
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err?.message || 'Failed to remove from favorites');
     },
   });
 
@@ -88,259 +112,400 @@ export default function ExerciseDetailScreen({
       Alert.alert('Login required', 'Please log in to save favorites.');
       return;
     }
-    if (isFavorite) {
-      removeFav.mutate();
-    } else {
-      addFav.mutate();
-    }
+    if (!exerciseId) return;
+    if (isFavorite) removeFavoriteMutation.mutate(exerciseId);
+    else addFavoriteMutation.mutate(exerciseId);
   };
 
-  const exercise = (exerciseDetail as any)?.exercise || {};
-  const muscles = ((exerciseDetail as any)?.muscles || []) as MuscleGroup[];
-  const alternatives = (exerciseDetail as any)?.alternatives || [];
+  const payload: any = exerciseDetail || {};
+  const exercise: any = payload.exercise || {};
+  const musclesRaw: any[] = Array.isArray(payload.muscles)
+    ? payload.muscles
+    : Array.isArray(exercise.muscles)
+      ? exercise.muscles
+      : [];
+  const muscles = musclesRaw
+    .map((m) => ({
+      id: m.muscleGroupId || m.id,
+      displayName: m.muscleGroupName || m.displayName || m.name,
+      role: normalizeRole(m.role),
+    }))
+    .filter((m) => Boolean(m.id) && Boolean(m.displayName));
+
+  const alternatives: any[] = Array.isArray(payload.alternatives) ? payload.alternatives : [];
+
+  const steps: string[] = Array.isArray(exercise.stepByStep)
+    ? exercise.stepByStep
+    : Array.isArray(exercise.instructions)
+      ? exercise.instructions
+      : [];
+
+  const benefitKeys = Object.entries((exercise.benefits || {}) as Record<string, unknown>)
+    .filter(([, v]) => v === true)
+    .map(([k]) => k)
+    .filter((k): k is ExerciseBenefitKey => k in BENEFIT_LABELS);
 
   const handleAddToWorkout = () => {
-    Alert.alert('Success', `${exercise.name} added to today's workout!`);
+    if (!exercise?.id) return;
+    navigation.navigate('Workouts', {
+      screen: 'WorkoutLogger',
+      params: {
+        addExercise: {
+          id: exercise.id,
+          name: exercise.name,
+          requestId: String(Date.now()),
+        },
+      },
+    });
   };
 
-  const handleSaveAlternative = () => {
-    Alert.alert('Success', 'Alternative exercise saved to favorites');
-  };
-
-  if (isLoading) {
+  if (!exerciseId) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onBack}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#000" />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.md, borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn} hitSlop={10}>
+            <MaterialCommunityIcons name="arrow-left" size={22} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{exerciseName}</Text>
-          <View style={{ width: 24 }} />
+          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+            Exercise
+          </Text>
+          <View style={styles.iconBtn} />
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+        <View style={styles.center}>
+          <Text style={[typography.body2, { color: colors.textSecondary }]}>Missing exercise id.</Text>
         </View>
       </View>
     );
   }
 
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.md, borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn} hitSlop={10}>
+            <MaterialCommunityIcons name="arrow-left" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+            {exerciseName || 'Exercise'}
+          </Text>
+          <View style={styles.iconBtn} />
+        </View>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.md, borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn} hitSlop={10}>
+            <MaterialCommunityIcons name="arrow-left" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+            {exerciseName || 'Exercise'}
+          </Text>
+          <View style={styles.iconBtn} />
+        </View>
+        <View style={styles.center}>
+          <Text style={[typography.body2, { color: colors.error, marginBottom: spacing.md }]}>
+            Failed to load exercise.
+          </Text>
+          <TouchableOpacity onPress={() => refetch()} style={[styles.retryBtn, { borderColor: colors.border }]}>
+            <MaterialCommunityIcons name="refresh" size={18} color={colors.primary} />
+            <Text style={[typography.label1, { color: colors.primary, marginLeft: spacing.sm }]}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const difficulty = String(exercise.difficulty || '').toLowerCase();
+  const difficultyColor =
+    difficulty === 'beginner'
+      ? colors.success
+      : difficulty === 'intermediate'
+        ? colors.warning
+        : difficulty === 'advanced'
+          ? colors.error
+          : colors.primary;
+
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#000" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + spacing.md,
+            backgroundColor: colors.card,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn} hitSlop={10}>
+          <MaterialCommunityIcons name="arrow-left" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {exercise.name}
+        <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+          {exercise.name || exerciseName || 'Exercise'}
         </Text>
-        <TouchableOpacity onPress={toggleFavorite}>
+        <TouchableOpacity onPress={toggleFavorite} style={styles.iconBtn} hitSlop={10}>
           <MaterialCommunityIcons
             name={isFavorite ? 'heart' : 'heart-outline'}
-            size={24}
-            color={isFavorite ? '#FF3B30' : '#999'}
+            size={22}
+            color={isFavorite ? colors.error : colors.textSecondary}
           />
         </TouchableOpacity>
       </View>
 
       <ScrollView
-        style={styles.scrollContent}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing['4xl'] }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Basic Info */}
-        <View style={styles.basicInfo}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoBadge}>
-              <Text style={styles.infoBadgeLabel}>Difficulty</Text>
-              <Text
-                style={[
-                  styles.infoBadgeValue,
-                  exercise.difficulty === 'beginner' && { color: '#34C759' },
-                  exercise.difficulty === 'intermediate' && { color: '#FF9500' },
-                  exercise.difficulty === 'advanced' && { color: '#FF3B30' },
-                ]}
-              >
-                {exercise.difficulty?.charAt(0).toUpperCase() +
-                  exercise.difficulty?.slice(1)}
+        {/* Summary */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.summaryRow}>
+            <View style={[styles.pill, { backgroundColor: `${difficultyColor}20` }]}>
+              <Text style={[typography.label2, { color: difficultyColor }]}>
+                {difficulty ? humanizeEnum(difficulty) : 'Difficulty'}
               </Text>
             </View>
-            <View style={styles.infoBadge}>
-              <Text style={styles.infoBadgeLabel}>Category</Text>
-              <Text style={styles.infoBadgeValue}>{exercise.category}</Text>
-            </View>
+            {exercise.category ? (
+              <View style={[styles.pill, { backgroundColor: `${colors.primary}15` }]}>
+                <Text style={[typography.label2, { color: colors.primary }]}>{humanizeEnum(exercise.category)}</Text>
+              </View>
+            ) : null}
+            {exercise.location ? (
+              <View style={[styles.pill, { backgroundColor: `${colors.secondary}18` }]}>
+                <Text style={[typography.label2, { color: colors.secondary }]}>{humanizeEnum(exercise.location)}</Text>
+              </View>
+            ) : null}
           </View>
+
+          {exercise.description ? (
+            <Text style={[typography.body2, { color: colors.textSecondary, marginTop: spacing.md }]}>
+              {exercise.description}
+            </Text>
+          ) : null}
+
+          {Array.isArray(exercise.equipment) && exercise.equipment.length > 0 ? (
+            <View style={{ marginTop: spacing.lg }}>
+              <Text style={[typography.label1, { color: colors.text, marginBottom: spacing.sm }]}>Equipment</Text>
+              <View style={styles.tagsRow}>
+                {exercise.equipment.map((eq: string) => (
+                  <View key={eq} style={[styles.tag, { backgroundColor: colors.backgroundTertiary }]}>
+                    <Text style={[typography.caption1, { color: colors.textSecondary }]}>
+                      {humanizeEnum(String(eq))}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
         </View>
 
-        {/* Equipment */}
-        {exercise.equipment && exercise.equipment.length > 0 && (
-          <View style={styles.section}>
+        {/* Muscles */}
+        {muscles.length > 0 ? (
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="toolbox" size={20} color="#007AFF" />
-              <Text style={styles.sectionTitle}>Equipment</Text>
+              <MaterialCommunityIcons name="dumbbell" size={18} color={colors.primary} />
+              <Text style={[typography.heading3, { color: colors.text, marginLeft: spacing.sm }]}>Muscles Worked</Text>
             </View>
-            <View style={styles.equipmentList}>
-              {exercise.equipment.map((eq: string, idx: number) => (
-                <View key={idx} style={styles.equipmentTag}>
-                  <Text style={styles.equipmentText}>{eq}</Text>
+            {muscles.map((m) => {
+              const roleColor =
+                m.role === 'primary' ? colors.success : m.role === 'secondary' ? colors.warning : colors.primary;
+              return (
+                <View key={`${m.id}-${m.role}`} style={styles.muscleRow}>
+                  <View style={[styles.roleBadge, { backgroundColor: `${roleColor}20` }]}>
+                    <Text style={[typography.caption2, { color: roleColor, fontWeight: '700' }]}>
+                      {humanizeEnum(m.role)}
+                    </Text>
+                  </View>
+                  <Text style={[typography.body2, { color: colors.text, marginLeft: spacing.md, flex: 1 }]}>
+                    {m.displayName}
+                  </Text>
                 </View>
-              ))}
-            </View>
+              );
+            })}
           </View>
-        )}
+        ) : null}
 
-        {/* Description */}
-        {exercise.description && (
-          <View style={styles.section}>
+        {/* How to Perform */}
+        {steps.length > 0 ? (
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons
-                name="information"
-                size={20}
-                color="#007AFF"
-              />
-              <Text style={styles.sectionTitle}>Description</Text>
+              <MaterialCommunityIcons name="format-list-numbered" size={18} color={colors.primary} />
+              <Text style={[typography.heading3, { color: colors.text, marginLeft: spacing.sm }]}>How to Perform</Text>
             </View>
-            <Text style={styles.descriptionText}>{exercise.description}</Text>
-          </View>
-        )}
-
-        {/* Muscle Groups */}
-        {muscles && muscles.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="dumbbell" size={20} color="#007AFF" />
-              <Text style={styles.sectionTitle}>Muscles Worked</Text>
-            </View>
-            {muscles.map((muscle: MuscleGroup) => (
-              <View key={muscle.id} style={styles.muscleRow}>
-                <View
-                  style={[
-                    styles.muscleRoleBadge,
-                    muscle.role === 'primary' && styles.muscleRolePrimary,
-                    muscle.role === 'secondary' && styles.muscleRoleSecondary,
-                    muscle.role === 'stabilizer' && styles.muscleRoleStabilizer,
-                  ]}
-                >
-                  <Text style={styles.muscleRoleText}>{muscle.role}</Text>
+            {steps.map((step, idx) => (
+              <View key={idx} style={styles.stepRow}>
+                <View style={[styles.stepNumber, { backgroundColor: colors.primary }]}>
+                  <Text style={[typography.caption1, { color: colors.textInverse, fontWeight: '700' }]}>
+                    {idx + 1}
+                  </Text>
                 </View>
-                <Text style={styles.muscleName}>{muscle.displayName}</Text>
+                <Text style={[typography.body2, { color: colors.text, flex: 1, marginLeft: spacing.md }]}>
+                  {step}
+                </Text>
               </View>
             ))}
           </View>
-        )}
+        ) : null}
 
-        {/* Instructions */}
-        {exercise.instructions && exercise.instructions.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="format-list-numbered" size={20} color="#007AFF" />
-              <Text style={styles.sectionTitle}>How To Perform</Text>
-            </View>
-            {exercise.instructions.map((instruction: string, idx: number) => (
-              <View key={idx} style={styles.instructionItem}>
-                <Text style={styles.instructionNumber}>{idx + 1}</Text>
-                <Text style={styles.instructionText}>{instruction}</Text>
+        {/* Breathing & Tempo */}
+        {exercise.breathingTechnique || exercise.tempo ? (
+          <View style={styles.grid2}>
+            {exercise.breathingTechnique ? (
+              <View style={[styles.card, styles.gridCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[typography.label1, { color: colors.text }]}>Breathing</Text>
+                <Text style={[typography.body3, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                  {exercise.breathingTechnique}
+                </Text>
               </View>
-            ))}
-          </View>
-        )}
-
-        {/* Tips */}
-        {exercise.tips && exercise.tips.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="lightbulb" size={20} color="#FF9500" />
-              <Text style={styles.sectionTitle}>Pro Tips</Text>
-            </View>
-            {exercise.tips.map((tip: string, idx: number) => (
-              <View key={idx} style={styles.tipItem}>
-                <MaterialCommunityIcons name="check-circle" size={16} color="#34C759" />
-                <Text style={styles.tipText}>{tip}</Text>
+            ) : null}
+            {exercise.tempo ? (
+              <View style={[styles.card, styles.gridCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[typography.label1, { color: colors.text }]}>Tempo</Text>
+                <Text style={[typography.heading3, { color: colors.text, marginTop: spacing.xs }]}>
+                  {exercise.tempo}
+                </Text>
               </View>
-            ))}
+            ) : null}
           </View>
-        )}
+        ) : null}
 
         {/* Benefits */}
-        {exercise.benefits && exercise.benefits.length > 0 && (
-          <View style={styles.section}>
+        {benefitKeys.length > 0 ? (
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: `${colors.success}12`, borderColor: `${colors.success}30` },
+            ]}
+          >
             <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="star" size={20} color="#FFB800" />
-              <Text style={styles.sectionTitle}>Benefits</Text>
+              <MaterialCommunityIcons name="star" size={18} color={colors.success} />
+              <Text style={[typography.heading3, { color: colors.text, marginLeft: spacing.sm }]}>Benefits</Text>
             </View>
-            {exercise.benefits.map((benefit: string, idx: number) => (
-              <View key={idx} style={styles.benefitItem}>
-                <MaterialCommunityIcons name="check" size={16} color="#34C759" />
-                <Text style={styles.benefitText}>{benefit}</Text>
+            {benefitKeys.map((k) => (
+              <View key={k} style={styles.bulletRow}>
+                <MaterialCommunityIcons name="check-circle" size={18} color={colors.success} />
+                <Text style={[typography.body2, { color: colors.text, marginLeft: spacing.sm }]}>
+                  {BENEFIT_LABELS[k]}
+                </Text>
               </View>
             ))}
           </View>
-        )}
+        ) : null}
 
         {/* Common Mistakes */}
-        {exercise.commonMistakes && exercise.commonMistakes.length > 0 && (
-          <View style={styles.section}>
+        {Array.isArray(exercise.commonMistakes) && exercise.commonMistakes.length > 0 ? (
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: `${colors.warning}12`, borderColor: `${colors.warning}35` },
+            ]}
+          >
             <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="alert-circle" size={20} color="#FF9500" />
-              <Text style={styles.sectionTitle}>Common Mistakes</Text>
+              <MaterialCommunityIcons name="alert-circle" size={18} color={colors.warning} />
+              <Text style={[typography.heading3, { color: colors.text, marginLeft: spacing.sm }]}>Common Mistakes</Text>
             </View>
             {exercise.commonMistakes.map((mistake: string, idx: number) => (
-              <View key={idx} style={styles.mistakeItem}>
-                <MaterialCommunityIcons name="close-circle" size={16} color="#FF9500" />
-                <Text style={styles.mistakeText}>{mistake}</Text>
+              <View key={idx} style={styles.bulletRow}>
+                <Text style={[typography.body2, { color: colors.textSecondary }]}>{'\u2022'}</Text>
+                <Text style={[typography.body2, { color: colors.text, marginLeft: spacing.sm, flex: 1 }]}>
+                  {mistake}
+                </Text>
               </View>
             ))}
           </View>
-        )}
+        ) : null}
 
         {/* Injury Risks */}
-        {exercise.injuryRisks && exercise.injuryRisks.length > 0 && (
-          <View style={styles.section}>
+        {Array.isArray(exercise.injuryRisks) && exercise.injuryRisks.length > 0 ? (
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: `${colors.error}12`, borderColor: `${colors.error}35` },
+            ]}
+          >
             <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="hospital-box" size={20} color="#FF3B30" />
-              <Text style={styles.sectionTitle}>Injury Risks</Text>
+              <MaterialCommunityIcons name="hospital-box" size={18} color={colors.error} />
+              <Text style={[typography.heading3, { color: colors.text, marginLeft: spacing.sm }]}>Injury Risks</Text>
             </View>
             {exercise.injuryRisks.map((risk: string, idx: number) => (
-              <View key={idx} style={styles.riskItem}>
-                <MaterialCommunityIcons name="alert" size={16} color="#FF3B30" />
-                <Text style={styles.riskText}>{risk}</Text>
+              <View key={idx} style={styles.bulletRow}>
+                <Text style={[typography.body2, { color: colors.textSecondary }]}>{'\u2022'}</Text>
+                <Text style={[typography.body2, { color: colors.text, marginLeft: spacing.sm, flex: 1 }]}>
+                  {risk}
+                </Text>
               </View>
             ))}
           </View>
-        )}
+        ) : null}
 
         {/* Alternatives */}
-        {alternatives && alternatives.length > 0 && (
-          <View style={styles.section}>
+        {alternatives.length > 0 ? (
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="repeat" size={20} color="#007AFF" />
-              <Text style={styles.sectionTitle}>Alternative Exercises</Text>
+              <MaterialCommunityIcons name="repeat" size={18} color={colors.primary} />
+              <Text style={[typography.heading3, { color: colors.text, marginLeft: spacing.sm }]}>
+                Alternative Exercises
+              </Text>
             </View>
-            {alternatives.map((alt: any, idx: number) => (
-              <View key={idx} style={styles.alternativeCard}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.alternativeName}>{alt.name}</Text>
-                  <Text style={styles.alternativeDifficulty}>{alt.difficulty}</Text>
-                </View>
+            {alternatives.map((alt) => {
+              const isAltFavorite = favoriteExerciseIds.has(alt.id);
+              return (
                 <TouchableOpacity
-                  style={styles.alternativeButton}
-                  onPress={handleSaveAlternative}
+                  key={alt.id}
+                  style={[styles.altRow, { borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() =>
+                    navigation.push('ExerciseDetail', { exerciseId: alt.id, exerciseName: alt.name })
+                  }
                 >
-                  <MaterialCommunityIcons name="plus" size={20} color="#007AFF" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[typography.label1, { color: colors.text }]} numberOfLines={1}>
+                      {alt.name}
+                    </Text>
+                    <Text style={[typography.caption1, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                      {alt.difficulty ? humanizeEnum(String(alt.difficulty)) : '—'}
+                      {alt.type ? ` • ${humanizeEnum(String(alt.type))}` : ''}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (!user?.id) {
+                        Alert.alert('Login required', 'Please log in to save favorites.');
+                        return;
+                      }
+                      addFavoriteMutation.mutate(alt.id);
+                    }}
+                    style={styles.iconBtn}
+                    hitSlop={10}
+                  >
+                    <MaterialCommunityIcons
+                      name={isAltFavorite ? 'check-circle' : 'plus-circle'}
+                      size={22}
+                      color={isAltFavorite ? colors.success : colors.primary}
+                    />
+                  </TouchableOpacity>
                 </TouchableOpacity>
-              </View>
-            ))}
+              );
+            })}
           </View>
-        )}
+        ) : null}
       </ScrollView>
 
-      {/* Add to Workout Button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md), borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={styles.addButton}
+          style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+          activeOpacity={0.85}
           onPress={handleAddToWorkout}
         >
-          <MaterialCommunityIcons name="plus" size={24} color="#fff" />
-          <Text style={styles.addButtonText}>Add to Workout</Text>
+          <MaterialCommunityIcons name="plus" size={20} color={colors.textInverse} />
+          <Text style={[typography.label1, { color: colors.textInverse, marginLeft: spacing.sm }]}>Add to Workout</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -348,247 +513,129 @@ export default function ExerciseDetailScreen({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
+  container: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
+    ...typography.heading3,
     flex: 1,
-    marginHorizontal: 12,
+    marginHorizontal: spacing.sm,
   },
-  scrollContent: {
-    flex: 1,
-    padding: 16,
+
+  card: {
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    ...shadows.md,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  basicInfo: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  infoRow: {
+  summaryRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
-  infoBadge: {
-    flex: 1,
-    alignItems: 'center',
+  pill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
   },
-  infoBadgeLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
-  infoBadgeValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
+  tag: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
   },
-  section: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
+
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginLeft: 8,
-  },
-  descriptionText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-  },
-  equipmentList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  equipmentTag: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  equipmentText: {
-    fontSize: 12,
-    color: '#333',
-    fontWeight: '500',
-  },
+
   muscleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
   },
-  muscleRoleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginRight: 8,
+  roleBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
   },
-  muscleRolePrimary: {
-    backgroundColor: '#34C75920',
-  },
-  muscleRoleSecondary: {
-    backgroundColor: '#FF950020',
-  },
-  muscleRoleStabilizer: {
-    backgroundColor: '#007AFF20',
-  },
-  muscleRoleText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#333',
-    textTransform: 'capitalize',
-  },
-  muscleName: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  instructionItem: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  instructionNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#007AFF',
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    marginRight: 12,
-  },
-  instructionText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-  },
-  tipItem: {
+
+  stepRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    paddingVertical: spacing.sm,
   },
-  tipText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  benefitText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-  },
-  mistakeItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  mistakeText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-  },
-  riskItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  riskText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-  },
-  alternativeCard: {
-    flexDirection: 'row',
+  stepNumber: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  alternativeName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
-  },
-  alternativeDifficulty: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
-  },
-  alternativeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 1,
   },
-  footer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
+
+  grid2: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  gridCard: {
+    flex: 1,
+  },
+
+  bulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: spacing.xs,
+  },
+
+  altRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
   },
-  addButton: {
+
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+  },
+  primaryBtn: {
+    height: 52,
+    borderRadius: borderRadius.lg,
     flexDirection: 'row',
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    borderRadius: 10,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.lg,
   },
-  addButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
 });
+

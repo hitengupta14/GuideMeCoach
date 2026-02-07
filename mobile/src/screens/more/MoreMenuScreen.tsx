@@ -1,71 +1,136 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useThemeStore } from '../../store/theme';
-import { lightColors, darkColors } from '../../theme/colors';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import ScreenHeader from '../../components/ScreenHeader';
+import { spacing, typography, borderRadius, shadows } from '../../theme/spacing';
+import { useAuthStore } from '../../store/auth';
 
-const items = [
-  { title: 'Body Map', icon: 'human-male', route: 'BodyMap' },
-  { title: 'Favorites', icon: 'heart', route: 'Favorites' },
-  { title: 'Achievements', icon: 'trophy', route: 'Achievements' },
-  { title: 'AI Insights', icon: 'brain', route: 'AiInsights' },
-  { title: 'Recovery', icon: 'heart-pulse', route: 'Recovery' },
-  { title: 'Form Feedback', icon: 'video', route: 'FormFeedback' },
-  { title: 'Settings', icon: 'cog', route: 'Settings' },
-  { title: 'Tools', icon: 'calculator-variant', route: 'Tools' },
-  { title: 'My Plans', icon: 'clipboard-text', route: 'Plans' },
-  { title: 'AI Hub', icon: 'sparkles', route: 'AIHub' },
-  { title: 'Progress V2', icon: 'chart-areaspline', route: 'ProgressV2' },
-];
+const baseSections = [
+  {
+    title: 'AI Coach',
+    items: [
+      { title: 'AI Coach Chat', icon: 'message-text', route: 'ChatConversations' },
+      { title: 'Planner', icon: 'robot', route: 'Planner' },
+      { title: 'Form Analysis', icon: 'video', route: 'FormAnalysis' },
+      { title: 'Form Feedback', icon: 'comment-text', route: 'FormFeedback' },
+      { title: 'AI Insights', icon: 'brain', route: 'AiInsights' },
+      { title: 'AI Hub', icon: 'sparkles', route: 'AIHub' },
+    ],
+  },
+  {
+    title: 'Health',
+    items: [
+      { title: 'Nutrition Guidance', icon: 'food-apple', route: 'Nutrition' },
+      { title: 'Wearables', icon: 'watch-variant', route: 'Wearables' },
+      { title: 'Recovery', icon: 'heart-pulse', route: 'Recovery' },
+    ],
+  },
+  {
+    title: 'Library',
+    items: [
+      { title: 'Plan History', icon: 'clipboard-text', route: 'Plans' },
+      { title: 'Body Map', icon: 'human-male', route: 'BodyMap' },
+      { title: 'Favorites', icon: 'heart', route: 'Favorites' },
+      { title: 'Achievements', icon: 'trophy', route: 'Achievements' },
+      { title: 'Progress V2', icon: 'chart-areaspline', route: 'ProgressV2' },
+    ],
+  },
+  {
+    title: 'Account',
+    items: [
+      { title: 'Subscription', icon: 'crown', route: 'SubscriptionManagement' },
+      { title: 'Pricing', icon: 'tag-outline', route: 'Pricing' },
+      { title: 'Settings', icon: 'cog', route: 'Settings' },
+      { title: 'Tools', icon: 'calculator-variant', route: 'Tools' },
+    ],
+  },
+  {
+    title: 'Legal',
+    items: [
+      { title: 'Privacy Policy', icon: 'shield-lock-outline', route: 'Privacy' },
+      { title: 'Terms of Service', icon: 'file-document-outline', route: 'Terms' },
+      { title: 'Medical Disclaimer', icon: 'alert-circle-outline', route: 'MedicalDisclaimer' },
+    ],
+  },
+] as const;
 
 export default function MoreMenuScreen({ navigation }: any) {
+  const { colors } = useThemeStore();
+  const isAdmin = useAuthStore((s) => Boolean(s.user?.isAdmin));
+
+  const sections = useMemo(() => {
+    const next: Array<{ title: string; items: Array<{ title: string; icon: string; route: string }> }> = [
+      ...baseSections.map((s) => ({ title: s.title, items: [...s.items] })),
+    ];
+
+    if (isAdmin) {
+      next.push({
+        title: 'Admin',
+        items: [{ title: 'Admin Dashboard', icon: 'shield-account-outline', route: 'AdminHome' }],
+      });
+    }
+
+    return next;
+  }, [isAdmin]);
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>More</Text>
-      <Text style={styles.subtitle}>Access all web-only features on mobile.</Text>
-      {items.map((item) => (
-        <TouchableOpacity
-          key={item.route}
-          style={styles.row}
-          onPress={() => navigation.navigate(item.route)}
-        >
-          <View style={styles.iconCircle}>
-            <MaterialCommunityIcons name={item.icon as any} size={22} color="#007AFF" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScreenHeader title="More" subtitle="Explore more tools and features." />
+
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {sections.map((section) => (
+          <View key={section.title} style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{section.title}</Text>
+            {section.items.map((item) => (
+              <TouchableOpacity
+                key={item.route}
+                style={[
+                  styles.row,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => navigation.navigate(item.route)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.iconCircle, { backgroundColor: `${colors.primary}15` }]}>
+                  <MaterialCommunityIcons name={item.icon as any} size={22} color={colors.primary} />
+                </View>
+                <Text style={[typography.label1, styles.label, { color: colors.text }]}>{item.title}</Text>
+                <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ))}
           </View>
-          <Text style={styles.label}>{item.title}</Text>
-          <MaterialCommunityIcons name="chevron-right" size={22} color="#999" />
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  content: { padding: 16 },
-  title: { fontSize: 28, fontWeight: '700', color: '#111', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#555', marginBottom: 16 },
+  container: { flex: 1 },
+  scroll: { flex: 1 },
+  content: { padding: spacing.lg, paddingBottom: spacing['3xl'] },
+  section: { marginTop: spacing.lg },
+  sectionTitle: { ...typography.label2, textTransform: 'uppercase', marginBottom: spacing.sm },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    ...shadows.md,
   },
   iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#E8F0FE',
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: spacing.md,
   },
-  label: { flex: 1, fontSize: 16, fontWeight: '600', color: '#111' },
+  label: { flex: 1 },
 });

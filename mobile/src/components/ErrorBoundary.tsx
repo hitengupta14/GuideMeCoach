@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { reportClientError } from '@/services/error-reporting';
 
 interface Props {
   children: ReactNode;
@@ -14,6 +15,7 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  private reported = false;
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -34,9 +36,16 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error to monitoring service
     console.error('React Error Boundary caught error:', error, errorInfo);
-    
-    // TODO: Send to Sentry or other error tracking service
-    // Sentry.captureException(error, { contexts: { react: { componentStack: errorInfo.componentStack } } });
+
+    if (!this.reported) {
+      this.reported = true;
+      reportClientError({
+        message: error?.message || String(error),
+        name: error?.name,
+        stack: error?.stack,
+        componentStack: errorInfo?.componentStack || null,
+      }).catch(() => null);
+    }
 
     this.setState({
       error,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,9 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useThemeStore } from '../../store/theme';
-import { lightColors, darkColors } from '../../theme/colors';
 import { apiClient } from '../../services/api';
 import ExerciseSourceBadge from '../../components/ExerciseSourceBadge';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type ReviewStatus = 'draft' | 'approved';
 type ExerciseSource = 'manual' | 'ai_generated' | 'curated';
@@ -42,28 +42,29 @@ const STATUS_FILTERS: FilterOption[] = [
   { label: 'Approved', value: 'approved' },
 ];
 
-export default function AdminExerciseApprovalScreen() {
-  const { theme } = useThemeStore();
-  const colors = theme === 'dark' ? darkColors : lightColors;
+export default function AdminExerciseApprovalScreen({ navigation }: any) {
+  const { colors } = useThemeStore();
   const queryClient = useQueryClient();
   
   const [statusFilter, setStatusFilter] = useState<ReviewStatus | 'all'>('draft');
 
   // Fetch exercises for admin review
-  const { data: exercises = [], isLoading, refetch } = useQuery({
-    queryKey: ['admin-exercises', statusFilter],
+  const { data: exercises = [], isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['admin-exercises'],
     queryFn: async () => {
-      const response: any = await apiClient.request('/api/admin/exercises', {
-        method: 'GET',
+      const response: any = await apiClient.adminListExercises({
+        reviewStatus: 'all',
+        limit: 500,
       });
-      
-      const allExercises = response?.exercises || [];
-      
-      // Filter by status
-      if (statusFilter === 'all') return allExercises;
-      return allExercises.filter((ex: Exercise) => ex.reviewStatus === statusFilter);
+
+      return response?.exercises || [];
     },
   });
+
+  const visibleExercises = useMemo(() => {
+    if (statusFilter === 'all') return exercises as Exercise[];
+    return (exercises as Exercise[]).filter((ex) => ex.reviewStatus === statusFilter);
+  }, [exercises, statusFilter]);
 
   // Update exercise status mutation
   const updateStatusMutation = useMutation({
@@ -74,10 +75,7 @@ export default function AdminExerciseApprovalScreen() {
       exerciseId: string; 
       status: ReviewStatus 
     }) => {
-      return apiClient.request(`/api/admin/exercises/${exerciseId}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      });
+      return apiClient.adminSetExerciseReviewStatus(exerciseId, status);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-exercises'] });
@@ -122,6 +120,13 @@ export default function AdminExerciseApprovalScreen() {
     container: {
       flex: 1,
       backgroundColor: colors.background,
+    },
+    headerIconBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     header: {
       padding: 16,
@@ -326,20 +331,29 @@ export default function AdminExerciseApprovalScreen() {
   };
 
   const stats = {
-    total: exercises.length,
-    draft: exercises.filter((ex: Exercise) => ex.reviewStatus === 'draft').length,
-    approved: exercises.filter((ex: Exercise) => ex.reviewStatus === 'approved').length,
+    total: (exercises as Exercise[]).length,
+    draft: (exercises as Exercise[]).filter((ex) => ex.reviewStatus === 'draft').length,
+    approved: (exercises as Exercise[]).filter((ex) => ex.reviewStatus === 'approved').length,
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Exercise Management</Text>
-        <Text style={styles.headerSubtitle}>
-          Review and approve exercises before they appear to users
-        </Text>
-      </View>
+      <ScreenHeader
+        title="Exercise Approvals"
+        subtitle="Review and approve exercises."
+        onBackPress={() => navigation.goBack()}
+        rightAction={
+          <TouchableOpacity
+            onPress={() => refetch()}
+            activeOpacity={0.85}
+            style={[styles.headerIconBtn, { backgroundColor: `${colors.primary}14` }]}
+            accessibilityRole="button"
+            accessibilityLabel="Refresh exercises"
+          >
+            <MaterialCommunityIcons name="refresh" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        }
+      />
 
       {/* Stats */}
       <View style={styles.statsContainer}>
@@ -387,14 +401,29 @@ export default function AdminExerciseApprovalScreen() {
         style={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refetch} colors={[colors.primary]} />
+          <RefreshControl refreshing={isFetching} onRefresh={refetch} colors={[colors.primary]} />
         }
       >
-        {isLoading ? (
+        {error ? (
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons
+              name="alert-circle-outline"
+              size={64}
+              color={colors.error}
+              style={styles.emptyIcon}
+            />
+            <Text style={styles.emptyText}>
+              Failed to load exercises
+            </Text>
+            <Text style={[styles.headerSubtitle, { textAlign: 'center' }]}>
+              {error instanceof Error ? error.message : 'Please try again.'}
+            </Text>
+          </View>
+        ) : isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
-        ) : exercises.length === 0 ? (
+        ) : visibleExercises.length === 0 ? (
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons
               name="checkbox-marked-circle-outline"
@@ -411,7 +440,7 @@ export default function AdminExerciseApprovalScreen() {
             </Text>
           </View>
         ) : (
-          exercises.map((exercise: Exercise) => (
+          visibleExercises.map((exercise: Exercise) => (
             <View key={exercise.id} style={styles.exerciseCard}>
               <View style={styles.exerciseHeader}>
                 <View style={styles.exerciseInfo}>
