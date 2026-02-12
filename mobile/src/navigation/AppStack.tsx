@@ -43,6 +43,7 @@ import ProgressV2Screen from '../screens/more/ProgressV2Screen';
 import AdminHomeScreen from '../screens/admin/AdminHomeScreen';
 import AdminSystemHealthScreen from '../screens/admin/AdminSystemHealthScreen';
 import AdminExerciseApprovalScreen from '../screens/admin/AdminExerciseApprovalScreen';
+import AdminExerciseEditorScreen from '../screens/admin/AdminExerciseEditorScreen';
 import AdminActivityLogsScreen from '../screens/admin/AdminActivityLogsScreen';
 import AdminAiLogsScreen from '../screens/admin/AdminAiLogsScreen';
 import AdminAnalyticsScreen from '../screens/admin/AdminAnalyticsScreen';
@@ -198,6 +199,7 @@ function MoreStack() {
       <Stack.Screen name="AdminAdminUsers" component={AdminAdminUsersScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AdminSystemHealth" component={AdminSystemHealthScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AdminExerciseApproval" component={AdminExerciseApprovalScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="AdminExerciseEditor" component={AdminExerciseEditorScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AdminActivityLogs" component={AdminActivityLogsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AdminAiLogs" component={AdminAiLogsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} options={{ headerShown: false }} />

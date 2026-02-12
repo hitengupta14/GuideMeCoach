@@ -97,7 +97,7 @@ async function getSession(request: NextRequest) {
         return res
       }
 
-      if (user.status !== 'active') {
+      if (user.status && user.status !== 'active') {
         logger.warn('Inactive user attempted session refresh', { userId: user.id, status: user.status })
         const res = NextResponse.json({ user: null }, { status: 200 })
         res.cookies.set('session', '', { httpOnly: true, path: '/', maxAge: 0 })
@@ -172,7 +172,7 @@ async function getSession(request: NextRequest) {
       return res
     }
 
-    if (user.status !== 'active') {
+    if (user.status && user.status !== 'active') {
       logger.warn('Inactive user session detected', { userId: user.id, status: user.status })
       const res = NextResponse.json({ user: null }, { status: 200 })
       res.cookies.set('session', '', { httpOnly: true, path: '/', maxAge: 0 })

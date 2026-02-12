@@ -20,6 +20,7 @@ import UpgradeModal from '../../components/UpgradeModal';
 import ScreenHeader from '../../components/ScreenHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, borderRadius, shadows } from '../../theme/spacing';
+import { useAuthStore } from '../../store/auth';
 
 export default function ChatScreen() {
   const nav = useNavigation<any>();
@@ -30,12 +31,13 @@ export default function ChatScreen() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { canAccessFeature, refetch: refetchQuota } = useAIQuota();
   const { colors } = useThemeStore();
+  const token = useAuthStore((s) => s.token);
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['messages', conversationId],
-    enabled: !!conversationId,
+    queryKey: ['messages', conversationId, token],
+    enabled: !!conversationId && !!token,
     queryFn: () => apiClient.listMessages(conversationId),
   });
 

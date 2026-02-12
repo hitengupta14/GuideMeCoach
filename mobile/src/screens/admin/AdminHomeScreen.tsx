@@ -45,7 +45,7 @@ export default function AdminHomeScreen({ navigation }: any) {
     }
 
     if (permissions.canManageExercises) {
-      items.push({ title: 'Exercise Approvals', subtitle: 'Approve / draft exercises', icon: 'clipboard-check-outline', route: 'AdminExerciseApproval' });
+      items.push({ title: 'Exercises', subtitle: 'Manage catalog and approvals', icon: 'dumbbell', route: 'AdminExerciseApproval' });
     }
 
     if (permissions.canViewAnalytics) {

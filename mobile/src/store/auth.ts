@@ -8,6 +8,7 @@ import {
   setBiometricsEnabled,
   isBiometricsEnabled,
 } from '../services/secure-auth';
+import { queryClient } from '../lib/queryClient';
 
 export interface AuthState {
   user: any | null;
@@ -55,6 +56,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           isLoading: false,
           biometricsEnabled: true,
         });
+        queryClient.invalidateQueries();
       } else {
         throw new Error('Invalid response structure from server');
       }
@@ -90,6 +92,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           isLoading: false,
           biometricsEnabled: true,
         });
+        queryClient.invalidateQueries();
         return { requiresEmailVerification: false };
       }
 
@@ -111,11 +114,20 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     try {
-      const { user } = useAuthStore.getState();
+      const { user, refreshToken } = useAuthStore.getState();
       // Fire-and-forget unregister of push token
       import('../services/push-notifications').then(({ unregisterPushTokenAsync }) => {
         unregisterPushTokenAsync(user?.id).catch(() => {});
       });
+      // Best-effort server logout to revoke refresh token
+      if (refreshToken) {
+        apiClient
+          .request('/auth/logout', {
+            method: 'POST',
+            body: JSON.stringify({ refreshToken }),
+          })
+          .catch(() => {});
+      }
     } catch {}
     apiClient.clearToken();
     clearSession();
@@ -150,6 +162,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
         biometricsEnabled: true,
       });
+      queryClient.invalidateQueries();
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Google sign-in failed',
@@ -165,6 +178,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (token && user) {
       apiClient.setTokens(token, refreshToken);
       set({ token, refreshToken, user });
+      queryClient.invalidateQueries();
     }
   },
 
@@ -181,6 +195,7 @@ apiClient.setAuthUpdateHandler(async (tokens) => {
       await clearSession();
     } catch {}
     useAuthStore.setState({ user: null, token: null, refreshToken: null, biometricsEnabled: false, error: null });
+    queryClient.invalidateQueries();
     return;
   }
 
@@ -189,4 +204,5 @@ apiClient.setAuthUpdateHandler(async (tokens) => {
     await saveSession(tokens.accessToken, tokens.refreshToken, user);
   } catch {}
   useAuthStore.setState({ token: tokens.accessToken, refreshToken: tokens.refreshToken });
+  queryClient.invalidateQueries();
 });

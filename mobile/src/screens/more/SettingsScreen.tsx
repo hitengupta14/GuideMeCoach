@@ -19,6 +19,7 @@ export default function SettingsScreen() {
   const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
   const biometricsEnabled = useAuthStore((s) => s.biometricsEnabled);
   const setBiometrics = useAuthStore((s) => s.setBiometrics);
+  const logout = useAuthStore((s) => s.logout);
 
   useEffect(() => {
     AsyncStorage.getItem('gm-app-settings')
@@ -163,6 +164,19 @@ export default function SettingsScreen() {
         >
           <Text style={[styles.buttonText, { color: colors.textInverse }]}>Save Settings</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.logoutButton, { borderColor: colors.error, backgroundColor: `${colors.error}12` }]}
+          onPress={() => {
+            Alert.alert('Log out?', 'You will need to sign in again.', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Log out', style: 'destructive', onPress: () => logout() },
+            ]);
+          }}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.buttonText, { color: colors.error }]}>Log out</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -195,5 +209,12 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: borderRadius.lg, padding: spacing.lg, marginTop: spacing.md },
   button: { paddingVertical: spacing.md, borderRadius: borderRadius.lg, alignItems: 'center', marginTop: spacing.md },
   saveButton: { paddingVertical: spacing.md, borderRadius: borderRadius.lg, alignItems: 'center', marginTop: spacing.sm },
+  logoutButton: {
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    marginTop: spacing.md,
+    borderWidth: 1,
+  },
   buttonText: { ...typography.label1, fontWeight: '700' },
 });

@@ -25,7 +25,14 @@ async function isUserActive(userId: string): Promise<boolean> {
     .where(eq(users.id, userId))
     .limit(1)
 
-  return (user?.status as UserStatus | undefined) === 'active'
+  if (!user) {
+    return false
+  }
+
+  const status = user.status as UserStatus | null | undefined
+  // Backwards-compat: treat missing status as active.
+  if (!status) return true
+  return status === 'active'
 }
 
 /**

@@ -7,15 +7,18 @@ import { useNavigation } from '@react-navigation/native';
 import { apiClient } from '../../services/api';
 import ScreenHeader from '../../components/ScreenHeader';
 import { spacing, borderRadius, shadows } from '../../theme/spacing';
+import { useAuthStore } from '../../store/auth';
 
 export default function ConversationsScreen() {
   const nav: any = useNavigation();
   const [topic, setTopic] = useState('general');
   const [title, setTitle] = useState('New Chat');
   const { colors } = useThemeStore();
+  const token = useAuthStore((s) => s.token);
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['conversations'],
+    queryKey: ['conversations', token],
+    enabled: !!token,
     queryFn: () => apiClient.listConversations(),
   });
 

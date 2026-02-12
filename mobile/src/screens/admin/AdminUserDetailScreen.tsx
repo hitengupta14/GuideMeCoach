@@ -19,12 +19,21 @@ import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { EmptyView, ErrorView, LoadingView } from '../../components/State';
 import { borderRadius, shadows, spacing, typography } from '../../theme/spacing';
+import { getAdminPermissions } from '../../lib/admin-permissions';
 
 type RouteParams = {
   AdminUserDetail: { userId: string };
 };
 
-type ActionKind = 'block' | 'unblock' | 'cancel_sub' | 'delete_soft' | 'delete_hard';
+type ActionKind =
+  | 'block'
+  | 'unblock'
+  | 'cancel_sub'
+  | 'delete_soft'
+  | 'delete_hard'
+  | 'verify_email'
+  | 'grant_monthly'
+  | 'grant_yearly';
 
 function toDate(input: unknown): Date | null {
   if (!input) return null;
@@ -64,6 +73,7 @@ export default function AdminUserDetailScreen({ navigation }: any) {
   const route = useRoute<RouteProp<RouteParams, 'AdminUserDetail'>>();
   const queryClient = useQueryClient();
   const adminRole = useAuthStore((s) => s.user?.adminRole as string | null);
+  const permissions = getAdminPermissions(adminRole as any);
 
   const userId = route.params?.userId;
 
@@ -93,6 +103,9 @@ export default function AdminUserDetailScreen({ navigation }: any) {
       if (action === 'cancel_sub') return apiClient.adminCancelUserSubscription(userId, reason || undefined);
       if (action === 'delete_soft') return apiClient.adminDeleteUser(userId, { reason: reason || undefined, type: 'soft' });
       if (action === 'delete_hard') return apiClient.adminDeleteUser(userId, { reason: reason || undefined, type: 'hard' });
+      if (action === 'verify_email') return apiClient.adminVerifyUserEmail(userId, { verified: true, reason: reason || undefined });
+      if (action === 'grant_monthly') return apiClient.adminGrantUserSubscription(userId, { planType: 'premium', reason: reason || undefined });
+      if (action === 'grant_yearly') return apiClient.adminGrantUserSubscription(userId, { planType: 'premium-yearly', reason: reason || undefined });
       return;
     },
     onSuccess: async () => {
@@ -118,12 +131,18 @@ export default function AdminUserDetailScreen({ navigation }: any) {
         return 'Soft delete user';
       case 'delete_hard':
         return 'Hard delete user';
+      case 'verify_email':
+        return 'Verify email';
+      case 'grant_monthly':
+        return 'Grant monthly subscription';
+      case 'grant_yearly':
+        return 'Grant yearly subscription';
       default:
         return '';
     }
   }, [action]);
 
-  const showHardDelete = adminRole === 'super_admin';
+  const showHardDelete = adminRole === 'super_admin' && permissions.canManageUsers;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -208,29 +227,42 @@ export default function AdminUserDetailScreen({ navigation }: any) {
           </View>
 
           <View style={styles.actionsGrid}>
-            {String(user.status) === 'blocked' ? (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => {
-                  setAction('unblock');
-                }}
-                style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-              >
-                <MaterialCommunityIcons name="lock-open-outline" size={18} color={colors.success} />
-                <Text style={[typography.label2, { color: colors.text }]}>Unblock</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => setAction('block')}
-                style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-              >
-                <MaterialCommunityIcons name="lock-outline" size={18} color={colors.warning} />
-                <Text style={[typography.label2, { color: colors.text }]}>Block</Text>
-              </TouchableOpacity>
-            )}
+            {permissions.canManageUsers ? (
+              String(user.status) === 'blocked' ? (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    setAction('unblock');
+                  }}
+                  style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                >
+                  <MaterialCommunityIcons name="lock-open-outline" size={18} color={colors.success} />
+                  <Text style={[typography.label2, { color: colors.text }]}>Unblock</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setAction('block')}
+                  style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                >
+                  <MaterialCommunityIcons name="lock-outline" size={18} color={colors.warning} />
+                  <Text style={[typography.label2, { color: colors.text }]}>Block</Text>
+                </TouchableOpacity>
+              )
+            ) : null}
 
-            {Boolean(user.isPremium) ? (
+            {permissions.canManageUsers && !user.emailVerified ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setAction('verify_email')}
+                style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <MaterialCommunityIcons name="email-check-outline" size={18} color={colors.success} />
+                <Text style={[typography.label2, { color: colors.text }]}>Verify email</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {permissions.canManageSubscriptions && Boolean(user.isPremium) ? (
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => setAction('cancel_sub')}
@@ -241,14 +273,38 @@ export default function AdminUserDetailScreen({ navigation }: any) {
               </TouchableOpacity>
             ) : null}
 
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => setAction('delete_soft')}
-              style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-            >
-              <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.error} />
-              <Text style={[typography.label2, { color: colors.text }]}>Delete</Text>
-            </TouchableOpacity>
+            {permissions.canManageSubscriptions ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setAction('grant_monthly')}
+                style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <MaterialCommunityIcons name="crown-outline" size={18} color={colors.primary} />
+                <Text style={[typography.label2, { color: colors.text }]}>Grant month</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {permissions.canManageSubscriptions ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setAction('grant_yearly')}
+                style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <MaterialCommunityIcons name="crown" size={18} color={colors.primary} />
+                <Text style={[typography.label2, { color: colors.text }]}>Grant year</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {permissions.canManageUsers ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setAction('delete_soft')}
+                style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.error} />
+                <Text style={[typography.label2, { color: colors.text }]}>Delete</Text>
+              </TouchableOpacity>
+            ) : null}
 
             {showHardDelete ? (
               <TouchableOpacity
@@ -460,4 +516,3 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-

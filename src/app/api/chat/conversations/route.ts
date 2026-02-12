@@ -14,7 +14,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
+    let body: any = null
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON body' },
+        { status: 400 }
+      )
+    }
     const { topic, title, firstMessage } = body
 
     if (!topic || !title) {
@@ -57,7 +65,18 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(conversation, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
+    const message = String(error?.message || '')
+    if (
+      error?.code === '42P01' ||
+      /relation\s+["']?chat_conversations["']?\s+does not exist/i.test(message) ||
+      /relation\s+["']?public\.chat_conversations["']?\s+does not exist/i.test(message)
+    ) {
+      return NextResponse.json(
+        { error: 'Chat tables are not initialized. Run database migrations.' },
+        { status: 503 }
+      )
+    }
     logger.error('Error creating conversation', error as Error)
     return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
   }
@@ -79,7 +98,18 @@ export async function GET(request: NextRequest) {
       .orderBy(chatConversations.updatedAt)
 
     return NextResponse.json(conversations)
-  } catch (error) {
+  } catch (error: any) {
+    const message = String(error?.message || '')
+    if (
+      error?.code === '42P01' ||
+      /relation\s+["']?chat_conversations["']?\s+does not exist/i.test(message) ||
+      /relation\s+["']?public\.chat_conversations["']?\s+does not exist/i.test(message)
+    ) {
+      return NextResponse.json(
+        { error: 'Chat tables are not initialized. Run database migrations.' },
+        { status: 503 }
+      )
+    }
     logger.error('Error fetching conversations', error as Error)
     return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 })
   }

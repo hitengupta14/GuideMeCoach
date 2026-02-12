@@ -126,7 +126,7 @@ export async function rotateRefreshToken(
   }
 
   // Enforce user status so blocked/deleted accounts cannot refresh.
-  if (user.status !== 'active') {
+  if (user.status && user.status !== 'active') {
     await revokeAllUserTokens(tokenRecord.userId)
     return null
   }

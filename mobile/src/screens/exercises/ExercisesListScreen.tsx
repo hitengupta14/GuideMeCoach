@@ -37,8 +37,8 @@ const PLACEHOLDER_BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 export default function ExercisesListScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [rawSearch, setRawSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const { theme, colors } = useThemeStore();
   const isDark = theme === 'dark';
 
@@ -59,8 +59,8 @@ export default function ExercisesListScreen({ navigation }: any) {
     queryKey: ['exercises', selectedCategory, selectedDifficulty, searchQuery],
     queryFn: async ({ pageParam = 0 }) => {
       const params = new URLSearchParams();
-      if (selectedCategory) params.append('category', selectedCategory);
-      if (selectedDifficulty) params.append('difficulty', selectedDifficulty);
+      if (selectedCategory !== 'all') params.append('category', selectedCategory);
+      if (selectedDifficulty !== 'all') params.append('difficulty', selectedDifficulty);
       if (searchQuery) params.append('search', searchQuery);
       params.append('includeMuscles', 'true');
       params.append('limit', String(PAGE_SIZE));
@@ -80,17 +80,19 @@ export default function ExercisesListScreen({ navigation }: any) {
     return data?.pages.flatMap((page) => page.exercises) || [];
   }, [data]);
 
-  const categories = ['Strength', 'Cardio', 'Flexibility', 'Mobility', 'Core'];
-  const difficulties = ['beginner', 'intermediate', 'advanced'];
-
-  const getDifficultyColor = (difficulty: string) => {
-    const colorMap = {
-      beginner: colors.success,
-      intermediate: colors.warning,
-      advanced: colors.error,
-    };
-    return colorMap[difficulty as keyof typeof colorMap] || colors.primary;
-  };
+  const categories = [
+    { key: 'all', label: 'All' },
+    { key: 'strength', label: 'Strength' },
+    { key: 'mobility', label: 'Mobility' },
+    { key: 'rehab', label: 'Rehab' },
+    { key: 'cardio', label: 'Cardio' },
+  ];
+  const difficulties = [
+    { key: 'all', label: 'All' },
+    { key: 'beginner', label: 'Beginner' },
+    { key: 'intermediate', label: 'Intermediate' },
+    { key: 'advanced', label: 'Advanced' },
+  ];
 
   const renderExerciseItem = ({ item }: { item: Exercise }) => (
     <Card variant="elevated" isDark={isDark} style={styles.exerciseCard}>
@@ -209,71 +211,98 @@ export default function ExercisesListScreen({ navigation }: any) {
       </View>
 
       {/* Filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.filtersContainer, { paddingHorizontal: spacing.lg }]}
-      >
-        {/* Category Filters */}
-        {categories.map((cat) => (
+      <View style={[styles.filtersCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.filtersHeader}>
+          <Text style={[typography.label1, { color: colors.text }]}>Filters</Text>
           <TouchableOpacity
-            key={cat}
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor: selectedCategory === cat ? colors.primary : colors.backgroundSecondary,
-              },
-            ]}
-            onPress={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+            activeOpacity={0.85}
+            onPress={() => {
+              setSelectedCategory('all');
+              setSelectedDifficulty('all');
+            }}
+            style={[styles.clearBtn, { backgroundColor: `${colors.primary}12` }]}
           >
-            <Text
-              style={[
-                typography.label2,
-                {
-                  color: selectedCategory === cat ? colors.textInverse : colors.text,
-                  fontWeight: '600',
-                },
-              ]}
-            >
-              {cat}
-            </Text>
+            <MaterialCommunityIcons name="close" size={14} color={colors.primary} />
+            <Text style={[typography.caption1, { color: colors.primary }]}>Clear</Text>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        </View>
 
-      {/* Difficulty Filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.filtersContainer, { paddingHorizontal: spacing.lg }]}
-      >
-        {difficulties.map((diff) => (
-          <TouchableOpacity
-            key={diff}
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor: selectedDifficulty === diff ? colors.secondary : colors.backgroundSecondary,
-              },
-            ]}
-            onPress={() =>
-              setSelectedDifficulty(selectedDifficulty === diff ? null : diff)
-            }
-          >
-            <Text
-              style={[
-                typography.label2,
-                {
-                  color: selectedDifficulty === diff ? colors.textInverse : colors.text,
-                  fontWeight: '600',
-                },
-              ]}
-            >
-              {diff.charAt(0).toUpperCase() + diff.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+        <Text style={[typography.caption1, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+          Category
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersRow}
+        >
+          {categories.map((cat) => {
+            const active = selectedCategory === cat.key;
+            return (
+              <TouchableOpacity
+                key={cat.key}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: active ? `${colors.primary}18` : colors.background,
+                    borderColor: active ? `${colors.primary}55` : colors.border,
+                  },
+                ]}
+                onPress={() => setSelectedCategory(cat.key)}
+              >
+                <Text
+                  style={[
+                    typography.label2,
+                    {
+                      color: active ? colors.primary : colors.textSecondary,
+                      fontWeight: '600',
+                    },
+                  ]}
+                >
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <Text style={[typography.caption1, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+          Difficulty
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersRow}
+        >
+          {difficulties.map((diff) => {
+            const active = selectedDifficulty === diff.key;
+            return (
+              <TouchableOpacity
+                key={diff.key}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: active ? `${colors.secondary}18` : colors.background,
+                    borderColor: active ? `${colors.secondary}55` : colors.border,
+                  },
+                ]}
+                onPress={() => setSelectedDifficulty(diff.key)}
+              >
+                <Text
+                  style={[
+                    typography.label2,
+                    {
+                      color: active ? colors.secondary : colors.textSecondary,
+                      fontWeight: '600',
+                    },
+                  ]}
+                >
+                  {diff.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {/* Exercises List */}
       {isLoading && exercises.length === 0 ? (
@@ -338,16 +367,37 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
   },
-  filtersContainer: {
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
-  },
   filterChip: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
     marginRight: spacing.sm,
-    ...shadows.sm,
+    borderWidth: 1,
+  },
+  filtersCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    padding: spacing.lg,
+    ...shadows.md,
+  },
+  filtersHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  clearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  filtersRow: {
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   listContent: {
     paddingVertical: spacing.lg,

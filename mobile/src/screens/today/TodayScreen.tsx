@@ -7,6 +7,7 @@ import { useThemeStore } from '../../store/theme';
 import { apiClient } from '../../services/api';
 import { EmptyView, ErrorView, LoadingView } from '../../components/State';
 import { borderRadius, shadows, spacing, typography } from '../../theme/spacing';
+import { useAuthStore } from '../../store/auth';
 
 type TodayResponse = {
   hasActivePlan: boolean;
@@ -32,9 +33,11 @@ type TodayResponse = {
 
 export default function TodayScreen({ navigation }: any) {
   const { colors } = useThemeStore();
+  const token = useAuthStore((s) => s.token);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['today'],
+    queryKey: ['today', token],
+    enabled: !!token,
     queryFn: () => apiClient.getToday(),
   });
 
@@ -268,4 +271,3 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['3xl'],
   },
 });
-

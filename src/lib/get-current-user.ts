@@ -27,7 +27,8 @@ export async function getCurrentUser() {
     })
 
     if (!user) return null
-    if (user.status !== 'active') return null
+    const status = user.status as string | null | undefined
+    if (status && status !== 'active') return null
     return user
   } catch (error) {
     return null

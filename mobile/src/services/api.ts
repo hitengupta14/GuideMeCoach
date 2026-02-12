@@ -139,6 +139,11 @@ export const apiClient = {
             ...(options?.headers as any),
           };
 
+          if (this._accessToken) {
+            if (!merged.Authorization) merged.Authorization = `Bearer ${this._accessToken}`;
+            if (!merged.Cookie) merged.Cookie = `session=${this._accessToken}`;
+          }
+
           const body: any = (options as any)?.body;
           const isFormData =
             typeof FormData !== 'undefined' && body && typeof body === 'object' && body instanceof FormData;
@@ -486,10 +491,23 @@ export const apiClient = {
     return this.request('/admin/settings', { method: 'PUT', body: JSON.stringify(payload) });
   },
 
-  async adminListExercises(params: { reviewStatus?: 'draft' | 'approved' | 'all'; limit?: number } = {}) {
+  async adminListExercises(params: {
+    reviewStatus?: 'draft' | 'approved' | 'all';
+    limit?: number;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    category?: string;
+    difficulty?: string;
+  } = {}) {
     const sp = new URLSearchParams();
     if (params.reviewStatus) sp.append('reviewStatus', params.reviewStatus);
+    if (params.search) sp.append('search', params.search);
+    if (params.category) sp.append('category', params.category);
+    if (params.difficulty) sp.append('difficulty', params.difficulty);
     if (typeof params.limit === 'number') sp.append('limit', String(params.limit));
+    if (typeof params.page === 'number') sp.append('page', String(params.page));
+    if (typeof params.pageSize === 'number') sp.append('pageSize', String(params.pageSize));
     const qs = sp.toString();
     return this.request(`/admin/exercises${qs ? `?${qs}` : ''}`, { method: 'GET' });
   },
@@ -499,6 +517,25 @@ export const apiClient = {
       method: 'PATCH',
       body: JSON.stringify({ reviewStatus }),
     });
+  },
+
+  async adminGetExercise(exerciseId: string) {
+    return this.request(`/exercises/${encodeURIComponent(exerciseId)}`, { method: 'GET' });
+  },
+
+  async adminCreateExercise(payload: Record<string, any>) {
+    return this.request('/exercises', { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  async adminUpdateExercise(exerciseId: string, payload: Record<string, any>) {
+    return this.request(`/exercises/${encodeURIComponent(exerciseId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async adminDeleteExercise(exerciseId: string) {
+    return this.request(`/exercises/${encodeURIComponent(exerciseId)}`, { method: 'DELETE' });
   },
 
   async adminDashboardStats() {
@@ -548,6 +585,23 @@ export const apiClient = {
     return this.request(`/admin/users/${encodeURIComponent(userId)}/cancel-subscription`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
+    });
+  },
+
+  async adminVerifyUserEmail(userId: string, payload: { verified?: boolean; reason?: string } = {}) {
+    return this.request(`/admin/users/${encodeURIComponent(userId)}/verify-email`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async adminGrantUserSubscription(
+    userId: string,
+    payload: { planType?: 'premium' | 'premium-yearly'; durationDays?: number; reason?: string } = {}
+  ) {
+    return this.request(`/admin/users/${encodeURIComponent(userId)}/grant-subscription`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   },
 
