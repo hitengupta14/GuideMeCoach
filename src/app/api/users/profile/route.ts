@@ -3,6 +3,7 @@ import { verifySession } from '@/lib/auth-helpers'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { computeProfileCompletion, setProfileCompleteCookie } from '@/lib/profile-completion'
 
 /**
  * GET /api/users/profile
@@ -63,13 +64,29 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
 
     // Allowed fields to update
-    const allowedFields = ['name', 'age', 'weight', 'height', 'goals', 'experienceLevel', 'medicalConditions', 'availableEquipment', 'preferredLocation']
+    const allowedFields = [
+      'name',
+      'age',
+      'weight',
+      'currentWeight',
+      'height',
+      'goals',
+      'experienceLevel',
+      'medicalConditions',
+      'availableEquipment',
+      'preferredLocation',
+    ]
     const updates: Record<string, any> = {}
 
     for (const field of allowedFields) {
       if (field in body) {
         updates[field] = body[field]
       }
+    }
+
+    // Sync currentWeight to weight when only currentWeight is provided.
+    if ('currentWeight' in updates && !('weight' in updates)) {
+      updates.weight = updates.currentWeight
     }
 
     // Handle dietary restrictions by adding them to medical conditions
@@ -98,7 +115,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: {
         id: updated[0].id,
@@ -118,6 +135,9 @@ export async function PUT(request: NextRequest) {
         ) || [],
       },
     })
+    const completion = computeProfileCompletion(updated[0])
+    setProfileCompleteCookie(response, completion.isComplete)
+    return response
   } catch (error) {
     console.error('Error updating profile:', error)
     return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 })

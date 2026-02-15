@@ -11,6 +11,7 @@ import { SignJWT } from 'jose'
 import { createRefreshToken } from '@/lib/refresh-token'
 import { getJwtSecretKey } from '@/lib/jwt'
 import { withApiTelemetry } from '@/lib/api-telemetry'
+import { computeProfileCompletion, setProfileCompleteCookie } from '@/lib/profile-completion'
 
 const JWT_SECRET = getJwtSecretKey()
 
@@ -46,8 +47,14 @@ async function login(request: NextRequest) {
         height: users.height,
         weight: users.weight,
         age: users.age,
+        gender: users.gender,
         experienceLevel: users.experienceLevel,
         goals: users.goals,
+        medicalConditions: users.medicalConditions,
+        availableEquipment: users.availableEquipment,
+        timeAvailability: users.timeAvailability,
+        preferredLocation: users.preferredLocation,
+        targetWeight: users.targetWeight,
         isAdmin: users.isAdmin,
         adminRole: users.adminRole,
         lastLoginAt: users.lastLoginAt,
@@ -174,6 +181,9 @@ async function login(request: NextRequest) {
       },
       { status: 200 }
     )
+
+    const completion = computeProfileCompletion(foundUser)
+    setProfileCompleteCookie(response, completion.isComplete)
 
     // Set HTTP-only cookies: short-lived access token + long-lived refresh token
     const isProduction = process.env.NODE_ENV === 'production'

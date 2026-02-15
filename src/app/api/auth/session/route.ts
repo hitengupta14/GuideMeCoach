@@ -9,6 +9,7 @@ import { getJwtSecretKey } from '@/lib/jwt'
 import { getPremiumStatus } from '@/lib/entitlements'
 import { withApiTelemetry } from '@/lib/api-telemetry'
 import { rotateRefreshToken } from '@/lib/refresh-token'
+import { computeProfileCompletion, setProfileCompleteCookie } from '@/lib/profile-completion'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,6 +113,8 @@ async function getSession(request: NextRequest) {
           subscriptionEndsAt: premium.subscriptionEndsAt,
         },
       })
+      const completion = computeProfileCompletion(user)
+      setProfileCompleteCookie(res, completion.isComplete)
 
       // Persist the rotated tokens as cookies for the browser.
       res.cookies.set('session', token, {
@@ -182,14 +185,16 @@ async function getSession(request: NextRequest) {
 
     logger.info('Session validated', { userId: user.id })
 
-    // Do not return the raw JWT. Web clients should rely on HTTP-only cookies.
-    return NextResponse.json({
+    const res = NextResponse.json({
       user: {
         ...user,
         isPremium: premium.isPremium,
         subscriptionEndsAt: premium.subscriptionEndsAt,
       },
     })
+    const completion = computeProfileCompletion(user)
+    setProfileCompleteCookie(res, completion.isComplete)
+    return res
   } catch (error) {
     logger.error('Session validation error', error as Error)
     return NextResponse.json({ user: null }, { status: 500 })

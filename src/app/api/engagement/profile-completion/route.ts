@@ -1,15 +1,16 @@
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth-helpers'
+import { computeProfileCompletion, setProfileCompleteCookie } from '@/lib/profile-completion'
 
 export async function GET(req: Request) {
   try {
     const nextReq = new NextRequest(req)
     const userId = await verifySession(nextReq)
     if (!userId) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const user = await db
@@ -19,81 +20,11 @@ export async function GET(req: Request) {
       .then(res => res[0])
 
     if (!user) {
-      return Response.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Calculate profile completion
-    const completionSteps = [
-      {
-        id: 'basic_info',
-        title: 'Basic Information',
-        description: 'Your name and contact details',
-        completed: !!user.name,
-        fields: ['name'],
-        icon: '👤',
-      },
-      {
-        id: 'physical_stats',
-        title: 'Physical Stats',
-        description: 'Height, weight, age, and gender',
-        completed: !!(user.height && user.weight && user.age && user.gender),
-        fields: ['height', 'weight', 'age', 'gender'],
-        icon: '📏',
-      },
-      {
-        id: 'experience',
-        title: 'Experience Level',
-        description: 'Your fitness background',
-        completed: !!user.experienceLevel,
-        fields: ['experienceLevel'],
-        icon: '💪',
-      },
-      {
-        id: 'goals',
-        title: 'Fitness Goals',
-        description: 'What do you want to achieve?',
-        completed: !!(user.goals && user.goals.length > 0),
-        fields: ['goals'],
-        icon: '🎯',
-      },
-      {
-        id: 'medical',
-        title: 'Medical Information',
-        description: 'Any medical conditions to consider',
-        completed: !!(user.medicalConditions),
-        fields: ['medicalConditions'],
-        icon: '⚕️',
-      },
-      {
-        id: 'equipment',
-        title: 'Available Equipment',
-        description: 'What equipment do you have access to?',
-        completed: !!(user.availableEquipment && user.availableEquipment.length > 0),
-        fields: ['availableEquipment'],
-        icon: '🏋️',
-      },
-      {
-        id: 'preferences',
-        title: 'Preferences',
-        description: 'Location, time, and other preferences',
-        completed: !!(user.preferredLocation && user.timeAvailability),
-        fields: ['preferredLocation', 'timeAvailability'],
-        icon: '⚙️',
-      },
-      {
-        id: 'targets',
-        title: 'Target Weight',
-        description: 'Set your fitness target',
-        completed: !!user.targetWeight,
-        fields: ['targetWeight'],
-        icon: '🎲',
-      },
-    ]
-
-    const completedSteps = completionSteps.filter(s => s.completed).length
-    const completionPercentage = Math.round((completedSteps / completionSteps.length) * 100)
-
-    return Response.json({
+    const completion = computeProfileCompletion(user)
+    const response = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
@@ -113,15 +44,17 @@ export async function GET(req: Request) {
         painAreas: user.painAreas,
       },
       completion: {
-        steps: completionSteps,
-        completed: completedSteps,
-        total: completionSteps.length,
-        percentage: completionPercentage,
+        steps: completion.steps,
+        completed: completion.completed,
+        total: completion.total,
+        percentage: completion.percentage,
       },
     })
+    setProfileCompleteCookie(response, completion.isComplete)
+    return response
   } catch (error) {
     console.error('Profile completion fetch error:', error)
-    return Response.json(
+    return NextResponse.json(
       { error: 'Failed to fetch profile completion' },
       { status: 500 }
     )
@@ -134,7 +67,7 @@ export async function POST(req: Request) {
     const userId = await verifySession(nextReq)
 
     if (!userId) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const body = await req.json()
 
@@ -145,6 +78,7 @@ export async function POST(req: Request) {
       'name',
       'height',
       'weight',
+      'currentWeight',
       'age',
       'gender',
       'experienceLevel',
@@ -164,17 +98,41 @@ export async function POST(req: Request) {
       }
     }
 
+    // Sync currentWeight to weight when only currentWeight is provided.
+    if ('currentWeight' in updateData && !('weight' in updateData)) {
+      updateData.weight = updateData.currentWeight
+    }
+
     updateData.updatedAt = new Date()
 
     await db.update(users).set(updateData).where(eq(users.id, userId))
 
-    return Response.json({
+    const updatedUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .then(res => res[0])
+
+    if (!updatedUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const completion = computeProfileCompletion(updatedUser)
+    const response = NextResponse.json({
       success: true,
       message: 'Profile updated successfully',
+      completion: {
+        steps: completion.steps,
+        completed: completion.completed,
+        total: completion.total,
+        percentage: completion.percentage,
+      },
     })
+    setProfileCompleteCookie(response, completion.isComplete)
+    return response
   } catch (error) {
     console.error('Profile update error:', error)
-    return Response.json(
+    return NextResponse.json(
       { error: 'Failed to update profile' },
       { status: 500 }
     )

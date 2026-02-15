@@ -1,17 +1,22 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth';
 import AuthStack from '@/navigation/AuthStack';
 import AppStack from '@/navigation/AppStack';
+import OnboardingStack from '@/navigation/OnboardingStack';
 import { queryClient, queryPersister } from '@/lib/queryClient';
 import { NetworkStatusBanner } from '@/components/NetworkStatusBanner';
 import { navigationRef } from '@/navigation/navigationRef';
 import { addNotificationResponseListener, registerForPushNotificationsAsync } from '@/services/push-notifications';
 import { useThemeStore } from '@/store/theme';
-import { StatusBar, AppState } from 'react-native';
+import { StatusBar, AppState, View } from 'react-native';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { apiClient } from '@/services/api';
+import { LoadingView, ErrorView } from '@/components/State';
+import { Button } from '@/components/Button';
 
 export default function App() {
   const { token, user, bootstrap } = useAuthStore();
@@ -222,10 +227,48 @@ export default function App() {
           <NetworkStatusBanner />
           <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
           <NavigationContainer linking={linking} ref={navigationRef} theme={navTheme as any}>
-            {token ? <AppStack /> : <AuthStack />}
+            {token ? <ProfileGate /> : <AuthStack />}
           </NavigationContainer>
         </PersistQueryClientProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );
+}
+
+function ProfileGate() {
+  const token = useAuthStore((s) => s.token);
+  const { colors, theme } = useThemeStore();
+  const isDark = theme === 'dark';
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['profile-completion', token],
+    enabled: Boolean(token),
+    queryFn: () => apiClient.getProfileCompletion(),
+    staleTime: 60 * 1000,
+  });
+
+  if (isLoading || isFetching) {
+    return <LoadingView message="Preparing your profile…" />;
+  }
+
+  if (error) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <ErrorView message="Couldn't load your profile status." />
+        <View style={{ paddingHorizontal: 24 }}>
+          <Button label="Retry" onPress={() => refetch()} fullWidth isDark={isDark} />
+        </View>
+      </View>
+    );
+  }
+
+  const completion = data?.completion;
+  const isComplete = completion ? completion.completed === completion.total : false;
+
+  return isComplete ? <AppStack /> : <OnboardingStack />;
 }

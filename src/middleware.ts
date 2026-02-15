@@ -18,9 +18,24 @@ const publicPaths = [
   '/wearables',
 ]
 
+const profileGateAllowedPaths = [
+  '/profile',
+  '/auth',
+  '/privacy',
+  '/terms',
+  '/medical-disclaimer',
+]
+
 function isPublicPathname(pathname: string): boolean {
   return publicPaths.some((path) => {
     if (path === '/') return pathname === '/'
+    return pathname === path || pathname.startsWith(`${path}/`)
+  })
+}
+
+function isProfileGateAllowed(pathname: string): boolean {
+  return profileGateAllowedPaths.some((path) => {
+    if (path === '/auth') return pathname.startsWith('/auth/')
     return pathname === path || pathname.startsWith(`${path}/`)
   })
 }
@@ -60,6 +75,8 @@ export async function middleware(request: NextRequest) {
   
   const sessionValid = await hasValidSession(request)
   const hasRefreshToken = Boolean(request.cookies.get('refresh_token')?.value)
+  const profileComplete = request.cookies.get('profile_complete')?.value === '1'
+  const canBypassProfileGate = isProfileGateAllowed(pathname)
 
   // Redirect to login if accessing protected route without session
   // If the access token is expired but a refresh token exists, let the request through
@@ -77,7 +94,17 @@ export async function middleware(request: NextRequest) {
   // Redirect to dashboard if accessing auth pages with active session
   if (!isApiRoute && sessionValid && pathname.startsWith('/auth/')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = profileComplete ? '/dashboard' : '/profile'
+    const res = NextResponse.redirect(url)
+    res.headers.set('x-request-id', requestId)
+    return res
+  }
+
+  // Enforce profile completion for authenticated users
+  if (!isApiRoute && sessionValid && !profileComplete && !canBypassProfileGate) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/profile'
+    url.searchParams.set('onboarding', '1')
     const res = NextResponse.redirect(url)
     res.headers.set('x-request-id', requestId)
     return res
