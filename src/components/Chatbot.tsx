@@ -209,7 +209,7 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
             disabled={loading}
             className="p-6 border-2 border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-400 transition-colors disabled:opacity-50"
           >
-            <div className="text-3xl mb-3">💪</div>
+            <div className="text-3xl mb-3"></div>
             <h3 className="font-bold text-gray-900 mb-2">Exercise Form</h3>
             <p className="text-sm text-gray-600">Get guidance on proper technique and form for any exercise</p>
           </button>
@@ -219,7 +219,7 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
             disabled={loading}
             className="p-6 border-2 border-green-200 rounded-lg hover:bg-green-50 hover:border-green-400 transition-colors disabled:opacity-50"
           >
-            <div className="text-3xl mb-3">🔄</div>
+            <div className="text-3xl mb-3"></div>
             <h3 className="font-bold text-gray-900 mb-2">Alternative Exercises</h3>
             <p className="text-sm text-gray-600">Find substitutes based on equipment, ability, or preference</p>
           </button>
@@ -229,7 +229,7 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
             disabled={loading}
             className="p-6 border-2 border-red-200 rounded-lg hover:bg-red-50 hover:border-red-400 transition-colors disabled:opacity-50"
           >
-            <div className="text-3xl mb-3">⚠️</div>
+            <div className="text-3xl mb-3"></div>
             <h3 className="font-bold text-gray-900 mb-2">Safety & Injuries</h3>
             <p className="text-sm text-gray-600">Learn about injury prevention and pain management</p>
           </button>
@@ -239,7 +239,7 @@ export default function Chatbot({ conversationId: initialConversationId }: Chatb
             disabled={loading}
             className="p-6 border-2 border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors disabled:opacity-50"
           >
-            <div className="text-3xl mb-3">❓</div>
+            <div className="text-3xl mb-3"></div>
             <h3 className="font-bold text-gray-900 mb-2">General Questions</h3>
             <p className="text-sm text-gray-600">Ask about fitness principles, progression, and motivation</p>
           </button>

@@ -49,7 +49,7 @@ export const config = {
 };
 
 if (API_DEBUG) {
-  console.log('📡 API Configuration:', {
+  console.log(' API Configuration:', {
     platform: Platform.OS,
     apiUrl: API_BASE_URL,
     isDev: __DEV__,

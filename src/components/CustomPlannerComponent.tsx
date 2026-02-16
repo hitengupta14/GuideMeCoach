@@ -628,7 +628,7 @@ export default function CustomPlannerComponent() {
                                 onClick={() => removeExerciseFromDay(weekIdx, dayIdx, exIdx)}
                                 className="text-red-600 hover:text-red-800 text-sm font-bold hover:bg-red-50 px-2 py-1 rounded transition-colors"
                               >
-                                ✕ Remove
+                                 Remove
                               </button>
                             </div>
 
@@ -707,7 +707,7 @@ export default function CustomPlannerComponent() {
                   }}
                   className="text-2xl hover:bg-white/20 p-1 rounded transition"
                 >
-                  ✕
+                  
                 </button>
               </div>
 

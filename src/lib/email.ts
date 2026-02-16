@@ -23,7 +23,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     if (!process.env.RESEND_API_KEY) {
       logger.warn('RESEND_API_KEY not set, logging email to console')
       console.log('='.repeat(60))
-      console.log('📧 EMAIL (Development Mode - No API Key)')
+      console.log(' EMAIL (Development Mode - No API Key)')
       console.log('='.repeat(60))
       console.log(`To: ${options.to}`)
       console.log(`Subject: ${options.subject}`)
@@ -89,7 +89,7 @@ export function getVerificationEmailHtml(token: string, appUrl: string): { html:
     <body>
       <div class="container">
         <div class="header">
-          <h1>🎉 Welcome to GuideMeCoach!</h1>
+          <h1> Welcome to GuideMeCoach!</h1>
         </div>
         <div class="content">
           <h2>Verify Your Email</h2>
@@ -150,7 +150,7 @@ export function getPasswordResetEmailHtml(token: string, appUrl: string): { html
     <body>
       <div class="container">
         <div class="header">
-          <h1>🔑 Reset Your Password</h1>
+          <h1> Reset Your Password</h1>
         </div>
         <div class="content">
           <h2>Password Reset Request</h2>
@@ -161,7 +161,7 @@ export function getPasswordResetEmailHtml(token: string, appUrl: string): { html
           <p>Or copy and paste this link into your browser:</p>
           <p style="word-break: break-all; color: #667eea;">${resetUrl}</p>
           <div class="warning">
-            <strong>⚠️ Security Notice:</strong>
+            <strong> Security Notice:</strong>
             <p>This link will expire in 1 hour. If you didn't request a password reset, please ignore this email or contact support if you're concerned.</p>
           </div>
         </div>
@@ -222,11 +222,11 @@ export function getPaymentSuccessEmailHtml(options: {
     <body>
       <div class="container">
         <div class="header">
-          <div class="success-icon">✅</div>
+          <div class="success-icon"></div>
           <h1>Payment Successful!</h1>
         </div>
         <div class="content">
-          <h2>Welcome to GuideMeCoach Premium, ${options.name}! 🎉</h2>
+          <h2>Welcome to GuideMeCoach Premium, ${options.name}! </h2>
           <p>Your payment has been processed successfully. You now have access to all premium features!</p>
           
           <div class="details">
@@ -246,12 +246,12 @@ export function getPaymentSuccessEmailHtml(options: {
 
           <h3>What's Included:</h3>
           <ul>
-            <li>🏋️ AI Workout Planner (2/month)</li>
-            <li>🤖 AI Chat Support (25 messages/month)</li>
-            <li>📊 AI Weekly Insights (1/week)</li>
-            <li>✏️ AI Plan Edits (3/month)</li>
-            <li>⚡ Priority support</li>
-            <li>✅ Ad-free experience</li>
+            <li> AI Workout Planner (2/month)</li>
+            <li> AI Chat Support (25 messages/month)</li>
+            <li> AI Weekly Insights (1/week)</li>
+            <li> AI Plan Edits (3/month)</li>
+            <li> Priority support</li>
+            <li> Ad-free experience</li>
           </ul>
 
           <p style="text-align: center;">
@@ -268,7 +268,7 @@ export function getPaymentSuccessEmailHtml(options: {
   `
 
   const text = `
-Payment Successful! ✅
+Payment Successful! 
 
 Welcome to GuideMeCoach Premium, ${options.name}!
 
@@ -280,12 +280,12 @@ Payment Details:
 - Subscription Valid Until: ${new Date(options.subscriptionEndsAt).toLocaleDateString()}
 
 	What's Included:
-🏋️ AI Workout Planner (2/month)
-🤖 AI Chat Support (25 messages/month)
-📊 AI Weekly Insights (1/week)
-✏️ AI Plan Edits (3/month)
-⚡ Priority support
-✅ Ad-free experience
+ AI Workout Planner (2/month)
+ AI Chat Support (25 messages/month)
+ AI Weekly Insights (1/week)
+ AI Plan Edits (3/month)
+ Priority support
+ Ad-free experience
 
 Start your premium journey: ${options.appUrl}
 
@@ -326,7 +326,7 @@ export function getSubscriptionExpiryEmailHtml(options: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>⚠️ Your Premium Subscription is Expiring Soon</h1>
+          <h1> Your Premium Subscription is Expiring Soon</h1>
         </div>
         <div class="content">
           <h2>Hi ${options.name},</h2>
@@ -340,10 +340,10 @@ export function getSubscriptionExpiryEmailHtml(options: {
 
           <p>After expiration, you'll lose access to:</p>
           <ul>
-            <li>🚫 AI Workout Planner</li>
-            <li>🚫 AI Chat Support</li>
-            <li>🚫 AI Weekly Insights</li>
-            <li>🚫 AI Plan Edits</li>
+            <li> AI Workout Planner</li>
+            <li> AI Chat Support</li>
+            <li> AI Weekly Insights</li>
+            <li> AI Plan Edits</li>
           </ul>
 
           <p><strong>Don't let your progress stop!</strong> Renew now to keep all premium features.</p>
@@ -362,7 +362,7 @@ export function getSubscriptionExpiryEmailHtml(options: {
   `
 
   const text = `
-⚠️ Your Premium Subscription is Expiring Soon
+ Your Premium Subscription is Expiring Soon
 
 Hi ${options.name},
 
@@ -371,10 +371,10 @@ ${options.daysRemaining} Day${options.daysRemaining !== 1 ? 's' : ''} Remaining!
 Your GuideMeCoach Premium subscription will expire on ${new Date(options.subscriptionEndsAt).toLocaleDateString()}
 
 	After expiration, you'll lose access to:
-🚫 AI Workout Planner
-🚫 AI Chat Support
-🚫 AI Weekly Insights
-🚫 AI Plan Edits
+ AI Workout Planner
+ AI Chat Support
+ AI Weekly Insights
+ AI Plan Edits
 
 Don't let your progress stop! Renew now: ${options.appUrl}/pricing
 
@@ -401,7 +401,7 @@ export async function sendPaymentSuccessEmail(options: {
 
   return sendEmail({
     to: options.email,
-    subject: '🎉 Payment Successful - Welcome to GuideMeCoach Premium!',
+    subject: ' Payment Successful - Welcome to GuideMeCoach Premium!',
     html,
     text,
   })
@@ -420,7 +420,7 @@ export async function sendSubscriptionExpiryEmail(options: {
   const { html, text } = getSubscriptionExpiryEmailHtml({ ...options, appUrl })
 
   const subject = options.daysRemaining <= 3 
-    ? `⚠️ URGENT: Premium expires in ${options.daysRemaining} day${options.daysRemaining !== 1 ? 's' : ''}!`
+    ? ` URGENT: Premium expires in ${options.daysRemaining} day${options.daysRemaining !== 1 ? 's' : ''}!`
     : `⏰ Premium expires in ${options.daysRemaining} days`
 
   return sendEmail({
@@ -473,11 +473,11 @@ export async function sendProgressEmail(options: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>💪 Your Weekly Progress Summary</h1>
+          <h1> Your Weekly Progress Summary</h1>
           <p style="margin: 10px 0 0 0; opacity: 0.9;">Last ${options.period.weeks} weeks</p>
         </div>
         <div class="content">
-          <h2>Hey ${options.name}! 👋</h2>
+          <h2>Hey ${options.name}! </h2>
           <p>Here's your personalized progress analysis for the period ${options.period.from} to ${options.period.to}:</p>
           
           <div class="stats-grid">
@@ -500,7 +500,7 @@ export async function sendProgressEmail(options: {
           </div>
 
           <div class="insights">
-            <h3 style="margin-top: 0; color: #333;">🎯 AI Analysis</h3>
+            <h3 style="margin-top: 0; color: #333;"> AI Analysis</h3>
             <div class="insight-text">${options.insights}</div>
           </div>
 
@@ -541,7 +541,7 @@ This is an automated progress summary from GuideMeCoach.
 
   return sendEmail({
     to: options.email,
-    subject: `Your ${options.period.weeks}-Week Progress Summary - GuideMeCoach 💪`,
+    subject: `Your ${options.period.weeks}-Week Progress Summary - GuideMeCoach `,
     html,
     text,
   })

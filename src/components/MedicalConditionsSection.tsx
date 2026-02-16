@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { HeartPulse } from 'lucide-react'
 
 interface MedicalConditionData {
   medicalConditions: string[]
@@ -124,7 +125,8 @@ export function MedicalConditionsSection({ userId, onSave }: MedicalConditionsSe
     <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-8">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <span>⚕️</span> Medical Conditions & Joint Health
+          <HeartPulse className="w-6 h-6 text-indigo-600" aria-hidden="true" />
+          Medical Conditions & Joint Health
         </h2>
         <button
           onClick={() => setIsEditing(!isEditing)}
@@ -290,7 +292,7 @@ export function MedicalConditionsSection({ userId, onSave }: MedicalConditionsSe
 
                 <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <p className="text-xs text-gray-600 mb-1">Affected Joints</p>
-                  <p className="font-semibold text-gray-900">{data.affectedJoints.length > 0 ? data.affectedJoints.join(', ') : 'None'}</p>
+                  <p className="font-semibold text-gray-900">{data.affectedJoints.length >0 ? data.affectedJoints.join(', ') : 'None'}</p>
                 </div>
               </div>
 

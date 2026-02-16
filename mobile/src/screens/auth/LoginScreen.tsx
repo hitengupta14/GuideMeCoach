@@ -16,6 +16,7 @@ import { useThemeStore } from '../../store/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/Button';
 import { TextInput } from '../../components/TextInput';
+import { BrandMark } from '../../components/BrandMark';
 import { spacing, typography } from '../../theme/spacing';
 
 export default function LoginScreen({ navigation }: any) {
@@ -73,6 +74,10 @@ export default function LoginScreen({ navigation }: any) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <View style={styles.brand}>
+            <BrandMark size={64} />
+            <Text style={[styles.brandText, { color: colors.text }]}>GuideMeCoach</Text>
+          </View>
           <View style={styles.hero}>
             <Text style={[typography.display2, { color: colors.text }]}>Welcome Back</Text>
             <Text style={[typography.body2, { color: colors.textSecondary, marginTop: spacing.sm }]}>
@@ -159,6 +164,8 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 1,
   },
+  brand: { alignItems: 'center', marginBottom: spacing.xl },
+  brandText: { marginTop: spacing.sm, fontSize: 18, fontWeight: '700' },
   hero: { marginBottom: spacing['2xl'] },
   form: { gap: spacing.lg },
   dividerRow: {

@@ -34,7 +34,7 @@ export function PremiumPageGuard({
       fallback || (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
           <div className="max-w-md rounded-xl bg-white dark:bg-gray-900 shadow-lg p-8 text-center">
-            <div className="text-5xl mb-4">🔒</div>
+            <div className="text-5xl mb-4"></div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
               Premium Feature
             </h2>

@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { Sparkles, ListChecks, History, Lock } from 'lucide-react'
 import { useSession } from '@/hooks/useSession'
 import AIPlannerForm from '@/components/AIPlannerForm'
 import CustomPlannerComponent from '@/components/CustomPlannerComponent'
@@ -53,7 +54,7 @@ function UnifiedPlannerContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
         <div className="max-w-md rounded-xl bg-white shadow-lg p-8 text-center">
-          <div className="text-5xl mb-4">🤖</div>
+          <div className="text-5xl mb-4"></div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">AI Workout Planner</h2>
           <p className="text-gray-600 mb-8">
             Get a personalized AI-generated workout plan tailored to your goals and experience level. Upgrade to Premium to unlock this feature.
@@ -83,7 +84,7 @@ function UnifiedPlannerContent() {
         {/* Header with History Link */}
         <div className="flex justify-between items-start mb-8">
           <div className="text-center flex-1">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">💪 Workout Planner</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Workout Planner</h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Choose between AI-generated personalized plans or build your own custom workout routine
             </p>
@@ -92,7 +93,10 @@ function UnifiedPlannerContent() {
             href="/planner/history"
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap"
           >
-            📋 View History
+            <span className="inline-flex items-center gap-2">
+              <History className="w-4 h-4" aria-hidden="true" />
+              View History
+            </span>
           </Link>
         </div>
 
@@ -107,8 +111,11 @@ function UnifiedPlannerContent() {
             }`}
             disabled={!hasAccess}
           >
-            <span className="text-xl mr-2">🤖</span>
-            AI Generation {!hasAccess && <span className="text-xs ml-1">👑</span>}
+            <span className="inline-flex items-center gap-2">
+              <Sparkles className="w-5 h-5" aria-hidden="true" />
+              AI Generation
+              {!hasAccess && <Lock className="w-4 h-4 text-indigo-200" aria-hidden="true" />}
+            </span>
           </button>
 
           <button
@@ -119,8 +126,10 @@ function UnifiedPlannerContent() {
                 : 'bg-white text-gray-700 hover:text-gray-900'
             }`}
           >
-            <span className="text-xl mr-2">🎯</span>
-            Custom Planner
+            <span className="inline-flex items-center gap-2">
+              <ListChecks className="w-5 h-5" aria-hidden="true" />
+              Custom Planner
+            </span>
           </button>
         </div>
 
@@ -134,7 +143,7 @@ function UnifiedPlannerContent() {
             }`}
           >
             <h3 className="font-semibold text-gray-900 mb-1">
-              🤖 AI Generation {!hasAccess && <span className="text-xs">Premium</span>}
+              AI Generation {!hasAccess && <span className="text-xs">Premium</span>}
             </h3>
             <p className="text-sm text-gray-600">
               Let our AI create a personalized plan based on your goals, experience level, equipment, and medical conditions.
@@ -148,7 +157,7 @@ function UnifiedPlannerContent() {
                 : 'border-gray-200 bg-gray-50 opacity-60'
             }`}
           >
-            <h3 className="font-semibold text-gray-900 mb-1">🎯 Custom Planner</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">Custom Planner</h3>
             <p className="text-sm text-gray-600">
               Hand-pick exercises from our library and build your own plan week by week, set by set.
             </p>
@@ -176,7 +185,7 @@ function UnifiedPlannerContent() {
         {/* Features Section */}
         <div className="mt-12 grid md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-lg shadow">
-            <div className="text-3xl mb-3">✨</div>
+            <div className="text-3xl mb-3"></div>
             <h3 className="font-semibold text-gray-900 mb-2">Smart Exercise Selection</h3>
             <p className="text-gray-600 text-sm">
               {mode === 'ai'
@@ -186,7 +195,7 @@ function UnifiedPlannerContent() {
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow">
-            <div className="text-3xl mb-3">📊</div>
+            <div className="text-3xl mb-3"></div>
             <h3 className="font-semibold text-gray-900 mb-2">Progressive Overload</h3>
             <p className="text-gray-600 text-sm">
               {mode === 'ai'
@@ -196,7 +205,7 @@ function UnifiedPlannerContent() {
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow">
-            <div className="text-3xl mb-3">💾</div>
+            <div className="text-3xl mb-3"></div>
             <h3 className="font-semibold text-gray-900 mb-2">Save & Track</h3>
             <p className="text-gray-600 text-sm">
               Save your plans and track your progress over multiple weeks

@@ -35,6 +35,9 @@ export const metadata: Metadata = {
     title: 'GuideMeCoach - Exercise Knowledge Platform',
     description: 'Comprehensive exercise library for Indian fitness enthusiasts',
   },
+  icons: {
+    icon: '/brand/guidemecoach-mark.svg',
+  },
   robots: {
     index: true,
     follow: true,

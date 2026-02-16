@@ -62,41 +62,41 @@ export function ExerciseAlternatives({ slug, alternatives }: AlternativesProps) 
 
   return (
     <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
-      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">💡 Exercise Alternatives</h3>
+      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Exercise Alternatives</h3>
 
       <div className="space-y-8">
         <AlternativeSection
           title="Easier Variations"
           items={alternatives.easier}
-          icon="📉"
+          icon=""
           color="text-green-700 dark:text-green-300"
         />
 
         <AlternativeSection
           title="Harder Variations"
           items={alternatives.harder}
-          icon="📈"
+          icon=""
           color="text-orange-700 dark:text-orange-300"
         />
 
         <AlternativeSection
           title="Equipment-Free Options"
           items={alternatives.equipment_free}
-          icon="🏠"
+          icon=""
           color="text-blue-700 dark:text-blue-300"
         />
 
         <AlternativeSection
           title="Same Level Alternatives"
           items={alternatives.same_level}
-          icon="⚖️"
+          icon=""
           color="text-purple-700 dark:text-purple-300"
         />
       </div>
 
       <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900 rounded-lg">
         <p className="text-sm text-blue-900 dark:text-blue-200">
-          💡 <span className="font-semibold">Tip:</span> Can't do this exercise? Try one of the alternatives above based on your current fitness level or available equipment.
+           <span className="font-semibold">Tip:</span>Can't do this exercise? Try one of the alternatives above based on your current fitness level or available equipment.
         </p>
       </div>
     </section>

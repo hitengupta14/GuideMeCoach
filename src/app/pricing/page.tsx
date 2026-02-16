@@ -166,7 +166,7 @@ function PricingContent() {
           {isPremium && subscriptionStatus && (
             <div className="inline-block mb-8 px-6 py-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
               <p className="text-green-800 dark:text-green-200 font-semibold text-lg">
-                ✓ {subscriptionStatus.planType === 'premium-yearly' ? 'Premium Yearly' : 'Premium Monthly'} Active
+                 {subscriptionStatus.planType === 'premium-yearly' ? 'Premium Yearly' : 'Premium Monthly'} Active
               </p>
               {subscriptionStatus.daysRemaining > 0 && (
                 <p className="text-green-700 dark:text-green-300 text-sm mt-2">
@@ -253,7 +253,7 @@ function PricingContent() {
                 {/* Badge */}
                 {isCurrentPlan && (
                   <div className="bg-green-600 text-white text-center py-2 rounded-t-xl font-semibold">
-                    ✓ Current Plan
+                     Current Plan
                   </div>
                 )}
                 {isPendingPlan && (

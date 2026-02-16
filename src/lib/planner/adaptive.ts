@@ -147,16 +147,16 @@ export function calculateAdjustments(data: RecentWorkoutData): AdjustmentRecomme
  */
 export function getAdjustmentMessage(recommendation: AdjustmentRecommendation): string {
   if (recommendation.shouldDeload) {
-    return `🔄 Deload Week Recommended\n\n${recommendation.reason}\n\nWe adjusted your plan to reduce volume by ${Math.abs(recommendation.volumeChange * 100).toFixed(0)}% this week.`
+    return ` Deload Week Recommended\n\n${recommendation.reason}\n\nWe adjusted your plan to reduce volume by ${Math.abs(recommendation.volumeChange * 100).toFixed(0)}% this week.`
   }
 
   if (recommendation.volumeChange < 0) {
-    return `📉 Volume Reduction\n\n${recommendation.reason}\n\nWe reduced your workout volume by ${Math.abs(recommendation.volumeChange * 100).toFixed(0)}%.`
+    return ` Volume Reduction\n\n${recommendation.reason}\n\nWe reduced your workout volume by ${Math.abs(recommendation.volumeChange * 100).toFixed(0)}%.`
   }
 
   if (recommendation.volumeChange > 0) {
-    return `📈 Progressive Overload\n\n${recommendation.reason}\n\nWe increased your volume by ${(recommendation.volumeChange * 100).toFixed(0)}%.`
+    return ` Progressive Overload\n\n${recommendation.reason}\n\nWe increased your volume by ${(recommendation.volumeChange * 100).toFixed(0)}%.`
   }
 
-  return `✅ Keep Going!\n\n${recommendation.reason}`
+  return ` Keep Going!\n\n${recommendation.reason}`
 }

@@ -212,7 +212,7 @@ export async function GET(req: Request) {
         if (avgHours < 6) {
           recoveryScore -= 15
           factors.push({ factor: 'Low Sleep', impact: -15, value: `Avg: ${avgHours.toFixed(1)}h/night` })
-          recommendations.push('💤 Aim for at least 7 hours of sleep to improve recovery.')
+          recommendations.push(' Aim for at least 7 hours of sleep to improve recovery.')
         } else if (avgHours < 7) {
           recoveryScore -= 5
           factors.push({ factor: 'Sleep', impact: -5, value: `Avg: ${avgHours.toFixed(1)}h/night` })
@@ -237,32 +237,32 @@ export async function GET(req: Request) {
     else status = 'poor'
 
     if (recoveryScore < 50) {
-      recommendations.push('⚠️ Your recovery is compromised. Add a full rest day ASAP.')
-      recommendations.push('💤 Prioritize sleep - aim for 7-9 hours')
-      recommendations.push('🧘 Try stretching, yoga, or foam rolling')
+      recommendations.push(' Your recovery is compromised. Add a full rest day ASAP.')
+      recommendations.push(' Prioritize sleep - aim for 7-9 hours')
+      recommendations.push(' Try stretching, yoga, or foam rolling')
     } else if (recoveryScore < 70) {
-      recommendations.push('😴 Good sleep is important - target 7+ hours')
-      recommendations.push('🚶 Consider a light active recovery day')
+      recommendations.push(' Good sleep is important - target 7+ hours')
+      recommendations.push(' Consider a light active recovery day')
     }
     
     if (workoutFrequency >= 6) {
-      recommendations.push('📅 You\'ve worked hard - take at least 1 full rest day')
+      recommendations.push(' You\'ve worked hard - take at least 1 full rest day')
     }
     
     if (avgRPE && avgRPE >= 8.5) {
-      recommendations.push('🎯 Mix in 1-2 lower intensity sessions this week')
+      recommendations.push(' Mix in 1-2 lower intensity sessions this week')
     }
     
     if (energyLevels.length > 0) {
       const avgEnergy = energyLevels.reduce((a: number, b: number) => a + b, 0) / energyLevels.length
       if (avgEnergy < 5) {
-        recommendations.push('🥗 Boost nutrition intake - consider more calories and protein')
-        recommendations.push('💧 Stay hydrated throughout your workouts')
+        recommendations.push(' Boost nutrition intake - consider more calories and protein')
+        recommendations.push(' Stay hydrated throughout your workouts')
       }
     }
 
     if (recoveryScore >= 80) {
-      recommendations.push('🎉 Excellent recovery! You can handle increased training intensity.')
+      recommendations.push(' Excellent recovery! You can handle increased training intensity.')
     }
 
     return Response.json({

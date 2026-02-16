@@ -283,7 +283,7 @@ export default async function MetricsPage({
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Metrics</h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">
-              The <span className="font-mono">metrics_counters</span> table is missing.
+              The <span className="font-mono">metrics_counters</span>table is missing.
             </p>
           </div>
 

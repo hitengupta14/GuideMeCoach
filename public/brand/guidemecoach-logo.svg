@@ -1,0 +1,10 @@
+<svg width="900" height="260" viewBox="0 0 900 260" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GuideMeCoach logo">
+  <rect width="900" height="260" fill="none" />
+  <g transform="translate(40,32)">
+    <circle cx="96" cy="96" r="66" stroke="#4F46E5" stroke-width="14" stroke-linecap="round" />
+    <path d="M96 96H144" stroke="#4F46E5" stroke-width="14" stroke-linecap="round" />
+    <path d="M144 89L164 96L144 103Z" fill="#14B8A6" />
+    <circle cx="96" cy="96" r="5" fill="#1F2937" />
+  </g>
+  <text x="240" y="145" font-family="Sora, Poppins, Inter, system-ui, -apple-system, sans-serif" font-size="72" font-weight="600" fill="#111827">GuideMeCoach</text>
+</svg>

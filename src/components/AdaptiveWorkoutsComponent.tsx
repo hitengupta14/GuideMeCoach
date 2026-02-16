@@ -117,7 +117,7 @@ export default function AdaptiveWorkoutsComponent({ userId }: { userId: string }
               <h3 className="font-bold text-yellow-900">Deload Week Recommended</h3>
               <p className="text-yellow-800 mt-1">{recommendations.deloadRecommendation}</p>
               <p className="text-yellow-800 text-sm mt-2">
-                💡 Deload weeks improve recovery, prevent plateaus, and reduce injury risk.
+                 Deload weeks improve recovery, prevent plateaus, and reduce injury risk.
               </p>
             </div>
           </div>
@@ -127,7 +127,7 @@ export default function AdaptiveWorkoutsComponent({ userId }: { userId: string }
       {/* Motivational Tip */}
       <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4">
         <p className="text-indigo-900 text-lg">
-          <span className="text-2xl mr-2">💪</span>
+          <Zap className="w-5 h-5 text-indigo-600 inline-block mr-2 -mt-1" aria-hidden="true" />
           {recommendations.motivationalTip}
         </p>
       </div>
@@ -223,7 +223,7 @@ export default function AdaptiveWorkoutsComponent({ userId }: { userId: string }
       {/* Tips */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-blue-900 text-sm">
-          <strong>💡 Tip:</strong> These recommendations are based on your performance patterns. The AI adapts as you
+          <strong>Tip:</strong>These recommendations are based on your performance patterns. The AI adapts as you
           continue logging workouts. Remember to prioritize consistency and recovery for sustainable progress!
         </p>
       </div>

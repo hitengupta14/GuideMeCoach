@@ -110,7 +110,7 @@ export default function ExerciseRecommender({
           onClick={() => setIsExpanded(false)}
           className="text-gray-600 hover:text-gray-900 text-sm font-medium"
         >
-          ✕
+          
         </button>
       </div>
 
@@ -202,7 +202,7 @@ export default function ExerciseRecommender({
             )}
 
           <p className="text-xs text-gray-600 text-center pt-2">
-            💡 Powered by AI fitness coaching
+             Powered by AI fitness coaching
           </p>
         </div>
       )}

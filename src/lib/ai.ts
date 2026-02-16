@@ -1144,11 +1144,11 @@ Focus on:
 function getFallbackResponse(): string {
   return `I'm here to help with your fitness journey! I can assist with:
 
-💪 **Exercise Form & Technique** - Proper execution and common mistakes
-🔄 **Alternative Exercises** - Based on equipment or limitations  
-⚠️ **Safety & Injury Prevention** - Training safely and smart
-📈 **Progressive Overload** - How to keep making gains
-✨ **Motivation & Consistency** - Staying on track
+ **Exercise Form & Technique** - Proper execution and common mistakes
+ **Alternative Exercises** - Based on equipment or limitations  
+ **Safety & Injury Prevention** - Training safely and smart
+ **Progressive Overload** - How to keep making gains
+ **Motivation & Consistency** - Staying on track
 
 What would you like to know about?
 

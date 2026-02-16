@@ -39,14 +39,14 @@ export default function DashboardPage() {
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Link href="/today">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-gray-800">
-              <div className="text-4xl mb-4">📅</div>
+              <div className="text-4xl mb-4"></div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Today</h3>
               <p className="text-gray-600 dark:text-gray-400">Your next workout, ready to go</p>
             </div>
           </Link>
           <Link href="/planner">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-gray-800">
-              <div className="text-4xl mb-4">📋</div>
+              <div className="text-4xl mb-4"></div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Create Plan</h3>
               <p className="text-gray-600 dark:text-gray-400">Generate a personalized 12-week workout plan</p>
             </div>
@@ -54,7 +54,7 @@ export default function DashboardPage() {
 
           <Link href="/profile">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-gray-800">
-              <div className="text-4xl mb-4">👤</div>
+              <div className="text-4xl mb-4"></div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Edit Profile</h3>
               <p className="text-gray-600 dark:text-gray-400">Update your fitness profile and preferences</p>
             </div>
@@ -62,7 +62,7 @@ export default function DashboardPage() {
 
           <Link href="/workouts">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-gray-800">
-              <div className="text-4xl mb-4">💪</div>
+              <div className="text-4xl mb-4"></div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Quick Log</h3>
               <p className="text-gray-600 dark:text-gray-400">Record your workout and track progress</p>
             </div>
@@ -74,11 +74,11 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">AI-Powered Features</h2>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 border border-gray-200 dark:border-gray-800">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">📊 Adaptive Workouts</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Adaptive Workouts</h3>
               <AdaptiveWorkoutsComponent userId={user.id} />
             </div>
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 border border-gray-200 dark:border-gray-800">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">🍎 Nutrition Guidance</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Nutrition Guidance</h3>
               <NutritionGuidanceComponent userId={user.id} />
             </div>
           </div>
@@ -89,7 +89,7 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Exercise & Progress</h2>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-6 border border-gray-200 dark:border-gray-800">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">💡 Exercise Recommendations</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Exercise Recommendations</h3>
               <ExerciseRecommender userId={user.id} lastExercises={[]} availableEquipment={user.availableEquipment || []} onSelectExercise={() => {}} />
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function DashboardPage() {
 
         {/* Progress Insights */}
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800/50 p-8 mb-8 border border-gray-200 dark:border-gray-800">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">📈 Progress & Insights</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Progress & Insights</h2>
           <ProgressInsightsComponent userId={user.id} />
         </div>
 

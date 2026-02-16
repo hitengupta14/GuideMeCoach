@@ -12,26 +12,26 @@ if (!allowDestructive) {
 
 async function cleanAndSeed() {
   try {
-    console.log('🧹 Cleaning database...')
+console.log('Cleaning database...')
     
     // Delete all data in reverse order of dependencies
     await db.delete(exerciseMuscles)
-    console.log('✅ Cleared exercise_muscles')
+console.log('Cleared exercise_muscles')
     
     await db.delete(exercises)
-    console.log('✅ Cleared exercises')
+console.log('Cleared exercises')
     
     await db.delete(muscleGroups)
-    console.log('✅ Cleared muscle_groups')
+console.log('Cleared muscle_groups')
     
-    console.log('🌱 Starting fresh seed...')
+console.log('Starting fresh seed...')
     
     // Seed muscle groups
     console.log('Adding muscle groups...')
     const muscleGroupsData = seedMuscleGroups
 
     const insertedMuscles = await db.insert(muscleGroups).values(muscleGroupsData).returning()
-    console.log(`✅ Added ${insertedMuscles.length} muscle groups`)
+console.log(`Added ${insertedMuscles.length} muscle groups`)
 
     // Create muscle map
     const muscleMap = Object.fromEntries(
@@ -40,7 +40,7 @@ async function cleanAndSeed() {
 
     // Combine all exercises
     const allExercisesData = allSeedExercises
-    console.log(`📚 Seed catalog contains ${SEED_EXERCISE_TOTAL} exercises`)
+console.log(`Seed catalog contains ${SEED_EXERCISE_TOTAL} exercises`)
 
     // Process exercises and create muscle links
     console.log('Adding exercises and linking to muscle groups...')
@@ -64,15 +64,15 @@ async function cleanAndSeed() {
       }
     }
 
-    console.log(`✅ Added ${allExercisesData.length} exercises`)
+console.log(`Added ${allExercisesData.length} exercises`)
 
     // Insert all muscle links
     await db.insert(exerciseMuscles).values(muscleLinks)
-    console.log(`✅ Created ${muscleLinks.length} exercise-muscle relationships`)
+console.log(`Created ${muscleLinks.length} exercise-muscle relationships`)
     
-    console.log('✅ Database cleaned and reseeded successfully!')
+console.log('Database cleaned and reseeded successfully!')
   } catch (error) {
-    console.error('❌ Error:', error)
+console.error('Error:', error)
     process.exit(1)
   } finally {
     await client.end()

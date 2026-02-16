@@ -22,7 +22,7 @@ export function computeProfileCompletion(user: UserProfile) {
       description: 'Your name and contact details',
       completed: Boolean(user.name),
       fields: ['name'],
-      icon: '👤',
+      icon: '',
     },
     {
       id: 'physical_stats',
@@ -30,7 +30,7 @@ export function computeProfileCompletion(user: UserProfile) {
       description: 'Height, weight, age, and gender',
       completed: Boolean(user.height && (user.weight || user.currentWeight) && user.age && user.gender),
       fields: ['height', 'weight', 'currentWeight', 'age', 'gender'],
-      icon: '📏',
+      icon: '',
     },
     {
       id: 'experience',
@@ -38,7 +38,7 @@ export function computeProfileCompletion(user: UserProfile) {
       description: 'Your fitness background',
       completed: Boolean(user.experienceLevel),
       fields: ['experienceLevel'],
-      icon: '💪',
+      icon: '',
     },
     {
       id: 'goals',
@@ -46,7 +46,7 @@ export function computeProfileCompletion(user: UserProfile) {
       description: 'What do you want to achieve?',
       completed: Boolean(user.goals && user.goals.length > 0),
       fields: ['goals'],
-      icon: '🎯',
+      icon: '',
     },
     {
       id: 'targets',
@@ -54,7 +54,7 @@ export function computeProfileCompletion(user: UserProfile) {
       description: 'Set your fitness target',
       completed: Boolean(user.targetWeight),
       fields: ['targetWeight'],
-      icon: '🎲',
+      icon: '',
     },
   ]
 

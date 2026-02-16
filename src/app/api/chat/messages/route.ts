@@ -309,10 +309,10 @@ function getFallbackResponse(userMessage: string): string {
     if (lower.includes('squat')) {
       return `Great question about squats! Here are key form points:
       
-✓ **Feet**: Shoulder-width apart, toes slightly out
-✓ **Depth**: Aim for parallel or below
-✓ **Back**: Neutral spine, chest up
-✓ **Weight**: On heels and midfoot
+ **Feet**: Shoulder-width apart, toes slightly out
+ **Depth**: Aim for parallel or below
+ **Back**: Neutral spine, chest up
+ **Weight**: On heels and midfoot
 
 Start light and master the form. Would you like tips for a specific issue?`
     }
@@ -320,10 +320,10 @@ Start light and master the form. Would you like tips for a specific issue?`
     if (lower.includes('bench')) {
       return `Bench press form is crucial! Key points:
 
-✓ **Setup**: Flat back, shoulder blades retracted
-✓ **Grip**: Slightly wider than shoulders
-✓ **Path**: Lower to mid-chest, elbows ~45°
-✓ **Drive**: Explosive press up
+ **Setup**: Flat back, shoulder blades retracted
+ **Grip**: Slightly wider than shoulders
+ **Path**: Lower to mid-chest, elbows ~45°
+ **Drive**: Explosive press up
 
 Focus on controlled reps over heavy weight. What aspect needs work?`
     }
@@ -341,7 +341,7 @@ What specific exercise would you like form tips for?`
 
   // Injury and safety
   if (lower.includes('hurt') || lower.includes('pain') || lower.includes('injury')) {
-    return `⚠️ **Safety First!**
+    return ` **Safety First!**
 
 **Stop if you experience**:
 - Sharp, shooting pain
@@ -349,8 +349,8 @@ What specific exercise would you like form tips for?`
 - Pain that worsens during movement
 
 **Normal sensations**:
-- Muscle burn/fatigue ✓
-- Delayed soreness (24-48h later) ✓
+- Muscle burn/fatigue 
+- Delayed soreness (24-48h later) 
 
 For persistent pain, please consult a healthcare professional. I can suggest alternative exercises if you describe where and when the pain occurs.`
   }
@@ -371,7 +371,7 @@ Progress takes time - be patient and consistent! What lift are you working on?`
   // Default
   return `I'm here to help with your fitness journey! 
 
-💪 **I can assist with**:
+ **I can assist with**:
 - Exercise form and technique
 - Progressive overload strategies
 - Injury prevention

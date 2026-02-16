@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Dumbbell } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -113,10 +114,10 @@ export default function ExerciseDetailClientPage() {
   }
 
   const categoryIcons: Record<string, string> = {
-    strength: '💪',
-    mobility: '🔄',
-    rehab: '⚕️',
-    cardio: '❤️',
+    strength: '',
+    mobility: '',
+    rehab: '',
+    cardio: '',
   }
 
   // Prevent the extremely rare but real case where user-provided content contains `</script>`
@@ -225,7 +226,7 @@ export default function ExerciseDetailClientPage() {
             {/* Common Mistakes */}
             {exercise.commonMistakes && exercise.commonMistakes.length > 0 && (
               <section className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900 rounded-2xl shadow-sm p-6">
-                <h2 className="text-2xl font-bold text-yellow-950 dark:text-yellow-200 mb-4">⚠️ Common Mistakes</h2>
+                <h2 className="text-2xl font-bold text-yellow-950 dark:text-yellow-200 mb-4">Common Mistakes</h2>
                 <ul className="space-y-3">
                   {exercise.commonMistakes.map((mistake: string, idx: number) => (
                     <li key={idx} className="flex gap-3 text-yellow-900 dark:text-yellow-200">
@@ -240,7 +241,7 @@ export default function ExerciseDetailClientPage() {
             {/* Injury Risks */}
             {exercise.injuryRisks && exercise.injuryRisks.length > 0 && (
               <section className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900 rounded-2xl shadow-sm p-6">
-                <h2 className="text-2xl font-bold text-red-950 dark:text-red-200 mb-4">🔴 Injury Risks</h2>
+                <h2 className="text-2xl font-bold text-red-950 dark:text-red-200 mb-4">Injury Risks</h2>
                 <ul className="space-y-3">
                   {exercise.injuryRisks.map((risk: string, idx: number) => (
                     <li key={idx} className="flex gap-3 text-red-900 dark:text-red-200">
@@ -290,7 +291,7 @@ export default function ExerciseDetailClientPage() {
                 <div className="space-y-2">
                   {exercise.equipment.map((eq: string) => (
                     <div key={eq} className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                      <span className="text-lg">✓</span>
+                      <Dumbbell className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" />
                       <span className="capitalize">{eq.replace(/_/g, ' ')}</span>
                     </div>
                   ))}
@@ -309,7 +310,7 @@ export default function ExerciseDetailClientPage() {
             {/* Benefits */}
             {exercise.benefits && Object.values(exercise.benefits).some((v) => v) && (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900 rounded-2xl shadow-sm p-6">
-                <h3 className="font-bold text-lg text-green-950 dark:text-green-200 mb-3">✨ Benefits</h3>
+                <h3 className="font-bold text-lg text-green-950 dark:text-green-200 mb-3">Benefits</h3>
                 <ul className="space-y-2 text-sm text-green-900 dark:text-green-200">
                   {exercise.benefits.muscleGrowth && <li>• Muscle Growth</li>}
                   {exercise.benefits.fatLoss && <li>• Fat Loss</li>}
@@ -326,7 +327,7 @@ export default function ExerciseDetailClientPage() {
               <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 space-y-4">
                 {exercise.medicalFlags.notRecommendedFor && exercise.medicalFlags.notRecommendedFor.length > 0 && (
                   <div>
-                    <h4 className="font-semibold text-red-700 dark:text-red-300 mb-2">⚠️ Not Recommended For:</h4>
+                    <h4 className="font-semibold text-red-700 dark:text-red-300 mb-2">Not Recommended For:</h4>
                     <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
                       {exercise.medicalFlags.notRecommendedFor.map((condition: string, idx: number) => (
                         <li key={idx}>• {condition}</li>
@@ -336,7 +337,7 @@ export default function ExerciseDetailClientPage() {
                 )}
                 {exercise.medicalFlags.safeFor && exercise.medicalFlags.safeFor.length > 0 && (
                   <div>
-                    <h4 className="font-semibold text-green-700 dark:text-green-300 mb-2">✅ Safe For:</h4>
+                    <h4 className="font-semibold text-green-700 dark:text-green-300 mb-2">Safe For:</h4>
                     <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
                       {exercise.medicalFlags.safeFor.map((group: string, idx: number) => (
                         <li key={idx}>• {group}</li>

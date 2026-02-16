@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { MedicalConditionsSection } from '@/components/MedicalConditionsSection'
 import { csrfFetch } from '@/lib/csrf-client'
+import { AlertCircle } from 'lucide-react'
 
 interface User {
   id: string
@@ -165,7 +166,7 @@ export default function ProfilePage() {
         <div className="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-8 border border-gray-100">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900">👤 Profile Settings</h1>
+              <h1 className="text-4xl font-bold text-gray-900">Profile Settings</h1>
               <p className="text-gray-600 mt-2">Manage your fitness profile and personal information</p>
             </div>
             {!isOnboarding ? (
@@ -217,7 +218,7 @@ export default function ProfilePage() {
                   .filter((step) => !step.completed)
                   .map((step) => (
                     <li key={step.id} className="flex items-start gap-2 text-sm text-gray-700">
-                      <span className="mt-0.5 text-gray-400">○</span>
+                      <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5" aria-hidden="true" />
                       <span>
                         <span className="font-semibold">{step.title}</span>
                         <span className="text-gray-500"> · {step.description}</span>
@@ -238,14 +239,14 @@ export default function ProfilePage() {
               onClick={handleEdit}
               className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-bold shadow-md hover:shadow-lg"
             >
-              ✏️ Edit Profile
+              Edit Profile
             </button>
           </div>
         )}
 
         {isEditing && (
           <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4 mb-6">
-            <p className="text-amber-800 font-semibold text-lg">📝 Edit Mode Active</p>
+            <p className="text-amber-800 font-semibold text-lg">Edit Mode Active</p>
             <p className="text-amber-700 text-sm mt-1">Make your changes below and click Save when you're done.</p>
           </div>
         )}
@@ -399,7 +400,7 @@ export default function ProfilePage() {
                 ))}
               </div>
               {isEditing && (!formData.goals || formData.goals.length === 0) && (
-                <p className="text-red-600 text-sm font-medium mt-3">⚠️ Please select at least one goal to use AI features</p>
+                <p className="text-red-600 text-sm font-medium mt-3">Please select at least one goal to use AI features</p>
               )}
             </div>
           </div>
@@ -411,14 +412,14 @@ export default function ProfilePage() {
                 type="submit"
                 className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all font-bold shadow-md hover:shadow-lg"
               >
-                ✅ Save Changes
+                 Save Changes
               </button>
               <button
                 type="button"
                 onClick={handleCancel}
                 className="px-8 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all font-bold shadow-md hover:shadow-lg"
               >
-                ❌ Cancel
+                 Cancel
               </button>
             </div>
           )}
@@ -446,7 +447,7 @@ export default function ProfilePage() {
 
         {/* Danger Zone */}
         <div className="bg-white rounded-xl shadow-lg p-8 mt-8 border-2 border-red-200 border-l-4 border-l-red-600">
-          <h2 className="text-2xl font-bold text-red-600 mb-3">⚠️ Danger Zone</h2>
+          <h2 className="text-2xl font-bold text-red-600 mb-3">Danger Zone</h2>
           <p className="text-gray-600 mb-6 font-medium">These actions cannot be undone.</p>
           <button className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-bold shadow-md hover:shadow-lg">
             Delete Account

@@ -20,7 +20,7 @@ export const networkDiagnostics = {
       });
       clearTimeout(timeoutId);
       const latency = Date.now() - startTime;
-      console.log(`✅ Server is reachable. Latency: ${latency}ms`);
+      console.log(` Server is reachable. Latency: ${latency}ms`);
       return {
         isConnected: response.ok,
         latency,
@@ -28,7 +28,7 @@ export const networkDiagnostics = {
     } catch (error) {
       const latency = Date.now() - startTime;
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Cannot reach server after ${latency}ms:`, errorMsg);
+      console.error(` Cannot reach server after ${latency}ms:`, errorMsg);
       return {
         isConnected: false,
         latency,
@@ -56,10 +56,10 @@ export const networkDiagnostics = {
       clearTimeout(timeoutId);
 
       if (response.ok) {
-        console.log('✅ Auth token is valid');
+        console.log(' Auth token is valid');
         return { isAuthorized: true, statusCode: response.status };
       } else {
-        console.warn(`⚠️ Auth token rejected with status ${response.status}`);
+        console.warn(` Auth token rejected with status ${response.status}`);
         return {
           isAuthorized: false,
           statusCode: response.status,
@@ -68,7 +68,7 @@ export const networkDiagnostics = {
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error('❌ Cannot test auth endpoint:', errorMsg);
+      console.error(' Cannot test auth endpoint:', errorMsg);
       return {
         isAuthorized: false,
         error: errorMsg,
@@ -102,7 +102,7 @@ export const networkDiagnostics = {
       clearTimeout(timeoutId);
 
       const latency = Date.now() - startTime;
-      console.log(`✅ Endpoint ${endpoint} responded in ${latency}ms with status ${response.status}`);
+      console.log(` Endpoint ${endpoint} responded in ${latency}ms with status ${response.status}`);
 
       return {
         isReachable: response.ok,
@@ -112,7 +112,7 @@ export const networkDiagnostics = {
     } catch (error) {
       const latency = Date.now() - startTime;
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Endpoint ${endpoint} failed after ${latency}ms:`, errorMsg);
+      console.error(` Endpoint ${endpoint} failed after ${latency}ms:`, errorMsg);
       return {
         isReachable: false,
         latency,
@@ -127,7 +127,7 @@ export const networkDiagnostics = {
     progressEndpoint?: Awaited<ReturnType<typeof this.testEndpoint>>;
     badgesEndpoint?: Awaited<ReturnType<typeof this.testEndpoint>>;
   }> {
-    console.log('🔍 Starting network diagnostics...');
+    console.log(' Starting network diagnostics...');
 
     const server = await this.testConnection();
 
@@ -144,7 +144,7 @@ export const networkDiagnostics = {
     const progressEndpoint = await this.testEndpoint('/analytics/progress?range=month', token);
     const badgesEndpoint = await this.testEndpoint('/badges/check', token);
 
-    console.log('📊 Diagnostics complete:', {
+    console.log(' Diagnostics complete:', {
       server,
       auth,
       progressEndpoint,

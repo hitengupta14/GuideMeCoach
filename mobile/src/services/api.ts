@@ -81,7 +81,7 @@ export const apiClient = {
         } catch {}
 
         if (!response.ok) {
-          debugWarn('🔒 Session refresh failed', {
+          debugWarn(' Session refresh failed', {
             status: response.status,
             error: data?.error || data?.message || response.statusText,
           });
@@ -93,7 +93,7 @@ export const apiClient = {
         const accessToken = data?.data?.accessToken as string | undefined;
         const refreshToken = data?.data?.refreshToken as string | undefined;
         if (!accessToken || !refreshToken) {
-          debugWarn('🔒 Session refresh returned invalid data');
+          debugWarn(' Session refresh returned invalid data');
           this.clearToken();
           await this._authUpdateHandler?.(null);
           return false;
@@ -103,7 +103,7 @@ export const apiClient = {
         await this._authUpdateHandler?.({ accessToken, refreshToken });
         return true;
       } catch (error) {
-        debugWarn('🔒 Session refresh error', error);
+        debugWarn(' Session refresh error', error);
         return false;
       } finally {
         this._refreshInFlight = null;
@@ -120,13 +120,13 @@ export const apiClient = {
     didRefresh: boolean = false
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    debugLog(`🔵 API ${options?.method || 'GET'}: ${url} (attempt ${retryCount + 1})`);
+    debugLog(` API ${options?.method || 'GET'}: ${url} (attempt ${retryCount + 1})`);
 
     try {
       // Add timeout to request
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        debugWarn(`⏱️ Request timeout after ${config.timeout}ms for ${endpoint}`);
+        debugWarn(`⏱ Request timeout after ${config.timeout}ms for ${endpoint}`);
         controller.abort();
       }, config.timeout);
 
@@ -179,11 +179,11 @@ export const apiClient = {
 
       if (!response.ok) {
         const errorMessage = data?.error || data?.message || response.statusText;
-        debugWarn('❌ API Error:', { endpoint, status: response.status, error: errorMessage, url });
+        debugWarn(' API Error:', { endpoint, status: response.status, error: errorMessage, url });
         throw new ApiError(errorMessage, response.status, data);
       }
 
-      debugLog('✅ API Success:', endpoint);
+      debugLog(' API Success:', endpoint);
       return data as T;
     } catch (error: any) {
       const isAborted = error.name === 'AbortError';
@@ -191,7 +191,7 @@ export const apiClient = {
       const isNetworkError = !isApiError;
       const shouldRetry = (isAborted || isNetworkError) && retryCount < (config as any).maxRetries;
 
-      debugWarn('❌ API Error:', {
+      debugWarn(' API Error:', {
         endpoint,
         error: error.message,
         status: isApiError ? error.status : undefined,
@@ -204,7 +204,7 @@ export const apiClient = {
 
       if (shouldRetry) {
         const delay = (config as any).retryDelay * Math.pow(2, retryCount); // Exponential backoff
-        debugLog(`🔄 Retrying ${endpoint} after ${delay}ms...`);
+        debugLog(` Retrying ${endpoint} after ${delay}ms...`);
         await new Promise<void>((resolve) => setTimeout(() => resolve(), delay));
         return (this.request as any)(endpoint, options, retryCount + 1, didRefresh) as Promise<T>;
       }

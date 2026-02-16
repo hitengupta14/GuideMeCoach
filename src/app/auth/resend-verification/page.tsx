@@ -52,7 +52,7 @@ function ResendVerificationContent() {
 
         {success ? (
           <div className="text-center">
-            <div className="text-6xl mb-4">📧</div>
+            <div className="text-6xl mb-4"></div>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               If your email is registered and not yet verified, we've sent a new verification link.
             </p>

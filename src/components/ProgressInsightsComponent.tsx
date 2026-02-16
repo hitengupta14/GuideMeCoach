@@ -153,7 +153,7 @@ export default function ProgressInsightsComponent({ userId }: { userId: string }
             onClick={() => setShowEmailOption(!showEmailOption)}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
           >
-            📧 Email Summary
+             Email Summary
           </button>
         </div>
       </div>
@@ -252,7 +252,7 @@ export default function ProgressInsightsComponent({ userId }: { userId: string }
           <div className="prose prose-sm max-w-none text-gray-800 space-y-4">
             {insights.split('\n').map((line, idx) => {
               // Check if this is a premium-locked feature line
-              const isPremiumLocked = line.includes('🔒 Upgrade to Premium')
+              const isPremiumLocked = line.includes(' Upgrade to Premium')
               
               if (line.startsWith('#')) {
                 return (
@@ -265,7 +265,7 @@ export default function ProgressInsightsComponent({ userId }: { userId: string }
                 return (
                   <div key={idx} className={`flex gap-2 ml-4 ${isPremiumLocked ? 'items-center' : ''}`}>
                     <span className={`font-bold ${isPremiumLocked ? 'text-yellow-600' : 'text-indigo-600'}`}>
-                      {isPremiumLocked ? '🔒' : '•'}
+                      {isPremiumLocked ? '' : '•'}
                     </span>
                     <p className={isPremiumLocked ? 'font-medium text-gray-900' : ''}>
                       {content}
@@ -289,7 +289,7 @@ export default function ProgressInsightsComponent({ userId }: { userId: string }
             })}
             
             {/* Check if insights contain premium upgrade message */}
-            {insights.includes('🔒 Upgrade to Premium') && (
+            {insights.includes(' Upgrade to Premium') && (
               <div className="mt-6 pt-6 border-t border-indigo-200">
                 <a
                   href="/pricing"

@@ -4,12 +4,17 @@
     "slug": "guidemecoach-mobile",
     "version": "1.0.0",
     "scheme": "guidemecoach",
+    "icon": "./assets/icon.png",
     "platforms": [
       "ios",
       "android"
     ],
     "android": {
-      "package": "com.anonymous.guidemecoachmobile"
+      "package": "com.anonymous.guidemecoachmobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F8FAFC"
+      }
     },
     "ios": {
       "bundleIdentifier": "com.anonymous.guidemecoachmobile"

@@ -218,7 +218,7 @@ export default function CheckoutScreen() {
           verifyResponse?.message ||
           'Payment verified. Subscription activation is processing. Please refresh in a few seconds.';
 
-        Alert.alert('✅ Payment Verified', message, [
+        Alert.alert('Payment Verified', message, [
           {
             text: 'Continue',
             onPress: () => {
@@ -474,7 +474,7 @@ export default function CheckoutScreen() {
                   selectedRegion === 'india' && styles.regionButtonTextActive,
                 ]}
               >
-                🇮🇳 India
+                India
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -490,7 +490,7 @@ export default function CheckoutScreen() {
                   selectedRegion === 'international' && styles.regionButtonTextActive,
                 ]}
               >
-                🌍 International
+                International
               </Text>
             </TouchableOpacity>
           </View>
@@ -545,7 +545,7 @@ export default function CheckoutScreen() {
         </TouchableOpacity>
 
         <Text style={styles.secureText}>
-          🔒 Secured by Razorpay • 256-bit SSL Encryption
+           Secured by Razorpay • 256-bit SSL Encryption
         </Text>
 
         {/* FAQ */}

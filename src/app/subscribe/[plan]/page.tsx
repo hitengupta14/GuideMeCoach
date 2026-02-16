@@ -234,7 +234,7 @@ export default function SubscribePage() {
         {success && (
           <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg">
             <p className="text-green-800 dark:text-green-200">
-              ✓ Subscription successful! Redirecting to dashboard...
+               Subscription successful! Redirecting to dashboard...
             </p>
           </div>
         )}

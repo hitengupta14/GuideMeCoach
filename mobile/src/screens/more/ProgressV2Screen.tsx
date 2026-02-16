@@ -51,7 +51,7 @@ export default function ProgressV2Screen() {
           <Text style={[typography.heading3, { color: colors.text, marginBottom: spacing.sm }]}>Profile Completion</Text>
           <Text style={[typography.body3, { color: colors.textSecondary }]}>{profile.completion?.percentage}% complete</Text>
           {(profile.completion?.steps || []).slice(0, 3).map((s: any) => (
-            <Text key={s.id} style={[typography.body3, { color: colors.textSecondary, marginTop: spacing.xs }]}>• {s.title} {s.completed ? '✓' : ''}</Text>
+            <Text key={s.id} style={[typography.body3, { color: colors.textSecondary, marginTop: spacing.xs }]}>• {s.title} {s.completed ? '' : ''}</Text>
           ))}
         </View>
       )}

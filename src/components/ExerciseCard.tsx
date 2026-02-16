@@ -24,10 +24,10 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
   }
 
   const categoryIcons: Record<string, string> = {
-    strength: '💪',
-    mobility: '🔄',
-    rehab: '⚕️',
-    cardio: '❤️',
+    strength: '',
+    mobility: '',
+    rehab: '',
+    cardio: '',
   }
 
   const handleFavoriteClick = async (e: React.MouseEvent) => {
@@ -82,7 +82,7 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
                 unoptimized
               />
             ) : (
-              <span className="text-3xl">{categoryIcons[exercise.category as string] || '💪'}</span>
+              <span className="text-3xl">{categoryIcons[exercise.category as string] || ''}</span>
             )}
             <div className="flex items-center gap-2">
               <span className={`px-2 py-1 rounded text-xs font-semibold ${difficultyColors[exercise.difficulty as string]}`}>
@@ -94,7 +94,7 @@ export function ExerciseCard({ exercise, onFavoriteChange }: ExerciseCardProps) 
                 className="bg-white/20 hover:bg-white/40 p-1.5 rounded-full transition-colors disabled:opacity-50"
                 title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
               >
-                <span className="text-lg">{isFavorite ? '❤️' : '🤍'}</span>
+                <span className="text-lg">{isFavorite ? '' : ''}</span>
               </button>
             </div>
           </div>

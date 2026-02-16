@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm'
 import { videoLinks, exerciseAlternatives } from './add-videos-alternatives'
 
 async function addVideosAndAlternatives() {
-  console.log('🎥 Adding videos and alternatives to exercises...')
+console.log('Adding videos and alternatives to exercises...')
 
   let updated = 0
   let notFound = 0
@@ -22,21 +22,21 @@ async function addVideosAndAlternatives() {
         .where(eq(exercises.slug, slug))
       
       updated++
-      console.log(`✅ Added video for: ${slug}`)
+console.log(`Added video for: ${slug}`)
     } else {
       notFound++
-      console.log(`⚠️  Exercise not found: ${slug}`)
+console.log(`Exercise not found: ${slug}`)
     }
   }
 
-  console.log(`\n✅ Updated ${updated} exercises with videos`)
-  console.log(`⚠️  ${notFound} exercises not found in database`)
-  console.log('\n💡 Note: Alternatives will be displayed via the exerciseAlternatives mapping')
+console.log(`\nUpdated ${updated} exercises with videos`)
+console.log(`${notFound} exercises not found in database`)
+console.log('\nNote: Alternatives will be displayed via the exerciseAlternatives mapping')
 }
 
 addVideosAndAlternatives()
   .catch((error) => {
-    console.error('❌ Error:', error)
+console.error('Error:', error)
     process.exit(1)
   })
   .finally(() => {

@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import Image from 'next/image'
+import { BookOpen, ShieldCheck, MapPin, CalendarCheck } from 'lucide-react'
 
 export default function Home() {
   return (
@@ -7,6 +9,16 @@ export default function Home() {
       <section className="bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800 dark:from-indigo-900 dark:via-purple-900 dark:to-indigo-950 text-white py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
+            <div className="flex justify-center mb-6">
+              <Image
+                src="/brand/guidemecoach-logo.svg"
+                alt="GuideMeCoach"
+                width={420}
+                height={120}
+                className="h-12 sm:h-14 w-auto"
+                priority
+              />
+            </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6">
               Master Every Exercise
             </h1>
@@ -71,7 +83,7 @@ export default function Home() {
           <div className="grid md:grid-cols-4 gap-8 max-w-6xl mx-auto">
             <div className="text-center">
               <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">📚</span>
+                <BookOpen className="w-7 h-7 text-indigo-600 dark:text-indigo-300" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">Knowledge-First</h3>
               <p className="text-gray-600 dark:text-gray-400">
@@ -81,7 +93,7 @@ export default function Home() {
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">⚕️</span>
+                <ShieldCheck className="w-7 h-7 text-green-600 dark:text-green-300" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">Medical-Safe</h3>
               <p className="text-gray-600 dark:text-gray-400">
@@ -91,7 +103,7 @@ export default function Home() {
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">🇮🇳</span>
+                <MapPin className="w-7 h-7 text-orange-600 dark:text-orange-300" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">Indian Context</h3>
               <p className="text-gray-600 dark:text-gray-400">
@@ -101,7 +113,7 @@ export default function Home() {
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">📋</span>
+                <CalendarCheck className="w-7 h-7 text-blue-600 dark:text-blue-300" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">Smart Planner</h3>
               <p className="text-gray-600 dark:text-gray-400">
@@ -120,7 +132,7 @@ export default function Home() {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 border border-gray-200 dark:border-gray-700">
               <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start sm:items-center">
                 <div className="flex-shrink-0">
-                  <div className="text-5xl">📋</div>
+                  <div className="text-5xl"></div>
                 </div>
                 <div className="flex-1">
                   <h3 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Get Your Personalized Plan</h3>
@@ -128,12 +140,12 @@ export default function Home() {
                     Answer a quick questionnaire and get a custom 12-week workout plan tailored to:
                   </p>
                   <ul className="grid grid-cols-2 gap-2 text-gray-700 dark:text-gray-300 mb-6">
-                    <li>✓ Your fitness goals</li>
-                    <li>✓ Experience level</li>
-                    <li>✓ Available equipment</li>
-                    <li>✓ Medical conditions</li>
-                    <li>✓ Time availability</li>
-                    <li>✓ Location preference</li>
+                    <li>Your fitness goals</li>
+                    <li>Experience level</li>
+                    <li>Available equipment</li>
+                    <li>Medical conditions</li>
+                    <li>Time availability</li>
+                    <li>Location preference</li>
                   </ul>
                   <Link 
                     href="/planner"

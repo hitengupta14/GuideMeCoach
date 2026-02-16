@@ -33,7 +33,7 @@ export function useGoogleAuth(): any {
   };
   const redirectUri = makeRedirectUri(redirectUriOptions);
 
-  debugLog('🔵 Google Auth Redirect URI:', redirectUri);
+  debugLog(' Google Auth Redirect URI:', redirectUri);
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest(
     {
@@ -65,13 +65,13 @@ export async function handleGoogleSignIn(idToken: string) {
       apiClient.setTokens(tokenData, refreshTokenData);
       return { token: tokenData, refreshToken: refreshTokenData, user: userData };
     } else {
-      console.error('❌ Invalid response from Google authentication');
-      debugLog('❌ Invalid response structure keys:', Object.keys(response || {}));
+      console.error(' Invalid response from Google authentication');
+      debugLog(' Invalid response structure keys:', Object.keys(response || {}));
       throw new Error('Invalid response from Google authentication');
     }
   } catch (error: any) {
-    console.error('❌ Google Sign-In Error:', error?.message || String(error));
-    debugLog('❌ Google Sign-In Debug:', { status: error?.status });
+    console.error(' Google Sign-In Error:', error?.message || String(error));
+    debugLog(' Google Sign-In Debug:', { status: error?.status });
     throw error;
   }
 }

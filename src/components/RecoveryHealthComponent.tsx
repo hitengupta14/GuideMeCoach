@@ -228,11 +228,11 @@ export default function RecoveryHealthComponent() {
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="grid grid-cols-2 md:grid-cols-5 border-b border-gray-200">
           {[
-            { id: 'recovery', label: '💚 Recovery Score' },
-            { id: 'soreness', label: '🩹 Soreness' },
-            { id: 'pain', label: '🚑 Pain' },
-            { id: 'warmup', label: '🔥 Warm-up' },
-            { id: 'rest', label: '😴 Rest Days' },
+            { id: 'recovery', label: ' Recovery Score' },
+            { id: 'soreness', label: ' Soreness' },
+            { id: 'pain', label: ' Pain' },
+            { id: 'warmup', label: ' Warm-up' },
+            { id: 'rest', label: ' Rest Days' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -290,7 +290,7 @@ export default function RecoveryHealthComponent() {
 
               {/* Factors */}
               <div>
-                <h4 className="font-bold text-gray-900 mb-3">📊 Contributing Factors</h4>
+                <h4 className="font-bold text-gray-900 mb-3">Contributing Factors</h4>
                 <div className="space-y-2">
                   {recoveryData.factors.map((factor, idx) => (
                     <div
@@ -321,7 +321,7 @@ export default function RecoveryHealthComponent() {
               {/* Recommendations */}
               {recoveryData.recommendations.length > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-bold text-blue-900 mb-2">💡 Recommendations</h4>
+                  <h4 className="font-bold text-blue-900 mb-2">Recommendations</h4>
                   <ul className="space-y-2 text-sm text-blue-900">
                     {recoveryData.recommendations.map((rec, idx) => (
                       <li key={idx} className="flex items-start gap-2">
@@ -608,7 +608,7 @@ export default function RecoveryHealthComponent() {
                       <p className="text-sm text-gray-600 mb-2">{activity.description}</p>
                       <div className="text-xs">
                         {activity.benefits.map((benefit, bidx) => (
-                          <p key={bidx} className="text-indigo-700">✓ {benefit}</p>
+                          <p key={bidx} className="text-indigo-700"> {benefit}</p>
                         ))}
                       </div>
                     </div>

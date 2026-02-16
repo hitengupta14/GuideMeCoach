@@ -409,7 +409,7 @@ export default function PricingScreen() {
 	                  selectedRegion === 'india' && styles.toggleButtonTextActive,
 	                ]}
 	              >
-	                🇮🇳 India
+	                India
 	              </Text>
 	            </TouchableOpacity>
 	            <TouchableOpacity
@@ -425,7 +425,7 @@ export default function PricingScreen() {
 	                  selectedRegion === 'international' && styles.toggleButtonTextActive,
 	                ]}
 	              >
-	                🌍 International
+	                International
 	              </Text>
 	            </TouchableOpacity>
 	          </View>

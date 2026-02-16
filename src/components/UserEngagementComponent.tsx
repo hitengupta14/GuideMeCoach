@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
+import { Award, Dumbbell, Flame, Scale, Trophy, User, Ruler, BarChart3, Target, CheckCircle2 } from 'lucide-react'
 import { csrfFetch } from '@/lib/csrf-client'
 
 interface Achievement {
@@ -8,6 +9,10 @@ interface Achievement {
   name: string
   description: string
   icon: string
+  criteria: {
+    type: string
+    value: number
+  }
   isEarned: boolean
   progress: number
   earnedAt?: Date
@@ -19,6 +24,38 @@ interface CompletionStep {
   description: string
   completed: boolean
   icon: string
+}
+
+const getAchievementIcon = (achievement: Achievement) => {
+  switch (achievement.criteria.type) {
+    case 'weight_loss':
+      return Scale
+    case 'days_streak':
+      return Flame
+    case 'workout_count':
+      return Dumbbell
+    case 'milestone':
+      return Trophy
+    default:
+      return Award
+  }
+}
+
+const getProfileStepIcon = (stepId: string) => {
+  switch (stepId) {
+    case 'basic_info':
+      return User
+    case 'physical_stats':
+      return Ruler
+    case 'experience':
+      return BarChart3
+    case 'goals':
+      return Target
+    case 'targets':
+      return Scale
+    default:
+      return User
+  }
 }
 
 export default function UserEngagementComponent() {
@@ -102,10 +139,10 @@ export default function UserEngagementComponent() {
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="grid grid-cols-2 md:grid-cols-4 border-b border-gray-200">
           {[
-            { id: 'achievements', label: '🏆 Achievements' },
-            { id: 'profile', label: '👤 Profile' },
-            { id: 'calendar', label: '📅 Calendar' },
-            { id: 'reminders', label: '🔔 Reminders' },
+            { id: 'achievements', label: ' Achievements' },
+            { id: 'profile', label: ' Profile' },
+            { id: 'calendar', label: ' Calendar' },
+            { id: 'reminders', label: ' Reminders' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -164,7 +201,12 @@ export default function UserEngagementComponent() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
-                          <span className="text-2xl">{achievement.icon}</span>
+                          <div className="h-9 w-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                            {(() => {
+                              const Icon = getAchievementIcon(achievement)
+                              return <Icon className="w-5 h-5" aria-hidden="true" />
+                            })()}
+                          </div>
                           <h3 className="font-bold text-gray-900">{achievement.name}</h3>
                         </div>
                         <p className="text-sm text-gray-600">{achievement.description}</p>
@@ -182,7 +224,7 @@ export default function UserEngagementComponent() {
                         )}
 
                         {achievement.isEarned && (
-                          <p className="text-xs text-yellow-700 mt-2 font-medium">✓ Achieved!</p>
+                          <p className="text-xs text-yellow-700 mt-2 font-medium">Achieved!</p>
                         )}
                       </div>
                     </div>
@@ -224,7 +266,12 @@ export default function UserEngagementComponent() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
-                          <span className="text-xl">{step.icon}</span>
+                          <div className="h-9 w-9 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center">
+                            {(() => {
+                              const Icon = getProfileStepIcon(step.id)
+                              return <Icon className="w-5 h-5" aria-hidden="true" />
+                            })()}
+                          </div>
                           <div>
                             <h4 className="font-medium text-gray-900">{step.title}</h4>
                             <p className="text-sm text-gray-600">{step.description}</p>
@@ -232,7 +279,7 @@ export default function UserEngagementComponent() {
                         </div>
                       </div>
                       {step.completed && (
-                        <div className="text-green-600 font-bold text-lg">✓</div>
+                        <CheckCircle2 className="w-5 h-5 text-green-600" aria-hidden="true" />
                       )}
                     </div>
                   </div>
@@ -314,7 +361,7 @@ export default function UserEngagementComponent() {
             <div className="space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-900">
-                  <strong>Coming soon:</strong> Workout reminders will help you stay on track with personalized
+                  <strong>Coming soon:</strong>Workout reminders will help you stay on track with personalized
                   notifications for your scheduled workouts.
                 </p>
               </div>

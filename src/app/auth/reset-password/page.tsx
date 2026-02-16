@@ -102,7 +102,7 @@ function ResetPasswordContent() {
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4">
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 sm:p-8 rounded-2xl shadow-xl text-center max-w-md w-full">
-            <div className="text-5xl mb-4">📧</div>
+            <div className="text-5xl mb-4"></div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Check your email</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               If an account exists with that email, you'll receive a password reset link.
@@ -172,7 +172,7 @@ function ResetPasswordContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4">
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 sm:p-8 rounded-2xl shadow-xl text-center max-w-md w-full">
-          <div className="text-5xl mb-4">✅</div>
+          <div className="text-5xl mb-4"></div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Password reset</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">Your password has been successfully reset.</p>
           <p className="text-sm text-gray-500 dark:text-gray-400">Redirecting to login...</p>

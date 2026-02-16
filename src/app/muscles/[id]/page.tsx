@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Dumbbell } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { db } from '@/db'
 import { muscleGroups, exerciseMuscles, exercises } from '@/db/schema'
@@ -132,7 +133,7 @@ export default async function MusclePage({
                         {/* Header */}
                         <div className="bg-gradient-to-r from-primary-500 to-primary-600 p-4 text-white">
                           <div className="flex items-start justify-between">
-                            <span className="text-2xl">💪</span>
+                            <Dumbbell className="w-6 h-6 text-white/90" aria-hidden="true" />
                             <span
                               className={`px-2 py-1 rounded text-xs font-semibold ${roleColors[role]}`}
                             >

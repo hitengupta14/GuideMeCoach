@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { CheckCircle2, ClipboardList } from 'lucide-react'
 import { csrfFetch } from '@/lib/csrf-client'
 
 type PlanSummary = {
@@ -129,7 +130,7 @@ export default function PlanHistoryComponent() {
       {activePlan && (
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <span>✅</span>
+            <CheckCircle2 className="w-6 h-6 text-green-600" aria-hidden="true" />
             Active Plan
           </h2>
           <div className="bg-green-50 border-2 border-green-300 p-4 rounded-lg">
@@ -172,7 +173,7 @@ export default function PlanHistoryComponent() {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <span>📋</span>
+              <ClipboardList className="w-6 h-6 text-indigo-600" aria-hidden="true" />
               Plan History
             </h2>
             <button

@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
       reminders.push({
         id: `streak:${streak}`,
         type: 'motivation',
-        title: streak >= 7 ? `🔥 ${streak}-day streak!` : 'Keep your streak going',
+        title: streak >= 7 ? ` ${streak}-day streak!` : 'Keep your streak going',
         description: `You have a ${streak}-day workout streak. Great work — keep it up!`,
         scheduledFor: new Date().toISOString(),
         priority: 'medium',

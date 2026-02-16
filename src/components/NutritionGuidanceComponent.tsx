@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader, AlertCircle, Apple, UtensilsCrossed, Sparkles, Crown, TrendingUp } from 'lucide-react'
+import { Loader, AlertCircle, Apple, UtensilsCrossed, Sparkles, Crown, TrendingUp, CheckCircle2, AlertTriangle, Info } from 'lucide-react'
 import { useAPIError } from '@/hooks/useAPIError'
 import { apiWrapper } from '@/lib/api-wrapper'
 import Link from 'next/link'
@@ -169,8 +169,13 @@ function RenderSimpleGuidance({ guidance }: { guidance: SimpleNutritionGuidance 
       {/* Disclaimer */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-blue-900 text-sm">
-          ⓘ <strong>Disclaimer:</strong> This guidance is for educational purposes only. Consult a registered
-          dietitian for personalized meal planning or if you have specific medical conditions.
+          <span className="inline-flex items-center gap-2">
+            <Info className="w-4 h-4 text-blue-700" aria-hidden="true" />
+            <span>
+              <strong>Disclaimer:</strong>This guidance is for educational purposes only. Consult a registered
+              dietitian for personalized meal planning or if you have specific medical conditions.
+            </span>
+          </span>
         </p>
       </div>
 
@@ -207,7 +212,7 @@ function RenderSimpleGuidance({ guidance }: { guidance: SimpleNutritionGuidance 
         <ul className="space-y-2">
           {guidance.simpleRules.map((rule, idx) => (
             <li key={idx} className="flex gap-2 text-gray-700">
-              <span className="text-indigo-600 font-bold">✓</span>
+              <CheckCircle2 className="w-4 h-4 text-indigo-600 mt-0.5" aria-hidden="true" />
               <span>{rule}</span>
             </li>
           ))}
@@ -219,7 +224,7 @@ function RenderSimpleGuidance({ guidance }: { guidance: SimpleNutritionGuidance 
         <h3 className="font-bold text-gray-900 mb-4 text-lg">Meal Templates (Pick & Choose)</h3>
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <h4 className="font-semibold text-gray-800 mb-2">🍳 Breakfast Options</h4>
+            <h4 className="font-semibold text-gray-800 mb-2">Breakfast Options</h4>
             <ul className="space-y-2">
               {guidance.mealTemplates.breakfast.map((meal, idx) => (
                 <li key={idx} className="text-sm text-gray-700 pl-4 border-l-2 border-yellow-300">
@@ -230,7 +235,7 @@ function RenderSimpleGuidance({ guidance }: { guidance: SimpleNutritionGuidance 
           </div>
 
           <div>
-            <h4 className="font-semibold text-gray-800 mb-2">🍛 Lunch Options</h4>
+            <h4 className="font-semibold text-gray-800 mb-2">Lunch Options</h4>
             <ul className="space-y-2">
               {guidance.mealTemplates.lunch.map((meal, idx) => (
                 <li key={idx} className="text-sm text-gray-700 pl-4 border-l-2 border-orange-300">
@@ -241,7 +246,7 @@ function RenderSimpleGuidance({ guidance }: { guidance: SimpleNutritionGuidance 
           </div>
 
           <div>
-            <h4 className="font-semibold text-gray-800 mb-2">🍲 Dinner Options</h4>
+            <h4 className="font-semibold text-gray-800 mb-2">Dinner Options</h4>
             <ul className="space-y-2">
               {guidance.mealTemplates.dinner.map((meal, idx) => (
                 <li key={idx} className="text-sm text-gray-700 pl-4 border-l-2 border-blue-300">
@@ -252,7 +257,7 @@ function RenderSimpleGuidance({ guidance }: { guidance: SimpleNutritionGuidance 
           </div>
 
           <div>
-            <h4 className="font-semibold text-gray-800 mb-2">🥜 Snack Options</h4>
+            <h4 className="font-semibold text-gray-800 mb-2">Snack Options</h4>
             <ul className="space-y-2">
               {guidance.mealTemplates.snacks.map((meal, idx) => (
                 <li key={idx} className="text-sm text-gray-700 pl-4 border-l-2 border-green-300">
@@ -266,7 +271,7 @@ function RenderSimpleGuidance({ guidance }: { guidance: SimpleNutritionGuidance 
 
       {/* Indian Context */}
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 shadow-sm">
-        <h3 className="font-bold text-gray-900 mb-4 text-lg">🇮🇳 Indian Food Tips</h3>
+            <h3 className="font-bold text-gray-900 mb-4 text-lg">Indian Food Tips</h3>
         <ul className="space-y-2">
           {guidance.indianContext.map((tip, idx) => (
             <li key={idx} className="flex gap-2 text-gray-700">
@@ -279,11 +284,11 @@ function RenderSimpleGuidance({ guidance }: { guidance: SimpleNutritionGuidance 
 
       {/* Avoid Advice */}
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 shadow-sm">
-        <h3 className="font-bold text-red-900 mb-4 text-lg">⚠️ Common Mistakes to Avoid</h3>
+        <h3 className="font-bold text-red-900 mb-4 text-lg">Common Mistakes to Avoid</h3>
         <ul className="space-y-2">
           {guidance.avoidAdvice.map((advice, idx) => (
             <li key={idx} className="flex gap-2 text-red-800">
-              <span className="text-red-600 font-bold">✗</span>
+              <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5" aria-hidden="true" />
               <span>{advice}</span>
             </li>
           ))}
@@ -293,7 +298,7 @@ function RenderSimpleGuidance({ guidance }: { guidance: SimpleNutritionGuidance 
       {/* Bottom Note */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
         <p className="text-gray-600 text-sm text-center">
-          💡 Remember: Consistency beats perfection. Focus on getting most meals right, not every single one.
+          Remember: Consistency beats perfection. Focus on getting most meals right, not every single one.
         </p>
       </div>
     </>
@@ -309,8 +314,13 @@ function RenderAIGuidance({ guidance }: { guidance: AINutritionGuidance }) {
       {/* Disclaimer */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-blue-900 text-sm">
-          ⓘ <strong>Disclaimer:</strong> This is AI-generated guidance for educational purposes. Consult a registered
-          dietitian for personalized meal plans or if you have specific medical conditions.
+          <span className="inline-flex items-center gap-2">
+            <Info className="w-4 h-4 text-blue-700" aria-hidden="true" />
+            <span>
+              <strong>Disclaimer:</strong>This is AI-generated guidance for educational purposes. Consult a registered
+              dietitian for personalized meal plans or if you have specific medical conditions.
+            </span>
+          </span>
         </p>
       </div>
 
@@ -378,10 +388,10 @@ function RenderAIGuidance({ guidance }: { guidance: AINutritionGuidance }) {
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
-              {tab === 'overview' && '📊 Overview'}
-              {tab === 'macros' && '🥗 Detailed Macros'}
-              {tab === 'timing' && '⏰ Meal Timing'}
-              {tab === 'supplements' && '💊 Supplements'}
+              {tab === 'overview' && 'Overview'}
+              {tab === 'macros' && 'Detailed Macros'}
+              {tab === 'timing' && 'Meal Timing'}
+              {tab === 'supplements' && 'Supplements'}
             </button>
           ))}
         </div>
@@ -395,7 +405,7 @@ function RenderAIGuidance({ guidance }: { guidance: AINutritionGuidance }) {
                 <div className="space-y-2">
                   {guidance.generalTips.map((tip, idx) => (
                     <div key={idx} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
-                      <span className="text-green-600 font-bold flex-shrink-0">✓</span>
+                      <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
                       <p className="text-gray-800 text-sm">{tip}</p>
                     </div>
                   ))}
@@ -403,7 +413,7 @@ function RenderAIGuidance({ guidance }: { guidance: AINutritionGuidance }) {
               </div>
 
               <div className="pt-4 border-t border-gray-200">
-                <h3 className="font-bold text-gray-900 mb-3">💧 Hydration Guide</h3>
+                <h3 className="font-bold text-gray-900 mb-3">Hydration Guide</h3>
                 <p className="text-gray-800 bg-blue-50 border border-blue-200 rounded-lg p-4">
                   {guidance.hydrationGuide}
                 </p>
@@ -437,19 +447,19 @@ function RenderAIGuidance({ guidance }: { guidance: AINutritionGuidance }) {
           {activeTab === 'timing' && (
             <div className="space-y-4">
               <div className="border border-indigo-200 bg-indigo-50 rounded-lg p-4">
-                <h4 className="font-bold text-gray-900 mb-2">🏃 Pre-Workout</h4>
+                <h4 className="font-bold text-gray-900 mb-2">Pre-Workout</h4>
                 <p className="text-gray-800 text-sm">{guidance.mealTiming.preWorkout}</p>
               </div>
 
               {guidance.mealTiming.intraWorkout && (
                 <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
-                  <h4 className="font-bold text-gray-900 mb-2">💪 During Workout</h4>
+                  <h4 className="font-bold text-gray-900 mb-2">During Workout</h4>
                   <p className="text-gray-800 text-sm">{guidance.mealTiming.intraWorkout}</p>
                 </div>
               )}
 
               <div className="border border-green-200 bg-green-50 rounded-lg p-4">
-                <h4 className="font-bold text-gray-900 mb-2">🍽️ Post-Workout</h4>
+                <h4 className="font-bold text-gray-900 mb-2">Post-Workout</h4>
                 <p className="text-gray-800 text-sm">{guidance.mealTiming.postWorkout}</p>
               </div>
 

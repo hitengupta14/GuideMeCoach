@@ -1,10 +1,26 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useThemeStore } from '../../store/theme';
 import { spacing, typography, borderRadius, shadows } from '../../theme/spacing';
+
+const getBadgeIconName = (type?: string) => {
+  switch (type) {
+    case 'weight_loss':
+      return 'scale-bathroom';
+    case 'days_streak':
+      return 'fire';
+    case 'workout_count':
+      return 'dumbbell';
+    case 'milestone':
+      return 'trophy-award';
+    default:
+      return 'medal';
+  }
+};
 
 export default function AchievementsScreen() {
   const { user } = useAuthStore();
@@ -73,7 +89,20 @@ export default function AchievementsScreen() {
               },
             ]}
           >
-            <Text style={styles.icon}>{item.icon || '🏅'}</Text>
+            <View
+              style={[
+                styles.iconBadge,
+                {
+                  backgroundColor: item.earned ? `${colors.primary}1A` : `${colors.border}66`,
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={getBadgeIconName(item.criteria?.type)}
+                size={20}
+                color={colors.text}
+              />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={[typography.label1, { color: colors.text }]}>{item.name}</Text>
               <Text style={[typography.body3, { color: colors.textSecondary, marginTop: spacing.xs }]}>
@@ -116,7 +145,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     ...shadows.md,
   },
-  icon: { fontSize: 28, marginRight: spacing.md },
+  iconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
   statePill: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { Bookmark, X } from 'lucide-react'
 import { useSession } from '@/hooks/useSession'
 import { csrfFetch } from '@/lib/csrf-client'
 
@@ -86,7 +87,11 @@ export default function FavoritesPage() {
 
         {favorites.length === 0 ? (
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-10 sm:p-12 text-center">
-            <div className="text-6xl mb-4">💭</div>
+            <div className="flex justify-center mb-4">
+              <div className="h-16 w-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
+                <Bookmark className="w-8 h-8" aria-hidden="true" />
+              </div>
+            </div>
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3">No saved exercises yet</h2>
             <p className="text-gray-600 dark:text-gray-400 text-base sm:text-lg mb-8">Start exploring exercises and build your personalized collection</p>
             <Link
@@ -111,7 +116,7 @@ export default function FavoritesPage() {
                       className="text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-full transition-colors ml-2 flex-shrink-0"
                       title="Remove from favorites"
                     >
-                      ❌
+                      <X className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
                   
