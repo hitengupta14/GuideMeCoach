@@ -91,7 +91,8 @@ function Chip({
 }
 
 export default function ProfileSetupScreen() {
-  const { colors } = useThemeStore();
+  const { colors, theme } = useThemeStore();
+  const isDark = theme === 'dark';
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
   const queryClient = useQueryClient();

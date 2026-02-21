@@ -126,9 +126,6 @@ export default function AIFeaturesHub() {
                     <div className={`bg-gradient-to-br ${feature.color} rounded-lg p-3`}>
                       <Icon className="w-6 h-6 text-white" />
                     </div>
-                    <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">
-                      Phase {feature.phase}
-                    </span>
                   </div>
 
                   {/* Title & Description */}

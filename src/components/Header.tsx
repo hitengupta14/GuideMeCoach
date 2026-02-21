@@ -337,7 +337,6 @@ export function Header() {
                       >
                         <Star className="h-4 w-4" aria-hidden="true" />
                         <span>Upgrade to Premium</span>
-                        <span className="ml-auto text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-0.5 rounded">NEW</span>
                       </Link>
                     </div>
 
@@ -352,7 +351,6 @@ export function Header() {
                           >
                             <Shield className="h-4 w-4" aria-hidden="true" />
                             <span>Admin Panel</span>
-                            <span className="ml-auto text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-0.5 rounded">NEW</span>
                           </Link>
                         </>
                       )}

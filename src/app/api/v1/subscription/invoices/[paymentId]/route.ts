@@ -14,7 +14,7 @@ function pdfEscape(value: string) {
   return asciiSafe(value).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
 }
 
-function buildSimplePdf(lines: string[]): Uint8Array {
+function buildSimplePdf(lines: string[]): Buffer {
   const fontSizeTitle = 16
   const fontSizeBody = 10
   const left = 72
@@ -102,7 +102,7 @@ function normalizeMajorAmount(value: unknown): number | null {
 function formatMoney(amount: unknown, currency: unknown) {
   const curr = typeof currency === 'string' && currency.length > 0 ? currency : 'INR'
   const n = normalizeMajorAmount(amount)
-  if (!Number.isFinite(n)) return `${curr} —`
+  if (n === null || !Number.isFinite(n)) return `${curr} —`
   try {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -164,9 +164,10 @@ export const GET = withApiTelemetry(
     if (payment.description) lines.push(`Description: ${payment.description}`)
 
     const pdf = buildSimplePdf(lines)
+    const pdfBody = new Uint8Array(pdf).buffer
     const filename = `guidemecoach-invoice-${payment.id}.pdf`
 
-    return new NextResponse(pdf, {
+    return new NextResponse(pdfBody, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="${filename}"`,
