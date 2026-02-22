@@ -109,9 +109,9 @@ function formatMoney(amount: unknown, currency: unknown) {
       currency: curr,
       maximumFractionDigits: curr === 'INR' ? 2 : 2,
       minimumFractionDigits: curr === 'INR' ? 2 : 2,
-    }).format(n)
+    }).format(n as number)
   } catch {
-    return `${curr} ${n.toFixed(2)}`
+    return `${curr} ${(n as number).toFixed(2)}`
   }
 }
 

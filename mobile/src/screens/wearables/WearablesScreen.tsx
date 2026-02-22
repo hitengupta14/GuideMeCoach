@@ -89,9 +89,9 @@ export default function WearablesScreen() {
       }
 
       const callbackUrl = new URL(result.url);
-      const code = callbackUrl.searchParams.get('code');
-      const state = callbackUrl.searchParams.get('state');
-      const oauthError = callbackUrl.searchParams.get('error');
+      const code = callbackUrl.searchParams.get?.('code') ?? null;
+      const state = callbackUrl.searchParams.get?.('state') ?? null;
+      const oauthError = callbackUrl.searchParams.get?.('error') ?? null;
       if (oauthError) {
         throw new Error(oauthError);
       }

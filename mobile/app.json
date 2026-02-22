@@ -14,7 +14,12 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F8FAFC"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "ios": {
       "bundleIdentifier": "com.anonymous.guidemecoachmobile"
@@ -35,6 +40,11 @@
         }
       ],
       "expo-av"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "40fa6cf7-bc49-4694-a61d-1a339bfea54a"
+      }
+    }
   }
 }
