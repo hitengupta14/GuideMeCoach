@@ -1,95 +1,72 @@
 import { create } from 'zustand';
 import { Appearance, ColorSchemeName } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { darkColors, lightColors } from '../theme/colors';
 
 export type Theme = 'light' | 'dark';
+export type ThemeMode = Theme | 'system';
+export type ThemeColors = typeof lightColors;
 
 interface ThemeState {
+  // Effective theme ('light' | 'dark') used for rendering.
   theme: Theme;
+  // User preference ('light' | 'dark' | 'system').
+  mode: ThemeMode;
   systemTheme: ColorSchemeName;
-  setTheme: (theme: Theme | 'system') => void;
-  colors: {
-    background: string;
-    card: string;
-    text: string;
-    textSecondary: string;
-    textTertiary?: string;
-    textInverse?: string;
-    border: string;
-    primary: string;
-    primaryDark?: string;
-    secondary?: string;
-    backgroundSecondary?: string;
-    success: string;
-    warning: string;
-    error: string;
-  };
+  setTheme: (mode: ThemeMode) => void;
+  colors: ThemeColors;
 }
 
-const lightColors = {
-  background: '#f5f5f5',
-  card: '#ffffff',
-  text: '#000000',
-  textSecondary: '#666666',
-  textTertiary: '#999999',
-  textInverse: '#FFFFFF',
-  border: '#e0e0e0',
-  primary: '#007AFF',
-  primaryDark: '#0051D5',
-  secondary: '#FB923C',
-  backgroundSecondary: '#F9FAFB',
-  success: '#34C759',
-  warning: '#FF9500',
-  error: '#FF3B30',
-};
+const THEME_MODE_KEY = 'gm-theme-mode';
 
-const darkColors = {
-  background: '#000000',
-  card: '#1c1c1e',
-  text: '#ffffff',
-  textSecondary: '#98989d',
-  textTertiary: '#666666',
-  textInverse: '#000000',
-  border: '#38383a',
-  primary: '#0A84FF',
-  primaryDark: '#0051D5',
-  secondary: '#FDBA74',
-  backgroundSecondary: '#374151',
-  success: '#30D158',
-  warning: '#FF9F0A',
-  error: '#FF453A',
-};
+function resolveEffectiveTheme(mode: ThemeMode, systemTheme: ColorSchemeName): Theme {
+  if (mode === 'system') return systemTheme === 'dark' ? 'dark' : 'light';
+  return mode;
+}
+
+function resolveColors(theme: Theme): ThemeColors {
+  return theme === 'dark' ? darkColors : lightColors;
+}
 
 export const useThemeStore = create<ThemeState>((set, get) => {
   const systemTheme = Appearance.getColorScheme();
-  const initialTheme = systemTheme === 'dark' ? 'dark' : 'light';
+  const initialMode: ThemeMode = 'system';
+  const initialTheme = resolveEffectiveTheme(initialMode, systemTheme);
 
+  // Follow system theme changes only when mode === 'system'.
   Appearance.addChangeListener(({ colorScheme }) => {
-    const current = get();
+    const nextSystemTheme = colorScheme;
+    const { mode, theme } = get();
+    const nextTheme = mode === 'system' ? resolveEffectiveTheme(mode, nextSystemTheme) : theme;
     set({
-      systemTheme: colorScheme,
-      colors: colorScheme === 'dark' ? darkColors : lightColors,
+      systemTheme: nextSystemTheme,
+      theme: nextTheme,
+      colors: resolveColors(nextTheme),
     });
   });
 
+  // Hydrate theme preference (fire-and-forget).
+  AsyncStorage.getItem(THEME_MODE_KEY)
+    .then((stored) => {
+      const storedMode = stored as ThemeMode | null;
+      if (!storedMode || !['light', 'dark', 'system'].includes(storedMode)) return;
+      const currentSystem = Appearance.getColorScheme();
+      const nextTheme = resolveEffectiveTheme(storedMode, currentSystem);
+      set({ mode: storedMode, theme: nextTheme, colors: resolveColors(nextTheme), systemTheme: currentSystem });
+    })
+    .catch(() => {});
+
   return {
     theme: initialTheme,
+    mode: initialMode,
     systemTheme,
-    colors: initialTheme === 'dark' ? darkColors : lightColors,
+    colors: resolveColors(initialTheme),
 
-    setTheme: (theme: Theme | 'system') => {
-      if (theme === 'system') {
-        const systemTheme = Appearance.getColorScheme();
-        const actualTheme = systemTheme === 'dark' ? 'dark' : 'light';
-        set({
-          theme: actualTheme,
-          colors: actualTheme === 'dark' ? darkColors : lightColors,
-        });
-      } else {
-        set({
-          theme,
-          colors: theme === 'dark' ? darkColors : lightColors,
-        });
-      }
+    setTheme: (mode: ThemeMode) => {
+      const currentSystem = Appearance.getColorScheme();
+      const nextTheme = resolveEffectiveTheme(mode, currentSystem);
+      set({ mode, theme: nextTheme, colors: resolveColors(nextTheme), systemTheme: currentSystem });
+      AsyncStorage.setItem(THEME_MODE_KEY, mode).catch(() => {});
     },
   };
 });

@@ -13,6 +13,7 @@ export { LoadingView, ErrorView, EmptyView } from './State';
 export { Container, Screen, Section } from './Layout';
 export { Divider } from './Divider';
 export { Header } from './Header';
+export { default as ScreenHeader } from './ScreenHeader';
 export { TabBar } from './TabBar';
 
 // Form Components

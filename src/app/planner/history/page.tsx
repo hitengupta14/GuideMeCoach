@@ -27,7 +27,7 @@ export default function PlanHistoryPage() {
           <Link href="/planner/unified" className="text-indigo-600 hover:text-indigo-700 font-semibold mb-4 inline-block">
             ← Back to Planner
           </Link>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">📋 Plan History</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Plan History</h1>
           <p className="text-gray-600">View, save, and manage your workout plans</p>
         </div>
 

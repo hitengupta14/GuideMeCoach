@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "smoke": "node --import tsx scripts/smoke.ts",
     "db:generate": "drizzle-kit generate:pg",
     "db:push": "drizzle-kit push:pg",
     "db:push:prod": "bash scripts/push-schema-production.sh",
@@ -43,6 +44,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "resend": "^6.7.0",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^2.2.0",
     "zod": "^3.22.4"
   },

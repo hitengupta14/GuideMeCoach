@@ -1,504 +1,487 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
+  TextInput,
   TouchableOpacity,
-  Alert,
-  ActivityIndicator,
   RefreshControl,
+  Alert,
+  Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import ScreenHeader from '../../components/ScreenHeader';
 import { useThemeStore } from '../../store/theme';
-import { lightColors, darkColors } from '../../theme/colors';
 import { apiClient } from '../../services/api';
 import ExerciseSourceBadge from '../../components/ExerciseSourceBadge';
+import { EmptyView, ErrorView, LoadingView } from '../../components/State';
+import { borderRadius, shadows, spacing, typography } from '../../theme/spacing';
 
-type ReviewStatus = 'draft' | 'approved';
-type ExerciseSource = 'manual' | 'ai_generated' | 'curated';
+const STATUS_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'draft', label: 'Draft' },
+  { key: 'approved', label: 'Approved' },
+] as const;
 
-interface Exercise {
-  id: string;
-  name: string;
-  category: string;
-  difficulty: string;
-  source: ExerciseSource;
-  reviewStatus: ReviewStatus;
-  confidenceScore?: number;
-  createdAt: string;
-  thumbnailUrl?: string;
+const CATEGORY_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'strength', label: 'Strength' },
+  { key: 'mobility', label: 'Mobility' },
+  { key: 'rehab', label: 'Rehab' },
+  { key: 'cardio', label: 'Cardio' },
+] as const;
+
+const DIFFICULTY_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'beginner', label: 'Beginner' },
+  { key: 'intermediate', label: 'Intermediate' },
+  { key: 'advanced', label: 'Advanced' },
+] as const;
+
+type ReviewStatus = (typeof STATUS_FILTERS)[number]['key'];
+
+function formatDate(input: unknown): string {
+  if (!input) return '—';
+  const d = new Date(String(input));
+  if (Number.isNaN(d.getTime())) return '—';
+  try {
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return d.toISOString();
+  }
 }
 
-interface FilterOption {
-  label: string;
-  value: ReviewStatus | 'all';
-}
-
-const STATUS_FILTERS: FilterOption[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Pending', value: 'draft' },
-  { label: 'Approved', value: 'approved' },
-];
-
-export default function AdminExerciseApprovalScreen() {
-  const { theme } = useThemeStore();
-  const colors = theme === 'dark' ? darkColors : lightColors;
+export default function AdminExerciseApprovalScreen({ navigation }: any) {
+  const { colors } = useThemeStore();
   const queryClient = useQueryClient();
-  
-  const [statusFilter, setStatusFilter] = useState<ReviewStatus | 'all'>('draft');
 
-  // Fetch exercises for admin review
-  const { data: exercises = [], isLoading, refetch } = useQuery({
-    queryKey: ['admin-exercises', statusFilter],
-    queryFn: async () => {
-      const response: any = await apiClient.request('/api/admin/exercises', {
-        method: 'GET',
-      });
-      
-      const allExercises = response?.exercises || [];
-      
-      // Filter by status
-      if (statusFilter === 'all') return allExercises;
-      return allExercises.filter((ex: Exercise) => ex.reviewStatus === statusFilter);
-    },
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ReviewStatus>('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const pageSize = 30;
+
+  const query = useQuery({
+    queryKey: ['admin-exercises', search, statusFilter, categoryFilter, difficultyFilter, page],
+    queryFn: () =>
+      apiClient.adminListExercises({
+        reviewStatus: statusFilter !== 'all' ? statusFilter : undefined,
+        search: search || undefined,
+        category: categoryFilter !== 'all' ? categoryFilter : undefined,
+        difficulty: difficultyFilter !== 'all' ? difficultyFilter : undefined,
+        page,
+        pageSize,
+      }),
   });
 
-  // Update exercise status mutation
+  const exercises: any[] = (query.data as any)?.exercises || [];
+  const total = Number((query.data as any)?.total ?? exercises.length);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ 
-      exerciseId, 
-      status 
-    }: { 
-      exerciseId: string; 
-      status: ReviewStatus 
-    }) => {
-      return apiClient.request(`/api/admin/exercises/${exerciseId}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      });
+    mutationFn: async (payload: { exerciseId: string; reviewStatus: 'draft' | 'approved' }) => {
+      return apiClient.adminSetExerciseReviewStatus(payload.exerciseId, payload.reviewStatus);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-exercises'] });
-      Alert.alert('Success', 'Exercise status updated successfully');
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-exercises'] });
     },
-    onError: (error: Error) => {
-      Alert.alert('Error', error.message || 'Failed to update exercise status');
+    onError: (e: any) => {
+      const message = e?.data?.error || e?.message || 'Failed to update status.';
+      Alert.alert('Error', message);
     },
   });
 
-  const handleApprove = (exerciseId: string) => {
-    Alert.alert(
-      'Approve Exercise',
-      'This exercise will become visible to all users. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Approve',
-          style: 'default',
-          onPress: () => updateStatusMutation.mutate({ exerciseId, status: 'approved' }),
-        },
-      ]
-    );
-  };
-
-  const handleReject = (exerciseId: string) => {
-    Alert.alert(
-      'Set to Draft',
-      'This exercise will be hidden from regular users. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Set to Draft',
-          style: 'destructive',
-          onPress: () => updateStatusMutation.mutate({ exerciseId, status: 'draft' }),
-        },
-      ]
-    );
-  };
-
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
+  const deleteMutation = useMutation({
+    mutationFn: async (exerciseId: string) => apiClient.adminDeleteExercise(exerciseId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-exercises'] });
+      Alert.alert('Deleted', 'Exercise deleted successfully.');
     },
-    header: {
-      padding: 16,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    headerTitle: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: colors.text,
-      marginBottom: 8,
-    },
-    headerSubtitle: {
-      fontSize: 14,
-      color: colors.textSecondary,
-    },
-    filterContainer: {
-      flexDirection: 'row',
-      padding: 12,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      gap: 8,
-    },
-    filterButton: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 20,
-      backgroundColor: colors.background,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    filterButtonActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    filterButtonText: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: colors.text,
-    },
-    filterButtonTextActive: {
-      color: '#FFFFFF',
-    },
-    scrollContent: {
-      padding: 16,
-    },
-    exerciseCard: {
-      backgroundColor: colors.card,
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    exerciseHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: 12,
-    },
-    exerciseInfo: {
-      flex: 1,
-      marginRight: 12,
-    },
-    exerciseName: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: colors.text,
-      marginBottom: 6,
-    },
-    exerciseMeta: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-      marginBottom: 8,
-    },
-    metaBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 8,
-      backgroundColor: colors.background,
-    },
-    metaBadgeText: {
-      fontSize: 11,
-      color: colors.textSecondary,
-      textTransform: 'capitalize',
-    },
-    statusBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 12,
-      alignSelf: 'flex-start',
-    },
-    statusBadgeDraft: {
-      backgroundColor: '#FEF3C7',
-    },
-    statusBadgeApproved: {
-      backgroundColor: '#D1FAE5',
-    },
-    statusBadgeText: {
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    statusBadgeTextDraft: {
-      color: '#92400E',
-    },
-    statusBadgeTextApproved: {
-      color: '#065F46',
-    },
-    confidenceScore: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginBottom: 12,
-    },
-    confidenceScoreText: {
-      fontSize: 13,
-      color: colors.textSecondary,
-    },
-    confidenceScoreValue: {
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    actionButtons: {
-      flexDirection: 'row',
-      gap: 8,
-    },
-    actionButton: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 10,
-      borderRadius: 8,
-      gap: 6,
-    },
-    approveButton: {
-      backgroundColor: '#10B981',
-    },
-    rejectButton: {
-      backgroundColor: '#EF4444',
-    },
-    draftButton: {
-      backgroundColor: '#F59E0B',
-    },
-    actionButtonText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: '#FFFFFF',
-    },
-    emptyContainer: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 64,
-    },
-    emptyIcon: {
-      marginBottom: 16,
-    },
-    emptyText: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      textAlign: 'center',
-    },
-    loadingContainer: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 64,
-    },
-    statsContainer: {
-      padding: 16,
-      backgroundColor: colors.card,
-      marginBottom: 8,
-    },
-    statsRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-    },
-    statItem: {
-      alignItems: 'center',
-    },
-    statValue: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: colors.text,
-    },
-    statLabel: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      marginTop: 4,
+    onError: (e: any) => {
+      const message = e?.data?.error || e?.message || 'Failed to delete exercise.';
+      Alert.alert('Error', message);
     },
   });
 
-  const getConfidenceColor = (score?: number): string => {
-    if (!score) return colors.textSecondary;
-    if (score >= 80) return '#10B981';
-    if (score >= 60) return '#F59E0B';
-    return '#EF4444';
+  const applySearch = () => {
+    setSearch(searchInput.trim());
+    setPage(1);
   };
 
-  const stats = {
-    total: exercises.length,
-    draft: exercises.filter((ex: Exercise) => ex.reviewStatus === 'draft').length,
-    approved: exercises.filter((ex: Exercise) => ex.reviewStatus === 'approved').length,
-  };
+  const filterChip = (
+    key: string,
+    label: string,
+    active: boolean,
+    onPress: () => void
+  ) => (
+    <TouchableOpacity
+      key={key}
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={[
+        styles.chip,
+        {
+          backgroundColor: active ? `${colors.primary}18` : colors.card,
+          borderColor: active ? `${colors.primary}55` : colors.border,
+        },
+      ]}
+    >
+      <Text style={[typography.caption1, { color: active ? colors.primary : colors.textSecondary }]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Exercise Management</Text>
-        <Text style={styles.headerSubtitle}>
-          Review and approve exercises before they appear to users
-        </Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+      <ScreenHeader
+        title="Exercises"
+        subtitle="Manage exercise catalog and approvals."
+        onBackPress={() => navigation.goBack()}
+        rightAction={
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => query.refetch()}
+              activeOpacity={0.85}
+              style={[styles.headerIconBtn, { backgroundColor: `${colors.primary}14` }]}
+              accessibilityRole="button"
+              accessibilityLabel="Refresh exercises"
+            >
+              <MaterialCommunityIcons name="refresh" size={20} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('AdminExerciseEditor', { mode: 'create' })}
+              activeOpacity={0.85}
+              style={[styles.headerIconBtn, { backgroundColor: `${colors.primary}14` }]}
+              accessibilityRole="button"
+              accessibilityLabel="Add exercise"
+            >
+              <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        }
+      />
 
-      {/* Stats */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.total}</Text>
-            <Text style={styles.statLabel}>Total</Text>
+      <View style={[styles.searchWrap, { paddingHorizontal: spacing.lg }]}> 
+        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+          <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
+          <TextInput
+            value={searchInput}
+            onChangeText={setSearchInput}
+            placeholder="Search exercises"
+            placeholderTextColor={colors.textTertiary}
+            style={[styles.searchInput, { color: colors.text }]}
+            returnKeyType="search"
+            onSubmitEditing={applySearch}
+          />
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={applySearch}
+            style={[styles.searchBtn, { backgroundColor: `${colors.primary}16` }]}
+          >
+            <MaterialCommunityIcons name="arrow-right" size={18} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.filterBlock}>
+          <Text style={[typography.caption1, { color: colors.textSecondary, marginBottom: spacing.xs }]}>Status</Text>
+          <View style={styles.filterRow}>
+            {STATUS_FILTERS.map((f) =>
+              filterChip(f.key, f.label, statusFilter === f.key, () => {
+                setStatusFilter(f.key);
+                setPage(1);
+              })
+            )}
           </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: '#F59E0B' }]}>{stats.draft}</Text>
-            <Text style={styles.statLabel}>Pending</Text>
+        </View>
+
+        <View style={styles.filterBlock}>
+          <Text style={[typography.caption1, { color: colors.textSecondary, marginBottom: spacing.xs }]}>Category</Text>
+          <View style={styles.filterRow}>
+            {CATEGORY_FILTERS.map((f) =>
+              filterChip(f.key, f.label, categoryFilter === f.key, () => {
+                setCategoryFilter(f.key);
+                setPage(1);
+              })
+            )}
           </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: '#10B981' }]}>{stats.approved}</Text>
-            <Text style={styles.statLabel}>Approved</Text>
+        </View>
+
+        <View style={styles.filterBlock}>
+          <Text style={[typography.caption1, { color: colors.textSecondary, marginBottom: spacing.xs }]}>Difficulty</Text>
+          <View style={styles.filterRow}>
+            {DIFFICULTY_FILTERS.map((f) =>
+              filterChip(f.key, f.label, difficultyFilter === f.key, () => {
+                setDifficultyFilter(f.key);
+                setPage(1);
+              })
+            )}
           </View>
         </View>
       </View>
 
-      {/* Status Filter */}
-      <View style={styles.filterContainer}>
-        {STATUS_FILTERS.map((filter) => (
-          <TouchableOpacity
-            key={filter.value}
-            style={[
-              styles.filterButton,
-              statusFilter === filter.value && styles.filterButtonActive,
-            ]}
-            onPress={() => setStatusFilter(filter.value)}
-          >
-            <Text
-              style={[
-                styles.filterButtonText,
-                statusFilter === filter.value && styles.filterButtonTextActive,
-              ]}
-            >
-              {filter.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {query.isLoading ? (
+        <LoadingView message="Loading exercises…" />
+      ) : query.error ? (
+        <ErrorView message="Failed to load exercises." />
+      ) : exercises.length === 0 ? (
+        <EmptyView title="No exercises found" subtitle="Try adjusting your filters." />
+      ) : (
+        <FlatList
+          data={exercises}
+          keyExtractor={(item: any) => String(item?.id)}
+          contentContainerStyle={styles.content}
+          refreshControl={<RefreshControl refreshing={Boolean(query.isFetching)} onRefresh={() => query.refetch()} tintColor={colors.primary} />}
+          renderItem={({ item }: any) => {
+            const reviewStatus = String(item?.reviewStatus || 'draft');
+            const source = String(item?.source || 'manual');
+            const isApproved = reviewStatus === 'approved';
 
-      {/* Exercise List */}
-      <ScrollView
-        style={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refetch} colors={[colors.primary]} />
-        }
-      >
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        ) : exercises.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons
-              name="checkbox-marked-circle-outline"
-              size={64}
-              color={colors.textSecondary}
-              style={styles.emptyIcon}
-            />
-            <Text style={styles.emptyText}>
-              {statusFilter === 'draft'
-                ? 'No exercises pending approval'
-                : statusFilter === 'approved'
-                ? 'No approved exercises yet'
-                : 'No exercises found'}
-            </Text>
-          </View>
-        ) : (
-          exercises.map((exercise: Exercise) => (
-            <View key={exercise.id} style={styles.exerciseCard}>
-              <View style={styles.exerciseHeader}>
-                <View style={styles.exerciseInfo}>
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
-                  
-                  <View style={styles.exerciseMeta}>
-                    <ExerciseSourceBadge source={exercise.source} size="small" />
-                    <View style={styles.metaBadge}>
-                      <Text style={styles.metaBadgeText}>{exercise.category}</Text>
+            return (
+              <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+                <View style={styles.cardRow}>
+                  {item?.thumbnailUrl ? (
+                    <Image source={{ uri: String(item.thumbnailUrl) }} style={styles.thumb} />
+                  ) : (
+                    <View style={[styles.thumb, { backgroundColor: `${colors.primary}12` }]}> 
+                      <MaterialCommunityIcons name="play-circle-outline" size={22} color={colors.primary} />
                     </View>
-                    <View style={styles.metaBadge}>
-                      <Text style={styles.metaBadgeText}>{exercise.difficulty}</Text>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[typography.label1, { color: colors.text }]} numberOfLines={1}>
+                      {String(item?.name || 'Exercise')}
+                    </Text>
+                    <Text style={[typography.body3, { color: colors.textSecondary }]} numberOfLines={2}>
+                      {String(item?.description || 'No description')}
+                    </Text>
+
+                    <View style={styles.metaRow}>
+                      <View style={[styles.metaBadge, { backgroundColor: `${colors.primary}12` }]}> 
+                        <Text style={[typography.caption1, { color: colors.text }]}>{String(item?.category || '—')}</Text>
+                      </View>
+                      <View style={[styles.metaBadge, { backgroundColor: `${colors.warning}18` }]}> 
+                        <Text style={[typography.caption1, { color: colors.text }]}>{String(item?.difficulty || '—')}</Text>
+                      </View>
+                      <View style={[styles.metaBadge, { backgroundColor: `${isApproved ? colors.success : colors.textTertiary}18` }]}> 
+                        <Text style={[typography.caption1, { color: colors.text }]}>{isApproved ? 'Approved' : 'Draft'}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.subRow}>
+                      <ExerciseSourceBadge source={source as any} size="small" />
+                      <Text style={[typography.caption1, { color: colors.textSecondary }]}>Created {formatDate(item?.createdAt)}</Text>
+                      {source === 'ai_generated' && item?.confidenceScore !== null && item?.confidenceScore !== undefined ? (
+                        <Text style={[typography.caption1, { color: colors.textSecondary }]}>Confidence {item.confidenceScore}%</Text>
+                      ) : null}
                     </View>
                   </View>
                 </View>
 
-                <View
-                  style={[
-                    styles.statusBadge,
-                    exercise.reviewStatus === 'draft'
-                      ? styles.statusBadgeDraft
-                      : styles.statusBadgeApproved,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      exercise.reviewStatus === 'draft'
-                        ? styles.statusBadgeTextDraft
-                        : styles.statusBadgeTextApproved,
-                    ]}
+                <View style={styles.actionsRow}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      updateStatusMutation.mutate({
+                        exerciseId: String(item?.id),
+                        reviewStatus: isApproved ? 'draft' : 'approved',
+                      })
+                    }
+                    style={[styles.actionBtn, { backgroundColor: `${colors.primary}12` }]}
                   >
-                    {exercise.reviewStatus === 'draft' ? 'Draft' : 'Approved'}
-                  </Text>
+                    <MaterialCommunityIcons name={isApproved ? 'close-circle-outline' : 'check-circle-outline'} size={18} color={colors.primary} />
+                    <Text style={[typography.caption1, { color: colors.text }]}>{isApproved ? 'Draft' : 'Approve'}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => navigation.navigate('AdminExerciseEditor', { exerciseId: item.id })}
+                    style={[styles.actionBtn, { backgroundColor: `${colors.warning}18` }]}
+                  >
+                    <MaterialCommunityIcons name="pencil-outline" size={18} color={colors.warning} />
+                    <Text style={[typography.caption1, { color: colors.text }]}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      Alert.alert('Delete exercise?', 'This cannot be undone.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate(String(item?.id)) },
+                      ]);
+                    }}
+                    style={[styles.actionBtn, { backgroundColor: `${colors.error}12` }]}
+                  >
+                    <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.error} />
+                    <Text style={[typography.caption1, { color: colors.text }]}>{deleteMutation.isPending ? '...' : 'Delete'}</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-
-              {exercise.confidenceScore !== undefined && (
-                <View style={styles.confidenceScore}>
-                  <MaterialCommunityIcons
-                    name="chart-line"
-                    size={16}
-                    color={getConfidenceColor(exercise.confidenceScore)}
-                  />
-                  <Text style={styles.confidenceScoreText}>
-                    Confidence Score:
-                  </Text>
-                  <Text
+            );
+          }}
+          ListFooterComponent={
+            totalPages > 1 ? (
+              <View style={[styles.footer, { borderColor: colors.border }]}> 
+                <Text style={[typography.body3, { color: colors.textSecondary }]}>
+                  Page {page} / {totalPages} • {total} exercises
+                </Text>
+                <View style={styles.footerBtns}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
                     style={[
-                      styles.confidenceScoreValue,
-                      { color: getConfidenceColor(exercise.confidenceScore) },
+                      styles.footerBtn,
+                      { backgroundColor: colors.card, borderColor: colors.border, opacity: page <= 1 ? 0.5 : 1 },
                     ]}
                   >
-                    {exercise.confidenceScore}/100
-                  </Text>
+                    <Text style={[typography.label2, { color: colors.text }]}>Previous</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    style={[
+                      styles.footerBtn,
+                      { backgroundColor: colors.card, borderColor: colors.border, opacity: page >= totalPages ? 0.5 : 1 },
+                    ]}
+                  >
+                    <Text style={[typography.label2, { color: colors.text }]}>Next</Text>
+                  </TouchableOpacity>
                 </View>
-              )}
-
-              <View style={styles.actionButtons}>
-                {exercise.reviewStatus === 'draft' ? (
-                  <>
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.approveButton]}
-                      onPress={() => handleApprove(exercise.id)}
-                      disabled={updateStatusMutation.isPending}
-                    >
-                      <MaterialCommunityIcons name="check" size={18} color="#FFFFFF" />
-                      <Text style={styles.actionButtonText}>Approve</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <>
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.draftButton]}
-                      onPress={() => handleReject(exercise.id)}
-                      disabled={updateStatusMutation.isPending}
-                    >
-                      <MaterialCommunityIcons name="pencil" size={18} color="#FFFFFF" />
-                      <Text style={styles.actionButtonText}>Set to Draft</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
               </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+            ) : (
+              <View style={{ height: spacing['4xl'] }} />
+            )
+          }
+        />
+      )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  content: {
+    padding: spacing.lg,
+    paddingBottom: spacing['4xl'],
+  },
+  searchWrap: {
+    paddingTop: spacing.md,
+    gap: spacing.md,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    minHeight: 48,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    ...typography.body2,
+  },
+  searchBtn: {
+    padding: spacing.xs,
+    borderRadius: borderRadius.md,
+  },
+  filterBlock: {
+    gap: spacing.xs,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  card: {
+    borderWidth: 1,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    ...shadows.md,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  thumb: {
+    width: 54,
+    height: 54,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  metaBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+  },
+  subRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    alignItems: 'center',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+  },
+  footer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  footerBtns: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  footerBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+});

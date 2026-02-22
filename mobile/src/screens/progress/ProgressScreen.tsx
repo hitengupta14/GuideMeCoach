@@ -11,7 +11,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../../services/api";
 import { useAuthStore } from "../../store/auth";
-// import { useThemeStore } from '../../store/theme' from '../../store/auth';
+import { useThemeStore } from "../../store/theme";
+import ScreenHeader from "../../components/ScreenHeader";
 
 interface ProgressData {
   totalWorkouts: number;
@@ -20,6 +21,23 @@ interface ProgressData {
   streakDays: number;
   personalRecords: Array<{ exercise: string; weight: number; date: string }>;
   weeklyProgress: Array<{ day: string; workouts: number }>;
+  stats?: {
+    totalTimeTrainedMinutes?: number;
+    avgWorkoutDurationMinutes?: number;
+    favoriteExercise?: string | null;
+    mostTrainedMuscle?: string | null;
+    lastWorkoutAt?: string | null;
+  };
+}
+
+function formatMinutes(input: unknown): string {
+  const minutes = typeof input === 'number' ? input : Number(input);
+  if (!Number.isFinite(minutes) || minutes <= 0) return '—';
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h <= 0) return `${m} mins`;
+  if (m === 0) return `${h} hrs`;
+  return `${h}h ${m}m`;
 }
 
 export default function ProgressScreen() {
@@ -29,14 +47,15 @@ export default function ProgressScreen() {
 
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
+  const { colors } = useThemeStore();
 
-  const { data: progressData, isLoading, error: progressError } = useQuery({
+  const { data: progressData, isLoading, error: progressError, refetch: refetchProgress } = useQuery({
     queryKey: ["progress", timeRange, token],
     enabled: !!token, // Only enable query when token is available
     queryFn: () => apiClient.request(`/analytics/progress?range=${timeRange}`),
   });
 
-  const { data: badges, error: badgesError } = useQuery({
+  const { data: badges, error: badgesError, refetch: refetchBadges } = useQuery({
     queryKey: ["badges", user?.id, token],
     enabled: !!user?.id && !!token, // Only enable query when both user and token are available
     queryFn: async () => {
@@ -60,14 +79,26 @@ export default function ProgressScreen() {
     streakDays: 0,
     personalRecords: [],
     weeklyProgress: [],
+    stats: {},
   };
+
+  const stats = progress?.stats || {};
+  const avgDurationLabel =
+    typeof stats.avgWorkoutDurationMinutes === 'number'
+      ? `${Math.round(stats.avgWorkoutDurationMinutes)} mins`
+      : '—';
+  const mostTrainedMuscleLabel = stats.mostTrainedMuscle || '—';
+  const favoriteExerciseLabel = stats.favoriteExercise || '—';
+  const totalTimeLabel = formatMinutes(stats.totalTimeTrainedMinutes);
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={{ marginTop: 10, color: '#666' }}>Loading progress...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ marginTop: 10, color: colors.textSecondary }}>
+            Loading progress...
+          </Text>
         </View>
       </View>
     );
@@ -75,19 +106,44 @@ export default function ProgressScreen() {
 
   if (progressError || !token) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <MaterialCommunityIcons name="chart-line" size={28} color="#007AFF" />
-          <Text style={styles.headerTitle}>Progress</Text>
-          <View style={{ width: 28 }} />
-        </View>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ScreenHeader
+          title="Progress"
+          rightAction={
+            <TouchableOpacity
+              onPress={() => {
+                refetchProgress();
+                refetchBadges();
+              }}
+              activeOpacity={0.8}
+              style={[styles.headerIconBtn, { backgroundColor: `${colors.primary}14` }]}
+              accessibilityRole="button"
+              accessibilityLabel="Refresh progress"
+            >
+              <MaterialCommunityIcons name="refresh" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          }
+        />
         <View style={styles.loadingContainer}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#FF3B30" />
-          <Text style={{ marginTop: 10, color: '#FF3B30', fontWeight: 'bold' }}>
+          <MaterialCommunityIcons
+            name="alert-circle-outline"
+            size={48}
+            color={colors.error}
+          />
+          <Text style={{ marginTop: 10, color: colors.error, fontWeight: "bold" }}>
             Unable to load progress
           </Text>
-          <Text style={{ marginTop: 5, color: '#666', textAlign: 'center', paddingHorizontal: 20 }}>
-            {!token ? 'Please log in first' : 'Network error - check your connection and try again'}
+          <Text
+            style={{
+              marginTop: 5,
+              color: colors.textSecondary,
+              textAlign: "center",
+              paddingHorizontal: 20,
+            }}
+          >
+            {!token
+              ? "Please log in first"
+              : "Network error - check your connection and try again"}
           </Text>
         </View>
       </View>
@@ -95,29 +151,48 @@ export default function ProgressScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <MaterialCommunityIcons name="chart-line" size={28} color="#007AFF" />
-        <Text style={styles.headerTitle}>Progress</Text>
-        <View style={{ width: 28 }} />
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScreenHeader
+        title="Progress"
+        rightAction={
+          <TouchableOpacity
+            onPress={() => {
+              refetchProgress();
+              refetchBadges();
+            }}
+            activeOpacity={0.8}
+            style={[styles.headerIconBtn, { backgroundColor: `${colors.primary}14` }]}
+            accessibilityRole="button"
+            accessibilityLabel="Refresh progress"
+          >
+            <MaterialCommunityIcons name="refresh" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        }
+      />
 
       {/* Time Range Selector */}
-      <View style={styles.timeRangeSelector}>
+      <View
+        style={[
+          styles.timeRangeSelector,
+          { backgroundColor: colors.card, borderBottomColor: colors.border },
+        ]}
+      >
         {(["week", "month", "year"] as const).map((range) => (
           <TouchableOpacity
             key={range}
             style={[
               styles.timeRangeButton,
-              timeRange === range && styles.timeRangeButtonActive,
+              {
+                backgroundColor:
+                  timeRange === range ? colors.primary : colors.surfaceSecondary,
+              },
             ]}
             onPress={() => setTimeRange(range)}
           >
             <Text
               style={[
                 styles.timeRangeText,
-                timeRange === range && styles.timeRangeTextActive,
+                { color: timeRange === range ? colors.textInverse : colors.textSecondary },
               ]}
             >
               {range.charAt(0).toUpperCase() + range.slice(1)}
@@ -129,66 +204,68 @@ export default function ProgressScreen() {
       <ScrollView style={styles.scrollContent}>
         {/* Key Metrics */}
         <View style={styles.metricsGrid}>
-          <View style={styles.metricCard}>
-            <View style={styles.metricIconContainer}>
+          <View style={[styles.metricCard, { backgroundColor: colors.card }]}>
+            <View style={[styles.metricIconContainer, { backgroundColor: `${colors.primary}20` }]}>
               <MaterialCommunityIcons
                 name="dumbbell"
                 size={24}
-                color="#007AFF"
+                color={colors.primary}
               />
             </View>
-            <Text style={styles.metricValue}>{progress.totalWorkouts}</Text>
-            <Text style={styles.metricLabel}>Workouts</Text>
+            <Text style={[styles.metricValue, { color: colors.text }]}>{progress.totalWorkouts}</Text>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Workouts</Text>
           </View>
 
-          <View style={styles.metricCard}>
+          <View style={[styles.metricCard, { backgroundColor: colors.card }]}>
             <View
               style={[
                 styles.metricIconContainer,
-                { backgroundColor: "#34C75920" },
+                { backgroundColor: `${colors.success}20` },
               ]}
             >
-              <MaterialCommunityIcons name="fire" size={24} color="#34C759" />
+              <MaterialCommunityIcons name="fire" size={24} color={colors.success} />
             </View>
-            <Text style={styles.metricValue}>{progress.streakDays}</Text>
-            <Text style={styles.metricLabel}>Day Streak</Text>
+            <Text style={[styles.metricValue, { color: colors.text }]}>{progress.streakDays}</Text>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Day Streak</Text>
           </View>
 
-          <View style={styles.metricCard}>
+          <View style={[styles.metricCard, { backgroundColor: colors.card }]}>
             <View
               style={[
                 styles.metricIconContainer,
-                { backgroundColor: "#FF950020" },
+                { backgroundColor: `${colors.warning}20` },
               ]}
             >
-              <MaterialCommunityIcons name="weight" size={24} color="#FF9500" />
+              <MaterialCommunityIcons name="weight" size={24} color={colors.warning} />
             </View>
-            <Text style={styles.metricValue}>
+            <Text style={[styles.metricValue, { color: colors.text }]}>
               {Math.round(progress.totalWeightLifted / 1000)}K
             </Text>
-            <Text style={styles.metricLabel}>Total Weight</Text>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Total Weight</Text>
           </View>
 
-          <View style={styles.metricCard}>
+          <View style={[styles.metricCard, { backgroundColor: colors.card }]}>
             <View
               style={[
                 styles.metricIconContainer,
-                { backgroundColor: "#FF3B3020" },
+                { backgroundColor: `${colors.error}20` },
               ]}
             >
-              <MaterialCommunityIcons name="repeat" size={24} color="#FF3B30" />
+              <MaterialCommunityIcons name="repeat" size={24} color={colors.error} />
             </View>
-            <Text style={styles.metricValue}>
+            <Text style={[styles.metricValue, { color: colors.text }]}>
               {progress.totalSetsCompleted}
             </Text>
-            <Text style={styles.metricLabel}>Sets</Text>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Sets</Text>
           </View>
         </View>
 
         {/* Weekly Progress */}
         {progress.weeklyProgress && progress.weeklyProgress.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Weekly Activity</Text>
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Weekly Activity
+            </Text>
             <View style={styles.weeklyChartContainer}>
               {progress.weeklyProgress.map((day: any, idx: number) => (
                 <View key={idx} style={styles.dayBar}>
@@ -197,10 +274,13 @@ export default function ProgressScreen() {
                       styles.barFill,
                       {
                         height: `${Math.min(day.workouts * 20, 100)}%`,
+                        backgroundColor: colors.primary,
                       },
                     ]}
                   />
-                  <Text style={styles.dayLabel}>{day.day.substring(0, 1)}</Text>
+                  <Text style={[styles.dayLabel, { color: colors.textTertiary }]}>
+                    {day.day.substring(0, 1)}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -209,20 +289,24 @@ export default function ProgressScreen() {
 
         {/* Personal Records */}
         {progress.personalRecords && progress.personalRecords.length > 0 && (
-          <View style={styles.section}>
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
             <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="medal" size={20} color="#FFB800" />
-              <Text style={styles.sectionTitle}>Personal Records</Text>
+              <MaterialCommunityIcons name="medal" size={20} color={colors.warning} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Personal Records
+              </Text>
             </View>
             {progress.personalRecords.map((record: any, idx: number) => (
-              <View key={idx} style={styles.prCard}>
+              <View key={idx} style={[styles.prCard, { borderBottomColor: colors.borderLight || colors.border }]}>
                 <View>
-                  <Text style={styles.exerciseName}>{record.exercise}</Text>
-                  <Text style={styles.prDate}>
+                  <Text style={[styles.exerciseName, { color: colors.text }]}>{record.exercise}</Text>
+                  <Text style={[styles.prDate, { color: colors.textTertiary }]}>
                     {new Date(record.date).toLocaleDateString()}
                   </Text>
                 </View>
-                <Text style={styles.prWeight}>{record.weight} lbs</Text>
+                <Text style={[styles.prWeight, { color: colors.warning }]}>
+                  {record.weight} lbs
+                </Text>
               </View>
             ))}
           </View>
@@ -230,10 +314,10 @@ export default function ProgressScreen() {
 
         {/* Achievements (Dynamic from API) */}
         {badges && (
-          <View style={styles.section}>
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
             <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="trophy" size={20} color="#FFB800" />
-              <Text style={styles.sectionTitle}>Achievements</Text>
+              <MaterialCommunityIcons name="trophy" size={20} color={colors.warning} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Achievements</Text>
             </View>
             <View style={styles.achievementsGrid}>
               {badges.map((badge: any) => (
@@ -241,16 +325,22 @@ export default function ProgressScreen() {
                   <View
                     style={[
                       styles.achievementIcon,
-                      !badge.earned && styles.achievementIconLocked,
+                      {
+                        backgroundColor: badge.earned
+                          ? `${colors.warning}20`
+                          : colors.surfaceSecondary,
+                      },
                     ]}
                   >
                     <MaterialCommunityIcons
                       name={badge.earned ? "trophy" : "lock"}
                       size={24}
-                      color={badge.earned ? "#FFB800" : "#ccc"}
+                      color={badge.earned ? colors.warning : colors.textTertiary}
                     />
                   </View>
-                  <Text style={styles.achievementLabel}>{badge.name}</Text>
+                  <Text style={[styles.achievementLabel, { color: colors.textSecondary }]}>
+                    {badge.name}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -258,23 +348,23 @@ export default function ProgressScreen() {
         )}
 
         {/* Stats Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Statistics</Text>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Average Workout Duration</Text>
-            <Text style={styles.statValue}>45 mins</Text>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Statistics</Text>
+          <View style={[styles.statRow, { borderBottomColor: colors.borderLight || colors.border }]}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Average Workout Duration</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{avgDurationLabel}</Text>
           </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Most Trained Muscle</Text>
-            <Text style={styles.statValue}>Chest</Text>
+          <View style={[styles.statRow, { borderBottomColor: colors.borderLight || colors.border }]}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Most Trained Muscle</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{mostTrainedMuscleLabel}</Text>
           </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Favorite Exercise</Text>
-            <Text style={styles.statValue}>Bench Press</Text>
+          <View style={[styles.statRow, { borderBottomColor: colors.borderLight || colors.border }]}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Favorite Exercise</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{favoriteExerciseLabel}</Text>
           </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Total Time Trained</Text>
-            <Text style={styles.statValue}>120 hours</Text>
+          <View style={[styles.statRow, { borderBottomColor: colors.borderLight || colors.border }]}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Time Trained</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{totalTimeLabel}</Text>
           </View>
         </View>
       </ScrollView>
@@ -285,24 +375,13 @@ export default function ProgressScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
-  header: {
-    flexDirection: "row",
+  headerIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#fff",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000",
-    flex: 1,
-    textAlign: "center",
+    justifyContent: "center",
   },
   loadingContainer: {
     flex: 1,
@@ -311,11 +390,9 @@ const styles = StyleSheet.create({
   },
   timeRangeSelector: {
     flexDirection: "row",
-    backgroundColor: "#fff",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
     gap: 8,
   },
   timeRangeButton: {
@@ -323,19 +400,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 6,
-    backgroundColor: "#f0f0f0",
-  },
-  timeRangeButtonActive: {
-    backgroundColor: "#007AFF",
   },
   timeRangeText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#666",
     textAlign: "center",
-  },
-  timeRangeTextActive: {
-    color: "#fff",
   },
   scrollContent: {
     flex: 1,
@@ -349,7 +418,6 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     width: "48%",
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     alignItems: "center",
@@ -359,7 +427,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#007AFF20",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
@@ -367,15 +434,12 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#000",
   },
   metricLabel: {
     fontSize: 12,
-    color: "#666",
     marginTop: 4,
   },
   section: {
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -388,7 +452,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#000",
     marginLeft: 8,
   },
   weeklyChartContainer: {
@@ -405,13 +468,11 @@ const styles = StyleSheet.create({
   },
   barFill: {
     width: "60%",
-    backgroundColor: "#007AFF",
     borderRadius: 4,
     marginBottom: 8,
   },
   dayLabel: {
     fontSize: 12,
-    color: "#999",
     fontWeight: "600",
   },
   prCard: {
@@ -420,22 +481,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   exerciseName: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#000",
   },
   prDate: {
     fontSize: 12,
-    color: "#999",
     marginTop: 2,
   },
   prWeight: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#FF9500",
   },
   achievementsGrid: {
     flexDirection: "row",
@@ -451,17 +508,12 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#FFB80020",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
   },
-  achievementIconLocked: {
-    backgroundColor: "#f0f0f0",
-  },
   achievementLabel: {
     fontSize: 12,
-    color: "#333",
     textAlign: "center",
     fontWeight: "500",
   },
@@ -470,15 +522,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   statLabel: {
     fontSize: 14,
-    color: "#666",
   },
   statValue: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#000",
   },
 });

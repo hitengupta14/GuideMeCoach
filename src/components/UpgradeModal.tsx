@@ -79,10 +79,10 @@ export default function UpgradeModal({
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
             <p className="font-semibold text-gray-900 dark:text-white mb-3">With Premium:</p>
             <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-              <li>✓ AI Workout Planner (2/month)</li>
-              <li>✓ AI Chat Support (25 messages/month)</li>
-              <li>✓ Weekly AI Insights</li>
-              <li>✓ Plan Edits (3/month)</li>
+              <li>AI Workout Planner (2/month)</li>
+              <li>AI Chat Support (25 messages/month)</li>
+              <li>Weekly AI Insights</li>
+              <li>Plan Edits (3/month)</li>
             </ul>
           </div>
 
@@ -116,7 +116,7 @@ export default function UpgradeModal({
 
           {/* Trust Badges */}
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800 text-center text-xs text-gray-500 dark:text-gray-400">
-            <p>💳 Secure payment • 🔒 Privacy protected • ✅ 30-day money-back guarantee</p>
+            <p>Secure payment •  Privacy protected •  30-day money-back guarantee</p>
           </div>
         </div>
       </div>

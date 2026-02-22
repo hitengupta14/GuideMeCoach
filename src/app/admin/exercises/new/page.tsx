@@ -122,7 +122,7 @@ export default function NewExercisePage() {
             Add Exercise
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Create a new exercise (saved as <span className="font-mono">draft</span> by default).
+            Create a new exercise (saved as <span className="font-mono">draft</span>by default).
           </p>
         </div>
       </div>

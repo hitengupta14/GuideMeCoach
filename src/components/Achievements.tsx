@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Award, Dumbbell, Flame, Scale, Trophy } from 'lucide-react'
 import { csrfFetch } from '@/lib/csrf-client'
 
 interface Badge {
@@ -18,6 +19,21 @@ interface Badge {
 
 interface AchievementsProps {
   userId: string
+}
+
+const getBadgeIcon = (badge: Badge) => {
+  switch (badge.criteria.type) {
+    case 'weight_loss':
+      return Scale
+    case 'days_streak':
+      return Flame
+    case 'workout_count':
+      return Dumbbell
+    case 'milestone':
+      return Trophy
+    default:
+      return Award
+  }
 }
 
 export default function Achievements({ userId }: AchievementsProps) {
@@ -65,17 +81,24 @@ export default function Achievements({ userId }: AchievementsProps) {
           <p className="text-gray-500">Complete workouts to earn your first badge!</p>
         ) : (
           <div className="grid md:grid-cols-4 gap-4">
-            {earnedBadges.map((badge) => (
-              <div
-                key={badge.id}
-                className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-6 border-2 border-yellow-300 text-center shadow-lg"
-              >
-                <div className="text-5xl mb-3">{badge.icon}</div>
-                <h4 className="font-bold text-gray-900 mb-2">{badge.name}</h4>
-                <p className="text-sm text-gray-700">{badge.description}</p>
-                <p className="text-xs text-green-600 font-semibold mt-3">✓ Unlocked</p>
-              </div>
-            ))}
+            {earnedBadges.map((badge) => {
+              const Icon = getBadgeIcon(badge)
+              return (
+                <div
+                  key={badge.id}
+                  className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-6 border-2 border-yellow-300 text-center shadow-lg"
+                >
+                  <div className="mb-3 flex items-center justify-center">
+                    <div className="h-12 w-12 rounded-full bg-yellow-200 text-yellow-900 flex items-center justify-center">
+                      <Icon className="w-6 h-6" aria-hidden="true" />
+                    </div>
+                  </div>
+                  <h4 className="font-bold text-gray-900 mb-2">{badge.name}</h4>
+                  <p className="text-sm text-gray-700">{badge.description}</p>
+                  <p className="text-xs text-green-600 font-semibold mt-3">Unlocked</p>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -84,24 +107,31 @@ export default function Achievements({ userId }: AchievementsProps) {
       <div>
         <h3 className="text-2xl font-bold text-gray-900 mb-4">Unlock Next</h3>
         <div className="grid md:grid-cols-4 gap-4">
-          {lockedBadges.slice(0, 4).map((badge) => (
-            <div
-              key={badge.id}
-              className="bg-gray-100 rounded-lg p-6 border-2 border-gray-300 text-center opacity-60"
-            >
-              <div className="text-5xl mb-3 grayscale">{badge.icon}</div>
-              <h4 className="font-bold text-gray-600 mb-2">{badge.name}</h4>
-              <p className="text-sm text-gray-500 mb-3">{badge.description}</p>
-              <p className="text-xs text-gray-500 font-semibold">
-                {badge.criteria.type === 'workout_count' &&
-                  `Complete ${badge.criteria.value} workouts`}
-                {badge.criteria.type === 'days_streak' &&
-                  `${badge.criteria.value} day streak`}
-                {badge.criteria.type === 'weight_loss' &&
-                  `Lose ${badge.criteria.value} kg`}
-              </p>
-            </div>
-          ))}
+          {lockedBadges.slice(0, 4).map((badge) => {
+            const Icon = getBadgeIcon(badge)
+            return (
+              <div
+                key={badge.id}
+                className="bg-gray-100 rounded-lg p-6 border-2 border-gray-300 text-center opacity-60"
+              >
+                <div className="mb-3 flex items-center justify-center">
+                  <div className="h-12 w-12 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center">
+                    <Icon className="w-6 h-6" aria-hidden="true" />
+                  </div>
+                </div>
+                <h4 className="font-bold text-gray-600 mb-2">{badge.name}</h4>
+                <p className="text-sm text-gray-500 mb-3">{badge.description}</p>
+                <p className="text-xs text-gray-500 font-semibold">
+                  {badge.criteria.type === 'workout_count' &&
+                    `Complete ${badge.criteria.value} workouts`}
+                  {badge.criteria.type === 'days_streak' &&
+                    `${badge.criteria.value} day streak`}
+                  {badge.criteria.type === 'weight_loss' &&
+                    `Lose ${badge.criteria.value} kg`}
+                </p>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

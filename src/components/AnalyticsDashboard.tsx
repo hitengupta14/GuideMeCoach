@@ -219,7 +219,7 @@ export default function AnalyticsDashboard() {
               <p className="text-3xl font-bold text-orange-900 mt-2">{streak?.currentStreak || 0}</p>
               <p className="text-orange-700 text-xs mt-1">consecutive days</p>
             </div>
-            <div className="text-4xl">🔥</div>
+            <div className="text-4xl"></div>
           </div>
         </div>
 
@@ -243,7 +243,7 @@ export default function AnalyticsDashboard() {
               <p className="text-3xl font-bold text-blue-900 mt-2">{streak?.totalWorkouts || 0}</p>
               <p className="text-blue-700 text-xs mt-1">all time</p>
             </div>
-            <div className="text-4xl">💪</div>
+            <div className="text-4xl"></div>
           </div>
         </div>
       </div>
@@ -478,7 +478,7 @@ export default function AnalyticsDashboard() {
         {weightProgressValue !== null && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-sm text-green-700">
-              Progress: <span className="font-bold">{weightProgressValue}%</span> towards your goal
+              Progress: <span className="font-bold">{weightProgressValue}%</span>towards your goal
             </p>
             <div className="w-full bg-green-200 rounded-full h-2 mt-2">
               <div

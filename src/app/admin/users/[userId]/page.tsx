@@ -4,6 +4,7 @@ import { db } from '@/db'
 import { entitlements, subscriptionHistory, users } from '@/db/schema'
 import { desc, eq } from 'drizzle-orm'
 import { getPremiumStatus, isEntitlementsAvailable } from '@/lib/entitlements'
+import AdminUserActions from '@/components/admin/AdminUserActions'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -181,6 +182,8 @@ export default async function AdminUserDetailPage({
         </div>
       </div>
 
+      <AdminUserActions userId={userId} emailVerified={Boolean(user.emailVerified)} />
+
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -333,4 +336,3 @@ export default async function AdminUserDetailPage({
     </div>
   )
 }
-

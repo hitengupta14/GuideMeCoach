@@ -386,7 +386,7 @@ export default function AIPlannerForm() {
             {/* Progression Strategy */}
             {planMeta?.progressionStrategy && (
               <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h3 className="font-semibold text-blue-900 mb-2">📈 Progression Strategy</h3>
+                <h3 className="font-semibold text-blue-900 mb-2">Progression Strategy</h3>
                 <div className="prose prose-sm max-w-none text-blue-800">
                   <ReactMarkdown>{planMeta.progressionStrategy}</ReactMarkdown>
                 </div>
@@ -396,7 +396,7 @@ export default function AIPlannerForm() {
             {/* Deload Week */}
             {planMeta?.deloadWeek && (
               <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <h3 className="font-semibold text-yellow-900 mb-2">⚠️ Deload Week</h3>
+                <h3 className="font-semibold text-yellow-900 mb-2">Deload Week</h3>
                 <p className="text-sm text-yellow-800">{planMeta.deloadWeek}</p>
               </div>
             )}
@@ -404,7 +404,7 @@ export default function AIPlannerForm() {
             {/* Tips */}
             {planMeta?.tips && planMeta.tips.length > 0 && (
               <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <h3 className="font-semibold text-green-900 mb-2">💡 Pro Tips</h3>
+                <h3 className="font-semibold text-green-900 mb-2">Pro Tips</h3>
                 <ul className="list-disc list-inside text-sm text-green-800 space-y-1">
                   {planMeta.tips.map((tip, idx) => (
                     <li key={idx}>{tip}</li>

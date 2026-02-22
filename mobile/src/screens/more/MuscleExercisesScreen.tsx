@@ -1,12 +1,13 @@
 import React from 'react';
 import { useThemeStore } from '../../store/theme';
-import { lightColors, darkColors } from '../../theme/colors';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { LoadingView, ErrorView, EmptyView } from '../../components/State';
+import { borderRadius, shadows, spacing, typography } from '../../theme/spacing';
 
-export default function MuscleExercisesScreen({ route }: any) {
+export default function MuscleExercisesScreen({ route, navigation }: any) {
+  const { colors } = useThemeStore();
   const { muscleId, muscleName } = route.params;
 
   const { data, isLoading, error } = useQuery({
@@ -33,22 +34,35 @@ export default function MuscleExercisesScreen({ route }: any) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{muscleName}</Text>
-      <Text style={styles.subtitle}>{exercises.length} exercises</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.text }]}>{muscleName}</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{exercises.length} exercises</Text>
       <FlatList
         data={exercises}
         keyExtractor={(item: any) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{item.name}</Text>
+          <TouchableOpacity
+            style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+            activeOpacity={0.85}
+            onPress={() =>
+              navigation.navigate('Exercises', {
+                screen: 'ExerciseDetail',
+                params: { exerciseId: item.id, exerciseName: item.name },
+              })
+            }
+          >
+            <Text style={[styles.cardTitle, { color: colors.text }]}>{item.name}</Text>
             <View style={styles.badgesRow}>
-              <View style={styles.badge}><Text style={styles.badgeText}>{item.difficulty}</Text></View>
+              <View style={[styles.badge, { backgroundColor: `${colors.primary}18` }]}>
+                <Text style={[styles.badgeText, { color: colors.primary }]}>{item.difficulty}</Text>
+              </View>
               {item.equipment?.length ? (
-                <Text style={styles.meta}>{item.equipment.join(', ').replace(/_/g, ' ')}</Text>
+                <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {item.equipment.join(', ').replace(/_/g, ' ')}
+                </Text>
               ) : null}
             </View>
-          </View>
+          </TouchableOpacity>
         )}
       />
     </View>
@@ -56,29 +70,24 @@ export default function MuscleExercisesScreen({ route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', padding: 16 },
-  title: { fontSize: 24, fontWeight: '700', color: '#111' },
-  subtitle: { fontSize: 14, color: '#666', marginBottom: 12 },
+  container: { flex: 1, padding: spacing.lg },
+  title: { ...typography.heading1 },
+  subtitle: { ...typography.body3, marginBottom: spacing.lg },
   card: {
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    ...shadows.md,
   },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
+  cardTitle: { ...typography.heading3 },
   badgesRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
   badge: {
-    backgroundColor: '#E8F0FE',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    marginRight: spacing.md,
   },
-  badgeText: { color: '#1F6FEB', fontWeight: '700', fontSize: 12, textTransform: 'capitalize' },
-  meta: { color: '#666', fontSize: 12 },
+  badgeText: { ...typography.caption1, fontWeight: '700', textTransform: 'capitalize' },
+  meta: { ...typography.caption1, flex: 1 },
 });

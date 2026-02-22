@@ -170,15 +170,15 @@ export default function ExercisesClientPage(props: { initialData?: ExercisesResp
               <EmptyState 
                 title="No exercises found"
                 message="Try adjusting your filters or search term"
-                icon="💪"
+                icon=""
               />
             ) : (
               <>
                 {/* Results Count */}
                 <div className="mb-8 flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-200/70 dark:border-gray-800">
                   <p className="text-gray-600 dark:text-gray-400 font-medium">
-                    Showing <span className="text-indigo-600 font-bold">{items.length}</span> of{' '}
-                    <span className="text-indigo-600 font-bold">{total}</span> exercises
+                    Showing <span className="text-indigo-600 font-bold">{items.length}</span>of{' '}
+                    <span className="text-indigo-600 font-bold">{total}</span>exercises
                   </p>
                   <div className="flex items-center gap-2 flex-wrap">
                     <button

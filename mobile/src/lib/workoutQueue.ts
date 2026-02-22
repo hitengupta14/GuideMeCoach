@@ -5,6 +5,7 @@ import { apiClient } from '../services/api';
 export type QueuedWorkout = {
   id: string;
   userId: string;
+  planId?: string;
   dayName: string;
   startTime: number;
   duration: number;
@@ -67,7 +68,7 @@ export async function flushQueuedWorkouts(): Promise<{ synced: number; remaining
 
   for (const item of queue) {
     try {
-      const session: any = await apiClient.startWorkoutSession(item.userId, item.dayName);
+      const session: any = await apiClient.startWorkoutSession(item.userId, item.dayName, item.planId);
       const sessionId = session?.id || session?.data?.id;
       if (!sessionId) throw new Error('No session id');
 
@@ -82,13 +83,39 @@ export async function flushQueuedWorkouts(): Promise<{ synced: number; remaining
           userId: item.userId,
           sessionId,
           exerciseId: ex.exerciseId,
+          plannedSets: ex.sets.length,
           completedSets: completedSets.length,
           completedReps,
           weight: lastWeight,
           duration: item.duration,
           notes: ex.notes,
         });
+
+        for (let i = 0; i < ex.sets.length; i += 1) {
+          const s = ex.sets[i];
+          const reps = parseInt(String(s.reps || '').trim() || '0', 10);
+          const weight = parseFloat(String(s.weight || '').trim() || '0');
+          const hasData =
+            Boolean(s.completed) ||
+            (Number.isFinite(reps) && reps > 0) ||
+            (Number.isFinite(weight) && weight > 0);
+
+          if (!hasData) continue;
+
+          await apiClient.saveWorkoutSet({
+            sessionId,
+            exerciseId: ex.exerciseId,
+            setNumber: i + 1,
+            completedReps: Number.isFinite(reps) && reps > 0 ? reps : undefined,
+            weight: Number.isFinite(weight) && weight > 0 ? weight : undefined,
+          });
+        }
       }
+
+      const completedAt = Number.isFinite(item.startTime)
+        ? new Date(item.startTime + (Number(item.duration || 0) || 0) * 60_000)
+        : new Date();
+      await apiClient.updateWorkoutSession(sessionId, { duration: item.duration, completedAt });
 
       synced += 1;
     } catch (err) {

@@ -4,8 +4,8 @@
  */
 
 import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { subscriptionHistory, users } from '@/db/schema';
+import { desc, eq } from 'drizzle-orm';
 import { getPremiumStatus } from '@/lib/entitlements';
 
 export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'none';
@@ -20,6 +20,9 @@ export interface UserSubscriptionStatus {
   isExpired: boolean;
   pendingPlanType: string | null;
   pendingPlanStartsAt: Date | null;
+  cancelAtPeriodEnd: boolean;
+  cancelledAt: Date | null;
+  willRenew: boolean;
 }
 
 /**
@@ -47,6 +50,9 @@ export async function getUserSubscriptionStatus(userId: string): Promise<UserSub
       isExpired: false,
       pendingPlanType: null,
       pendingPlanStartsAt: null,
+      cancelAtPeriodEnd: false,
+      cancelledAt: null,
+      willRenew: false,
     };
   }
 
@@ -72,6 +78,44 @@ export async function getUserSubscriptionStatus(userId: string): Promise<UserSub
 
   const planType: PlanType = premium.isPremium ? (premium.planType === 'premium-yearly' ? 'premium-yearly' : 'premium') : 'none';
 
+  // Derive "cancel at period end" from subscription history.
+  // Cancellation is "in effect" if the most recent relevant action is a user-cancel.
+  let cancelAtPeriodEnd = false
+  let cancelledAt: Date | null = null
+
+  if (status === 'active') {
+    const recent = await db
+      .select({
+        action: subscriptionHistory.action,
+        cancelledBy: subscriptionHistory.cancelledBy,
+        cancelledAt: subscriptionHistory.cancelledAt,
+        createdAt: subscriptionHistory.createdAt,
+      })
+      .from(subscriptionHistory)
+      .where(eq(subscriptionHistory.userId, userId))
+      .orderBy(desc(subscriptionHistory.createdAt))
+      .limit(20)
+
+    for (const row of recent) {
+      const action = String(row.action || '')
+      const cancelledBy = row.cancelledBy ? String(row.cancelledBy) : null
+
+      if (action === 'cancelled' && cancelledBy === 'user') {
+        cancelAtPeriodEnd = true
+        cancelledAt = (row.cancelledAt as any) ? new Date(row.cancelledAt as any) : (row.createdAt as any) ? new Date(row.createdAt as any) : null
+        break
+      }
+
+      if (action === 'resumed' || action === 'purchased' || action === 'renewed' || action === 'upgraded' || action === 'downgraded') {
+        cancelAtPeriodEnd = false
+        cancelledAt = null
+        break
+      }
+    }
+  }
+
+  const willRenew = status === 'active' ? !cancelAtPeriodEnd : false
+
   return {
     isPremium: premium.isPremium && !isExpired,
     planType,
@@ -81,6 +125,9 @@ export async function getUserSubscriptionStatus(userId: string): Promise<UserSub
     isExpired,
     pendingPlanType: user.pendingPlanType,
     pendingPlanStartsAt: user.pendingPlanStartsAt,
+    cancelAtPeriodEnd,
+    cancelledAt,
+    willRenew,
   };
 }
 
@@ -108,11 +155,17 @@ export async function getPremiumAccessInfo(userId: string) {
     message: getStatusMessage(status),
     pendingPlanType: status.pendingPlanType,
     pendingPlanStartsAt: status.pendingPlanStartsAt?.toISOString(),
+    cancelAtPeriodEnd: status.cancelAtPeriodEnd,
+    cancelledAt: status.cancelledAt?.toISOString() ?? null,
+    willRenew: status.willRenew,
   };
 }
 
 function getStatusMessage(status: UserSubscriptionStatus): string {
   if (status.status === 'active') {
+    if (status.cancelAtPeriodEnd) {
+      return `Premium active • Cancels in ${status.daysRemaining} day${status.daysRemaining !== 1 ? 's' : ''}`
+    }
     return `Premium active • Renews in ${status.daysRemaining} day${status.daysRemaining !== 1 ? 's' : ''}`;
   } else if (status.isExpired) {
     return 'Subscription expired • Upgrade to continue';

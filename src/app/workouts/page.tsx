@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Search } from 'lucide-react'
 import WorkoutLogger from '@/components/WorkoutLogger'
 import { useSession } from '@/hooks/useSession'
 import { csrfFetch } from '@/lib/csrf-client'
@@ -209,7 +210,7 @@ export default function WorkoutsPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-4 py-3 pl-10 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
-              <span className="absolute left-3 top-3 text-gray-400">🔍</span>
+              <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" aria-hidden="true" />
             </div>
 
             <select
@@ -239,8 +240,8 @@ export default function WorkoutsPage() {
           {/* Results Count */}
           <div className="mb-6">
             <p className="text-gray-600 dark:text-gray-400">
-              Showing <span className="font-semibold text-indigo-600">{filteredExercises.length}</span> of{' '}
-              <span className="font-semibold text-indigo-600">{exercises.length}</span> exercises
+              Showing <span className="font-semibold text-indigo-600">{filteredExercises.length}</span>of{' '}
+              <span className="font-semibold text-indigo-600">{exercises.length}</span>exercises
             </p>
           </div>
 
@@ -274,7 +275,7 @@ export default function WorkoutsPage() {
                     }`}
                   >
                     {selectedExercises.find((e) => e.exerciseId === exercise.id)
-                      ? '✓ Selected'
+                      ? ' Selected'
                       : 'Select'}
                   </button>
                   <button
@@ -282,7 +283,7 @@ export default function WorkoutsPage() {
                     className="px-3 py-2 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-900/30 transition-colors"
                     title="Add to favorites"
                   >
-                    ❤️
+                    
                   </button>
                 </div>
               </div>

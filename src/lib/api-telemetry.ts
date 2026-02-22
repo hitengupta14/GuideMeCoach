@@ -6,8 +6,6 @@ import { incrementMetric, normalizePathname } from '@/lib/metrics'
 import { jwtVerify } from 'jose'
 import { getJwtSecretKey } from '@/lib/jwt'
 
-const JWT_SECRET = getJwtSecretKey()
-
 function getOrCreateRequestId(request: NextRequest) {
   return (
     request.headers.get('x-request-id') ||
@@ -24,6 +22,7 @@ function statusClass(status: number) {
 }
 
 async function tryGetUserId(request: NextRequest) {
+  const JWT_SECRET = getJwtSecretKey()
   // Bearer token (mobile/API)
   const authHeader = request.headers.get('authorization')
   if (authHeader?.startsWith('Bearer ')) {

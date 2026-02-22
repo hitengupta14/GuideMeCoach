@@ -13,6 +13,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import NetInfo from '@react-native-community/netinfo';
@@ -22,6 +23,7 @@ import { WorkoutTimer } from '../../components/WorkoutTimer';
 import { SyncIndicator } from '../../components/SyncIndicator';
 import { useThemeStore } from '../../store/theme';
 import { SkeletonLoader } from '../../components/SkeletonLoader';
+import ScreenHeader from '../../components/ScreenHeader';
 import { useMediaCapture } from '@/hooks/useMediaCapture';
 import { enqueueUpload, getUploadQueue, onReconnectFlushUploads, QueuedUpload } from '../../lib/uploadQueue';
 
@@ -41,9 +43,18 @@ interface WorkoutExercise {
 
 export default function WorkoutLoggerScreen() {
   const { colors } = useThemeStore();
+  const navigation = useNavigation<any>();
+  const route: any = useRoute();
+  const addExercise = route?.params?.addExercise;
+  const planId = route?.params?.planId as string | undefined;
+  const plannedDayName = route?.params?.dayName as string | undefined;
+  const templateExercises = route?.params?.templateExercises as
+    | Array<{ exerciseId: string; exerciseName?: string; sets?: number; reps?: string }>
+    | undefined;
+  const templateRequestId = route?.params?.templateRequestId as string | undefined;
   const [todaysWorkout, setTodaysWorkout] = useState<WorkoutExercise[]>([]);
   const [workoutNotes, setWorkoutNotes] = useState('');
-  const [startTime] = useState(new Date());
+  const [startTime, setStartTime] = useState<Date>(() => new Date());
   const [isLoading, setIsLoading] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -56,6 +67,73 @@ export default function WorkoutLoggerScreen() {
   const [pickerModalExerciseId, setPickerModalExerciseId] = useState<string | null>(null);
 
   const currentIdsRef = useRef<{ exerciseId: string | null; mediaId: string | null }>({ exerciseId: null, mediaId: null });
+  const handledAddExerciseRef = useRef<string | null>(null);
+  const handledTemplateRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!addExercise?.id) return;
+
+    const key = `${addExercise.requestId || ''}:${addExercise.id}`;
+    if (handledAddExerciseRef.current === key) return;
+    handledAddExerciseRef.current = key;
+
+    setTodaysWorkout((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        exerciseId: addExercise.id,
+        exerciseName: addExercise.name || 'Exercise',
+        sets: [{ reps: '', weight: '', completed: false }],
+        notes: '',
+      },
+    ]);
+
+    // Avoid repeated adds if user revisits the tab.
+    navigation.setParams({ addExercise: undefined });
+  }, [addExercise, navigation]);
+
+  useEffect(() => {
+    if (!templateRequestId) return;
+    if (!Array.isArray(templateExercises) || templateExercises.length === 0) return;
+    if (handledTemplateRef.current === templateRequestId) return;
+    handledTemplateRef.current = templateRequestId;
+
+    const nextWorkout: WorkoutExercise[] = templateExercises.map((ex) => {
+      const setsCount = Math.max(1, Number(ex?.sets || 1) || 1);
+      const reps = typeof ex?.reps === 'string' ? ex.reps : '';
+      return {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        exerciseId: ex.exerciseId,
+        exerciseName: ex.exerciseName || 'Exercise',
+        sets: Array.from({ length: setsCount }).map(() => ({ reps, weight: '', completed: false })),
+        notes: '',
+      };
+    });
+
+    const applyTemplate = () => {
+      setTodaysWorkout(nextWorkout);
+      setWorkoutNotes('');
+      setStartTime(new Date());
+      navigation.setParams({ templateExercises: undefined, templateRequestId: undefined });
+    };
+
+    if (todaysWorkout.length > 0) {
+      Alert.alert(
+        'Replace current workout?',
+        'Starting this plan workout will replace your current unsaved workout.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => navigation.setParams({ templateExercises: undefined, templateRequestId: undefined }),
+          },
+          { text: 'Replace', style: 'destructive', onPress: applyTemplate },
+        ]
+      );
+    } else {
+      applyTemplate();
+    }
+  }, [templateRequestId, templateExercises, navigation, todaysWorkout.length]);
   const mediaCapture = useMediaCapture({
     onProgress: (p) => {
       const { exerciseId, mediaId } = currentIdsRef.current;
@@ -286,11 +364,15 @@ export default function WorkoutLoggerScreen() {
       }
 
       const duration = Math.round((new Date().getTime() - startTime.getTime()) / 60000);
-      const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+      const dayName =
+        typeof plannedDayName === 'string' && plannedDayName.trim().length > 0
+          ? plannedDayName.trim()
+          : new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
       const payload = {
         id: Date.now().toString(),
         userId: user.id,
+        planId: planId || undefined,
         dayName,
         startTime: startTime.getTime(),
         duration,
@@ -310,11 +392,15 @@ export default function WorkoutLoggerScreen() {
         await enqueueWorkout(payload as any);
         setPendingCount((c) => c + 1);
         Alert.alert('Saved offline', 'Workout will sync automatically when back online.');
+        setTodaysWorkout([]);
+        setWorkoutNotes('');
+        setStartTime(new Date());
+        navigation.setParams({ planId: undefined, dayName: undefined });
         return;
       }
 
       // Start a workout session
-      const session: any = await apiClient.startWorkoutSession(user.id, dayName);
+      const session: any = await apiClient.startWorkoutSession(user.id, dayName, planId);
       const sessionId = session?.id || session?.data?.id;
 
       // If we have a session, log each exercise with a real exerciseId
@@ -322,7 +408,9 @@ export default function WorkoutLoggerScreen() {
         for (const ex of todaysWorkout) {
           if (!ex.exerciseId) continue; // skip placeholder entries
 
-          const completedSets = ex.sets.filter((s) => s.completed);
+          const completedSets = ex.sets.filter(
+            (s) => s.completed || String(s.reps || '').trim().length > 0 || String(s.weight || '').trim().length > 0
+          );
           const completedReps = completedSets.reduce((sum, s) => sum + (parseInt(s.reps || '0', 10) || 0), 0);
           const lastWeight = completedSets.length > 0
             ? parseFloat(completedSets[completedSets.length - 1].weight || '0') || 0
@@ -332,22 +420,56 @@ export default function WorkoutLoggerScreen() {
             userId: user.id,
             sessionId,
             exerciseId: ex.exerciseId,
+            plannedSets: ex.sets.length,
             completedSets: completedSets.length,
             completedReps,
             weight: lastWeight,
             duration,
             notes: ex.notes,
           });
+
+          for (let i = 0; i < ex.sets.length; i += 1) {
+            const s = ex.sets[i];
+            const reps = parseInt(String(s.reps || '').trim() || '0', 10);
+            const weight = parseFloat(String(s.weight || '').trim() || '0');
+            const hasData =
+              Boolean(s.completed) ||
+              (Number.isFinite(reps) && reps > 0) ||
+              (Number.isFinite(weight) && weight > 0);
+
+            if (!hasData) continue;
+
+            await apiClient.saveWorkoutSet({
+              sessionId,
+              exerciseId: ex.exerciseId,
+              setNumber: i + 1,
+              completedReps: Number.isFinite(reps) && reps > 0 ? reps : undefined,
+              weight: Number.isFinite(weight) && weight > 0 ? weight : undefined,
+            });
+          }
         }
+
+        await apiClient.updateWorkoutSession(sessionId, { duration, completedAt: new Date() });
       }
 
-      Alert.alert('Success', 'Workout saved successfully!', [{
-        text: 'OK',
+      const buttons: Array<{ text: string; onPress?: () => void; style?: 'cancel' | 'default' | 'destructive' }> = [];
+      if (sessionId) {
+        buttons.push({
+          text: 'View summary',
+          onPress: () => navigation.navigate('WorkoutSummary', { sessionId }),
+        });
+      }
+      buttons.push({
+        text: 'Done',
+        style: 'cancel',
         onPress: () => {
           setTodaysWorkout([]);
           setWorkoutNotes('');
+          setStartTime(new Date());
+          navigation.setParams({ planId: undefined, dayName: undefined });
         },
-      }]);
+      });
+      Alert.alert('Success', 'Workout saved successfully!', buttons);
     } catch (error) {
       Alert.alert('Error', 'Failed to save workout');
     } finally {
@@ -360,9 +482,42 @@ export default function WorkoutLoggerScreen() {
     0
   );
   const totalSets = todaysWorkout.reduce((acc, ex) => acc + ex.sets.length, 0);
+  const saveDisabled = todaysWorkout.length === 0 || isLoading;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScreenHeader
+        title="Workout"
+        subtitle="Log today’s session."
+        rightAction={
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('WorkoutHistory')}
+              activeOpacity={0.8}
+              style={[styles.headerIconBtn, { backgroundColor: `${colors.primary}14` }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open workout history"
+            >
+              <MaterialCommunityIcons name="history" size={22} color={colors.primary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowTimer((v) => !v)}
+              activeOpacity={0.8}
+              style={[styles.headerIconBtn, { backgroundColor: `${colors.primary}14` }]}
+              accessibilityRole="button"
+              accessibilityLabel={showTimer ? 'Hide timer' : 'Show timer'}
+            >
+              <MaterialCommunityIcons
+                name={showTimer ? 'timer-off-outline' : 'timer-outline'}
+                size={22}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
+        }
+      />
+
       {/* Phase 3: Enhanced Sync Indicators */}
       <SyncIndicator 
         pendingCount={pendingCount} 
@@ -528,11 +683,12 @@ export default function WorkoutLoggerScreen() {
 
               {/* Sets */}
               {exercise.sets.map((set, setIdx) => (
-                <View key={setIdx} style={styles.setRow}>
+                <View key={setIdx} style={[styles.setRow, { borderBottomColor: colors.borderLight }]}>
                   <TouchableOpacity
                     style={[
                       styles.setCheckbox,
-                      set.completed && styles.setCheckboxCompleted,
+                      { borderColor: colors.border },
+                      set.completed && { backgroundColor: colors.success, borderColor: colors.success },
                     ]}
                     onPress={() =>
                       handleToggleSetCompleted(exercise.id, setIdx)
@@ -542,20 +698,22 @@ export default function WorkoutLoggerScreen() {
                       <MaterialCommunityIcons
                         name="check"
                         size={16}
-                        color="#fff"
+                        color={colors.textInverse}
                       />
                     )}
                   </TouchableOpacity>
 
                   <View style={styles.setInputs}>
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Reps</Text>
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Reps</Text>
                       <TextInput
                         style={[
                           styles.input,
-                          set.completed && styles.inputCompleted,
+                          { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.text },
+                          set.completed && [styles.inputCompleted, { backgroundColor: colors.backgroundTertiary, color: colors.textTertiary }],
                         ]}
                         placeholder="0"
+                        placeholderTextColor={colors.textTertiary}
                         keyboardType="number-pad"
                         value={set.reps}
                         onChangeText={(value) =>
@@ -566,13 +724,15 @@ export default function WorkoutLoggerScreen() {
                     </View>
 
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Weight (lbs)</Text>
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Weight (lbs)</Text>
                       <TextInput
                         style={[
                           styles.input,
-                          set.completed && styles.inputCompleted,
+                          { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.text },
+                          set.completed && [styles.inputCompleted, { backgroundColor: colors.backgroundTertiary, color: colors.textTertiary }],
                         ]}
                         placeholder="0"
+                        placeholderTextColor={colors.textTertiary}
                         keyboardType="decimal-pad"
                         value={set.weight}
                         onChangeText={(value) =>
@@ -589,11 +749,11 @@ export default function WorkoutLoggerScreen() {
 
               {/* Add Set Button */}
               <TouchableOpacity
-                style={styles.addSetButton}
+                style={[styles.addSetButton, { borderColor: colors.primary }]}
                 onPress={() => handleAddSet(exercise.id)}
               >
-                <MaterialCommunityIcons name="plus" size={18} color="#007AFF" />
-                <Text style={styles.addSetText}>Add Set</Text>
+                <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
+                <Text style={[styles.addSetText, { color: colors.primary }]}>Add Set</Text>
               </TouchableOpacity>
 
               {/* Media Attachments */}
@@ -625,7 +785,7 @@ export default function WorkoutLoggerScreen() {
                       )}
                     </TouchableOpacity>
                   ))}
-                  <TouchableOpacity onPress={() => setPickerModalExerciseId(exercise.id)} style={{ width: 64, height: 64, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9f9f9' }}>
+                  <TouchableOpacity onPress={() => setPickerModalExerciseId(exercise.id)} style={{ width: 64, height: 64, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundSecondary }}>
                     <MaterialCommunityIcons name="plus" size={24} color={colors.primary} />
                   </TouchableOpacity>
                 </View>
@@ -633,8 +793,9 @@ export default function WorkoutLoggerScreen() {
 
               {/* Notes */}
               <TextInput
-                style={[styles.notesInput, { backgroundColor: '#f9f9f9', borderColor: colors.border, color: colors.text }]}
+                style={[styles.notesInput, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.text }]}
                 placeholder="Notes for this exercise..."
+                placeholderTextColor={colors.textTertiary}
                 multiline
                 value={exercise.notes}
                 onChangeText={(value) => {
@@ -665,41 +826,41 @@ export default function WorkoutLoggerScreen() {
       </ScrollView>
 
       {showTimer && (
-        <View style={styles.timerContainer}>
+        <View style={[styles.timerContainer, { backgroundColor: colors.card }]}>
           <WorkoutTimer
             exerciseName={currentExercise || 'Current Set'}
             restSeconds={60}
             onComplete={() => setShowTimer(false)}
           />
           <TouchableOpacity style={styles.closeTimer} onPress={() => setShowTimer(false)}>
-            <MaterialCommunityIcons name="close" size={22} color="#999" />
+            <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       )}
 
       {/* Footer Buttons */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={styles.addExerciseButton}
+          style={[styles.addExerciseButton, { backgroundColor: colors.backgroundTertiary, borderColor: colors.border }]}
           onPress={handleAddExercise}
         >
-          <MaterialCommunityIcons name="plus" size={20} color="#007AFF" />
-          <Text style={styles.addExerciseText}>Add Exercise</Text>
+          <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
+          <Text style={[styles.addExerciseText, { color: colors.primary }]}>Add Exercise</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[
             styles.saveButton,
-            (todaysWorkout.length === 0 || isLoading) && styles.saveButtonDisabled,
+            { backgroundColor: saveDisabled ? colors.disabled : colors.success, opacity: saveDisabled ? 0.8 : 1 },
           ]}
           onPress={handleSaveWorkout}
-          disabled={todaysWorkout.length === 0 || isLoading}
+          disabled={saveDisabled}
         >
           {isLoading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.textInverse} />
           ) : (
             <>
-              <MaterialCommunityIcons name="check" size={20} color="#fff" />
+              <MaterialCommunityIcons name="check" size={20} color={colors.textInverse} />
               <Text style={styles.saveButtonText}>Save Workout</Text>
             </>
           )}
@@ -712,7 +873,18 @@ export default function WorkoutLoggerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -895,14 +1067,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   input: {
-    backgroundColor: '#f5f5f5',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 6,
     fontSize: 14,
-    color: '#000',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   inputCompleted: {
     backgroundColor: '#f0f0f0',

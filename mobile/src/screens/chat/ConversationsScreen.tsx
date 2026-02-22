@@ -1,19 +1,24 @@
 import React, { useState } from 'react';
 import { useThemeStore } from '../../store/theme';
-import { lightColors, darkColors } from '../../theme/colors';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import { apiClient } from '../../services/api';
+import ScreenHeader from '../../components/ScreenHeader';
+import { spacing, borderRadius, shadows } from '../../theme/spacing';
+import { useAuthStore } from '../../store/auth';
 
 export default function ConversationsScreen() {
   const nav: any = useNavigation();
   const [topic, setTopic] = useState('general');
   const [title, setTitle] = useState('New Chat');
+  const { colors } = useThemeStore();
+  const token = useAuthStore((s) => s.token);
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['conversations'],
+    queryKey: ['conversations', token],
+    enabled: !!token,
     queryFn: () => apiClient.listConversations(),
   });
 
@@ -28,39 +33,62 @@ export default function ConversationsScreen() {
   const conversations: any[] = Array.isArray(data) ? data : [];
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Conversations</Text>
-        <TouchableOpacity onPress={() => refetch()}>
-          <MaterialCommunityIcons name="refresh" size={22} color="#007AFF" />
-        </TouchableOpacity>
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScreenHeader
+        title="Conversations"
+        onBackPress={() => nav.goBack()}
+        rightAction={
+          <TouchableOpacity
+            onPress={() => refetch()}
+            activeOpacity={0.8}
+            style={[styles.headerIconBtn, { backgroundColor: `${colors.primary}14` }]}
+            accessibilityRole="button"
+            accessibilityLabel="Refresh conversations"
+          >
+            <MaterialCommunityIcons name="refresh" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        }
+      />
 
-      <View style={styles.newRow}>
+      <View style={[styles.newRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           placeholder="Title"
+          placeholderTextColor={colors.textTertiary}
           value={title}
           onChangeText={setTitle}
         />
-        <TouchableOpacity style={styles.createBtn} onPress={() => createMutation.mutate()}>
+        <TouchableOpacity
+          style={[styles.createBtn, { backgroundColor: colors.primary }]}
+          onPress={() => createMutation.mutate()}
+          activeOpacity={0.85}
+        >
           <MaterialCommunityIcons name="plus" size={20} color="#fff" />
           <Text style={styles.createText}>New</Text>
         </TouchableOpacity>
       </View>
 
       {isLoading ? (
-        <View style={styles.loadingContainer}><ActivityIndicator color="#007AFF" /></View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
       ) : (
         <ScrollView style={{ flex: 1 }}>
           {conversations.map((c) => (
-            <TouchableOpacity key={c.id} style={styles.convRow} onPress={() => nav.navigate('Chat', { conversationId: c.id, title: c.title })}>
-              <MaterialCommunityIcons name="message" size={20} color="#007AFF" />
+            <TouchableOpacity
+              key={c.id}
+              style={[styles.convRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => nav.navigate('Chat', { conversationId: c.id, title: c.title })}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="message" size={20} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.convTitle}>{c.title}</Text>
-                <Text style={styles.convSub}>{new Date(c.updatedAt).toLocaleString()}</Text>
+                <Text style={[styles.convTitle, { color: colors.text }]}>{c.title}</Text>
+                <Text style={[styles.convSub, { color: colors.textSecondary }]}>
+                  {new Date(c.updatedAt).toLocaleString()}
+                </Text>
               </View>
-              <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -70,15 +98,37 @@ export default function ConversationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#000' },
-  loadingContainer: { padding: 24, alignItems: 'center' },
-  convRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 16, marginTop: 12, padding: 12, borderRadius: 8 },
-  convTitle: { fontSize: 16, fontWeight: '600', color: '#000' },
-  convSub: { fontSize: 12, color: '#666' },
-  newRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', margin: 16, padding: 12, borderRadius: 8 },
-  input: { flex: 1, fontSize: 14, color: '#000', marginRight: 10 },
-  createBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#007AFF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+  container: { flex: 1 },
+  headerIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingContainer: { padding: spacing['2xl'], alignItems: 'center' },
+  convRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    ...shadows.sm,
+  },
+  convTitle: { fontSize: 16, fontWeight: '600' },
+  convSub: { fontSize: 12, marginTop: 2 },
+  newRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    margin: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    ...shadows.sm,
+  },
+  input: { flex: 1, fontSize: 14, marginRight: spacing.md },
+  createBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: borderRadius.lg },
   createText: { marginLeft: 6, color: '#fff', fontWeight: '600' },
 });

@@ -138,7 +138,7 @@ export default function TodayPage() {
                 href="/planner/unified"
                 className="block p-6 rounded-xl border-2 border-indigo-200 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-900/20 hover:border-indigo-400 dark:hover:border-indigo-700 transition"
               >
-                <div className="text-3xl mb-2">📋</div>
+                <div className="text-3xl mb-2"></div>
                 <div className="text-lg font-bold text-gray-900 dark:text-white">Create a Plan</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">AI or custom — then activate it.</div>
               </Link>
@@ -147,7 +147,7 @@ export default function TodayPage() {
                 href="/workouts"
                 className="block p-6 rounded-xl border-2 border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 hover:border-gray-300 dark:hover:border-gray-700 transition"
               >
-                <div className="text-3xl mb-2">💪</div>
+                <div className="text-3xl mb-2"></div>
                 <div className="text-lg font-bold text-gray-900 dark:text-white">Quick Log Workout</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">No plan needed — just log a session.</div>
               </Link>

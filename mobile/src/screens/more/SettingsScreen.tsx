@@ -1,34 +1,47 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, TextInput, TouchableOpacity, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useThemeStore } from '../../store/theme';
+import { useNavigation } from '@react-navigation/native';
+import ScreenHeader from '../../components/ScreenHeader';
+import { borderRadius, shadows, spacing, typography } from '../../theme/spacing';
 
 export default function SettingsScreen() {
-  const { theme, colors, setTheme } = useThemeStore();
-  const [settings, setSettings] = useState({ theme: (theme === 'dark' ? 'dark' : 'light'), notifications: true, emailUpdates: false });
+  const { theme, mode, colors, setTheme } = useThemeStore();
+  const navigation = useNavigation<any>();
+  const [settings, setSettings] = useState({
+    theme: (mode === 'system' ? 'auto' : theme),
+    notifications: true,
+    emailUpdates: false,
+  });
   const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
   const biometricsEnabled = useAuthStore((s) => s.biometricsEnabled);
   const setBiometrics = useAuthStore((s) => s.setBiometrics);
+  const logout = useAuthStore((s) => s.logout);
 
   useEffect(() => {
-    const saved = globalThis.localStorage?.getItem('appSettings');
-    if (saved) {
-      try { setSettings(JSON.parse(saved)); } catch {}
-    }
+    AsyncStorage.getItem('gm-app-settings')
+      .then((saved) => {
+        if (!saved) return;
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') {
+            setSettings((current) => ({ ...current, ...parsed }));
+          }
+        } catch {}
+      })
+      .catch(() => {});
   }, []);
 
   const saveSettings = () => {
-    try {
-      // Persist locally for reference; theme is controlled by store
-      globalThis.localStorage?.setItem('appSettings', JSON.stringify(settings));
-      // Apply theme selection
-      if (settings.theme === 'auto') setTheme('system');
-      else setTheme(settings.theme as any);
-      Alert.alert('Saved', 'Settings updated');
-    } catch {
-      Alert.alert('Saved', 'Settings updated');
-    }
+    // Persist locally for reference; theme is controlled by store.
+    AsyncStorage.setItem('gm-app-settings', JSON.stringify(settings)).catch(() => {});
+    // Apply theme selection.
+    if (settings.theme === 'auto') setTheme('system');
+    else setTheme(settings.theme as any);
+    Alert.alert('Saved', 'Settings updated');
   };
 
   const changePassword = async () => {
@@ -46,69 +59,162 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={{ paddingBottom: 32 }}>
-      <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Theme, notifications, and security.</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScreenHeader
+        title="Settings"
+        subtitle="Theme, notifications, and security."
+        onBackPress={() => navigation.goBack()}
+      />
 
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Display</Text>
-        <View style={styles.rowBetween}>
-          {['light', 'dark', 'auto'].map((t) => (
-            <TouchableOpacity key={t} style={[styles.chip, settings.theme === t && [styles.chipActive, { borderColor: colors.primary }]]} onPress={() => setSettings({ ...settings, theme: t })}>
-              <Text style={[styles.chipText, { color: colors.text }, settings.theme === t && [styles.chipTextActive, { color: colors.primary }]]}>{t}</Text>
-            </TouchableOpacity>
-          ))}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Display</Text>
+          <View style={styles.rowBetween}>
+            {['light', 'dark', 'auto'].map((t) => {
+              const isActive = settings.theme === t;
+              return (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: isActive ? `${colors.primary}15` : colors.surfaceSecondary,
+                      borderColor: isActive ? colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() => setSettings({ ...settings, theme: t })}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.chipText, { color: isActive ? colors.primary : colors.text }]}>{t}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
-      </View>
 
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
-        <View style={styles.switchRow}>
-          <Text style={[styles.meta, { color: colors.textSecondary }]}>Push Notifications</Text>
-          <Switch value={settings.notifications} onValueChange={(v) => setSettings({ ...settings, notifications: v })} />
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
+          <View style={styles.switchRow}>
+            <Text style={[styles.meta, { color: colors.textSecondary }]}>Push Notifications</Text>
+            <Switch value={settings.notifications} onValueChange={(v) => setSettings({ ...settings, notifications: v })} />
+          </View>
+          <View style={styles.switchRow}>
+            <Text style={[styles.meta, { color: colors.textSecondary }]}>Email Updates</Text>
+            <Switch value={settings.emailUpdates} onValueChange={(v) => setSettings({ ...settings, emailUpdates: v })} />
+          </View>
         </View>
-        <View style={styles.switchRow}>
-          <Text style={[styles.meta, { color: colors.textSecondary }]}>Email Updates</Text>
-          <Switch value={settings.emailUpdates} onValueChange={(v) => setSettings({ ...settings, emailUpdates: v })} />
-        </View>
-      </View>
 
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Security</Text>
-        <View style={styles.switchRow}>
-          <Text style={[styles.meta, { color: colors.textSecondary }]}>Biometric unlock</Text>
-          <Switch value={biometricsEnabled} onValueChange={(v) => setBiometrics(v)} />
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Security</Text>
+          <View style={styles.switchRow}>
+            <Text style={[styles.meta, { color: colors.textSecondary }]}>Biometric unlock</Text>
+            <Switch value={biometricsEnabled} onValueChange={(v) => setBiometrics(v)} />
+          </View>
+          <TextInput
+            style={[
+              styles.input,
+              { borderColor: colors.border, backgroundColor: colors.backgroundSecondary, color: colors.text },
+            ]}
+            placeholder="Current password"
+            placeholderTextColor={colors.textSecondary}
+            secureTextEntry
+            value={passwords.current}
+            onChangeText={(v) => setPasswords({ ...passwords, current: v })}
+          />
+          <TextInput
+            style={[
+              styles.input,
+              { borderColor: colors.border, backgroundColor: colors.backgroundSecondary, color: colors.text },
+            ]}
+            placeholder="New password"
+            placeholderTextColor={colors.textSecondary}
+            secureTextEntry
+            value={passwords.next}
+            onChangeText={(v) => setPasswords({ ...passwords, next: v })}
+          />
+          <TextInput
+            style={[
+              styles.input,
+              { borderColor: colors.border, backgroundColor: colors.backgroundSecondary, color: colors.text },
+            ]}
+            placeholder="Confirm new password"
+            placeholderTextColor={colors.textSecondary}
+            secureTextEntry
+            value={passwords.confirm}
+            onChangeText={(v) => setPasswords({ ...passwords, confirm: v })}
+          />
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.primary }]}
+            onPress={changePassword}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.buttonText, { color: colors.textInverse }]}>Change password</Text>
+          </TouchableOpacity>
         </View>
-        <TextInput style={[styles.input, { borderColor: '#e5e7eb', color: colors.text }]} placeholder="Current password" placeholderTextColor={colors.textSecondary} secureTextEntry value={passwords.current} onChangeText={(v) => setPasswords({ ...passwords, current: v })} />
-        <TextInput style={[styles.input, { borderColor: '#e5e7eb', color: colors.text }]} placeholder="New password" placeholderTextColor={colors.textSecondary} secureTextEntry value={passwords.next} onChangeText={(v) => setPasswords({ ...passwords, next: v })} />
-        <TextInput style={[styles.input, { borderColor: '#e5e7eb', color: colors.text }]} placeholder="Confirm new password" placeholderTextColor={colors.textSecondary} secureTextEntry value={passwords.confirm} onChangeText={(v) => setPasswords({ ...passwords, confirm: v })} />
-        <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={changePassword}>
-          <Text style={styles.buttonText}>Change password</Text>
+
+        <TouchableOpacity
+          style={[styles.saveButton, { backgroundColor: colors.primary }]}
+          onPress={saveSettings}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.buttonText, { color: colors.textInverse }]}>Save Settings</Text>
         </TouchableOpacity>
-      </View>
 
-      <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.text }]} onPress={saveSettings}>
-        <Text style={styles.buttonText}>Save Settings</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity
+          style={[styles.logoutButton, { borderColor: colors.error, backgroundColor: `${colors.error}12` }]}
+          onPress={() => {
+            Alert.alert('Log out?', 'You will need to sign in again.', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Log out', style: 'destructive', onPress: () => logout() },
+            ]);
+          }}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.buttonText, { color: colors.error }]}>Log out</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', padding: 16 },
-  title: { fontSize: 26, fontWeight: '700', color: '#111', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#555', marginBottom: 12 },
-  card: { backgroundColor: '#fff', padding: 14, borderRadius: 12, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111', marginBottom: 8 },
+  container: { flex: 1 },
+  content: { padding: spacing.lg, paddingBottom: spacing['4xl'] },
+  card: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    ...shadows.md,
+  },
+  sectionTitle: { ...typography.heading3, marginBottom: spacing.md },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-  meta: { fontSize: 14, color: '#444' },
-  chip: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, backgroundColor: '#e5e7eb', marginRight: 8, flex: 1, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
-  chipActive: { backgroundColor: '#DBEAFE' },
-  chipText: { fontWeight: '700', color: '#111' },
-  chipTextActive: { color: '#1D4ED8' },
-  input: { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 12, backgroundColor: '#fff', marginTop: 8 },
-  button: { backgroundColor: '#007AFF', paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 10 },
-  saveButton: { backgroundColor: '#111827', paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 6, marginBottom: 24 },
-  buttonText: { color: '#fff', fontWeight: '700' },
+  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.md },
+  meta: { ...typography.body2 },
+  chip: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    marginRight: spacing.md,
+    flex: 1,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  chipText: { ...typography.label2, textTransform: 'capitalize' },
+  input: { borderWidth: 1, borderRadius: borderRadius.lg, padding: spacing.lg, marginTop: spacing.md },
+  button: { paddingVertical: spacing.md, borderRadius: borderRadius.lg, alignItems: 'center', marginTop: spacing.md },
+  saveButton: { paddingVertical: spacing.md, borderRadius: borderRadius.lg, alignItems: 'center', marginTop: spacing.sm },
+  logoutButton: {
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    marginTop: spacing.md,
+    borderWidth: 1,
+  },
+  buttonText: { ...typography.label1, fontWeight: '700' },
 });

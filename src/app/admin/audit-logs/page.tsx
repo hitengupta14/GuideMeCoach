@@ -34,13 +34,13 @@ export default async function AdminAuditPage() {
 
   const getActionLabel = (action: string) => {
     const labels: Record<string, string> = {
-      user_blocked: '🚫 Blocked User',
-      user_unblocked: '✓ Unblocked User',
-      user_soft_deleted: '✕ Soft Deleted User',
-      user_hard_deleted: '⚠️ Hard Deleted User',
-      subscription_cancelled: '❌ Cancelled Subscription',
-      user_edited: '✏️ Edited User',
-      exercise_created: '➕ Created Exercise',
+      user_blocked: ' Blocked User',
+      user_unblocked: ' Unblocked User',
+      user_soft_deleted: ' Soft Deleted User',
+      user_hard_deleted: ' Hard Deleted User',
+      subscription_cancelled: ' Cancelled Subscription',
+      user_edited: ' Edited User',
+      exercise_created: ' Created Exercise',
     }
     return labels[action] || action
   }
@@ -168,7 +168,7 @@ export default async function AdminAuditPage() {
 
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
         <p className="text-sm text-blue-800 dark:text-blue-200">
-          💡 <strong>Note:</strong> This audit log tracks all administrative
+           <strong>Note:</strong>This audit log tracks all administrative
           actions including user blocking, deletion, subscription cancellation,
           and more. Use this to monitor admin activity and maintain system
           security.

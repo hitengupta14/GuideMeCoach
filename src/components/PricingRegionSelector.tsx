@@ -31,7 +31,7 @@ export function PricingRegionSelector({
             onChange={() => handleChange('india')}
             className="w-4 h-4 text-purple-600 focus:ring-purple-500"
           />
-          <span className="font-medium">India Pricing (₹299/month)</span>
+          <span className="font-medium">India (₹299/mo • ₹2,499/yr)</span>
         </label>
         <label className="flex items-center gap-2 cursor-pointer">
           <input
@@ -41,17 +41,18 @@ export function PricingRegionSelector({
             onChange={() => handleChange('international')}
             className="w-4 h-4 text-purple-600 focus:ring-purple-500"
           />
-          <span className="font-medium">International Pricing ($5/month)</span>
+          <span className="font-medium">International ($5/mo • $49/yr)</span>
         </label>
       </div>
 
       <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-3 text-sm">
-        <p className="font-semibold mb-1">ℹ️ Important</p>
+        <p className="font-semibold mb-1">ℹ Important</p>
         <p>
-          This selection is for <strong>display purposes only</strong>. The final price is determined by your payment method (card issuing country).
+          This selection is for <strong>display preview only</strong>. The final price is decided server-side based on your detected country at checkout.
+          Razorpay charges in <strong>INR</strong>; international prices are displayed in <strong>USD</strong>for convenience and are billed as INR equivalents.
           {selectedRegion === 'international' && (
             <span className="block mt-1">
-              If your card is issued in India, Indian pricing (₹299) will be applied automatically.
+              If you're in India at checkout, Indian pricing (₹299/mo) will be applied automatically.
             </span>
           )}
         </p>

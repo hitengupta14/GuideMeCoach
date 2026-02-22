@@ -253,11 +253,11 @@ export default function ExerciseManagementTable({
                         : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                     }`}
                   >
-                    {exercise.reviewStatus === 'approved' ? '✓ Approved' : '⏸ Draft'}
+                    {exercise.reviewStatus === 'approved' ? ' Approved' : '⏸ Draft'}
                   </span>
                   {exercise.source && exercise.source !== 'manual' && (
                     <span className="ml-2 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                      {exercise.source === 'ai_generated' ? '🤖 AI' : '⭐ Curated'}
+                      {exercise.source === 'ai_generated' ? ' AI' : '⭐ Curated'}
                     </span>
                   )}
                 </td>

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from './ThemeProvider'
@@ -73,7 +74,15 @@ export function Header() {
     <header className="bg-white dark:bg-gray-900 shadow-sm dark:shadow-gray-800/50 sticky top-0 z-50 backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95 border-b border-gray-200 dark:border-gray-800">
       <nav className="container py-3 sm:py-4">
         <div className="flex items-center justify-between gap-3">
-          <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-2 hover:opacity-80 transition">
+          <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-3 hover:opacity-80 transition">
+            <Image
+              src="/brand/guidemecoach-mark.svg"
+              alt="GuideMeCoach"
+              width={28}
+              height={28}
+              className="h-7 w-7"
+              priority
+            />
             <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
               GuideMeCoach
             </span>
@@ -328,7 +337,6 @@ export function Header() {
                       >
                         <Star className="h-4 w-4" aria-hidden="true" />
                         <span>Upgrade to Premium</span>
-                        <span className="ml-auto text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-0.5 rounded">NEW</span>
                       </Link>
                     </div>
 
@@ -343,7 +351,6 @@ export function Header() {
                           >
                             <Shield className="h-4 w-4" aria-hidden="true" />
                             <span>Admin Panel</span>
-                            <span className="ml-auto text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-0.5 rounded">NEW</span>
                           </Link>
                         </>
                       )}

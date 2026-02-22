@@ -12,8 +12,6 @@ import { SignJWT } from 'jose'
 import crypto from 'crypto'
 import { getJwtSecretKey } from '@/lib/jwt'
 
-const JWT_SECRET = getJwtSecretKey()
-
 // Token lifetimes
 const ACCESS_TOKEN_EXPIRY = '1h' // Short-lived access token
 const REFRESH_TOKEN_EXPIRY_DAYS = 30 // Long-lived refresh token
@@ -29,6 +27,7 @@ function generateRefreshToken(): string {
  * Generate a new JWT access token
  */
 export async function generateAccessToken(userId: string): Promise<string> {
+  const JWT_SECRET = getJwtSecretKey()
   return await new SignJWT({ userId })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -126,7 +125,7 @@ export async function rotateRefreshToken(
   }
 
   // Enforce user status so blocked/deleted accounts cannot refresh.
-  if (user.status !== 'active') {
+  if (user.status && user.status !== 'active') {
     await revokeAllUserTokens(tokenRecord.userId)
     return null
   }

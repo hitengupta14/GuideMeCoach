@@ -40,8 +40,8 @@ export function decidePricing(options: {
         : INDIA_MONTHLY_PAISE
 
   const reason = tier === 'international'
-    ? 'International pricing applied based on your payment method.'
-    : 'India pricing applied based on your payment method.'
+    ? 'International pricing applied based on your detected country.'
+    : 'India pricing applied based on your detected country.'
 
   return {
     amountPaise,

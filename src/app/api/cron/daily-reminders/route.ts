@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
         body = `Hey ${userName}, your Premium access ends on ${expiringAt.toLocaleDateString()}. Renew to keep your advanced features.`
       } else if (workedOutToday.has(userId) && prefs?.streakReinforcement !== false) {
         type = 'streak_reinforcement'
-        title = streak >= 3 ? `🔥 ${streak}-day streak!` : 'Nice work today'
+        title = streak >= 3 ? ` ${streak}-day streak!` : 'Nice work today'
         body = `Great job ${userName}! You logged a workout today${streak >= 2 ? ` — that’s a ${streak}-day streak.` : '.'} Keep it going tomorrow.`
       } else if (!workedOutToday.has(userId)) {
         if (daysSinceWorkout >= 3 && prefs?.missedWorkoutNudges !== false) {

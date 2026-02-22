@@ -53,9 +53,9 @@ export function useAPIError() {
             text: action.label,
             onPress: () => {
               if (action.label === 'Complete Profile') {
-                navigation.navigate('Profile')
+                navigation.navigate('Home', { screen: 'Profile' })
               } else if (action.label === 'View Plans') {
-                navigation.navigate('Pricing')
+                navigation.navigate('More', { screen: 'Pricing' })
               } else if (action.label === 'Log In') {
                 navigation.navigate('Login')
               } else {

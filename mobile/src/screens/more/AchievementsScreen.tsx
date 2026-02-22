@@ -1,13 +1,31 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
-// import { useThemeStore } from '../../store/theme'
+import { useThemeStore } from '../../store/theme';
+import { spacing, typography, borderRadius, shadows } from '../../theme/spacing';
+
+const getBadgeIconName = (type?: string) => {
+  switch (type) {
+    case 'weight_loss':
+      return 'scale-bathroom';
+    case 'days_streak':
+      return 'fire';
+    case 'workout_count':
+      return 'dumbbell';
+    case 'milestone':
+      return 'trophy-award';
+    default:
+      return 'medal';
+  }
+};
 
 export default function AchievementsScreen() {
   const { user } = useAuthStore();
   const token = useAuthStore((s) => s.token);
+  const { colors } = useThemeStore();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['badges', user?.id, token],
@@ -25,50 +43,90 @@ export default function AchievementsScreen() {
 
   if (!user) {
     return (
-      <View style={styles.center}> 
-        <Text style={styles.error}>Login required.</Text>
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <Text style={[typography.body2, { color: colors.error }]}>Login required.</Text>
       </View>
     );
   }
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>Failed to load achievements</Text>
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <Text style={[typography.body2, { color: colors.error }]}>Failed to load achievements</Text>
       </View>
     );
   }
 
   const badges = (data as any) || [];
   const earned = badges.filter((b: any) => b.earned);
-  const locked = badges.filter((b: any) => !b.earned);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Achievements</Text>
-      <Text style={styles.subtitle}>{earned.length}/{badges.length} unlocked</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[typography.heading1, { color: colors.text }]}>Achievements</Text>
+      <Text style={[typography.body3, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+        {earned.length}/{badges.length} unlocked
+      </Text>
       <FlatList
         data={badges}
         keyExtractor={(item: any) => item.id}
+        contentContainerStyle={{ paddingTop: spacing.lg, paddingBottom: spacing['3xl'] }}
         renderItem={({ item }) => (
-          <View style={[styles.card, !item.earned && styles.locked]}>
-            <Text style={styles.icon}>{item.icon || '🏅'}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.meta}>{item.description}</Text>
-              <Text style={styles.metaSmall}>{item.criteria?.type} • {item.criteria?.value}</Text>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                opacity: item.earned ? 1 : 0.6,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.iconBadge,
+                {
+                  backgroundColor: item.earned ? `${colors.primary}1A` : `${colors.border}66`,
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={getBadgeIconName(item.criteria?.type)}
+                size={20}
+                color={colors.text}
+              />
             </View>
-            <Text style={[styles.badgeState, item.earned ? styles.badgeEarned : styles.badgeLocked]}>
-              {item.earned ? 'Unlocked' : 'Locked'}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.label1, { color: colors.text }]}>{item.name}</Text>
+              <Text style={[typography.body3, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                {item.description}
+              </Text>
+              <Text style={[typography.caption2, { color: colors.textTertiary, marginTop: spacing.xs }]}>
+                {item.criteria?.type} • {item.criteria?.value}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.statePill,
+                { backgroundColor: item.earned ? `${colors.success}20` : `${colors.error}20` },
+              ]}
+            >
+              <Text
+                style={[
+                  typography.caption2,
+                  { color: item.earned ? colors.success : colors.error, fontWeight: '700' },
+                ]}
+              >
+                {item.earned ? 'Unlocked' : 'Locked'}
+              </Text>
+            </View>
           </View>
         )}
       />
@@ -77,30 +135,29 @@ export default function AchievementsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', padding: 16 },
-  title: { fontSize: 26, fontWeight: '700', color: '#111', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#555', marginBottom: 12 },
+  container: { flex: 1, padding: spacing.lg },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    ...shadows.md,
   },
-  locked: { opacity: 0.6 },
-  icon: { fontSize: 28, marginRight: 12 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
-  meta: { fontSize: 13, color: '#666', marginTop: 2 },
-  metaSmall: { fontSize: 11, color: '#999', marginTop: 2 },
-  badgeState: { fontSize: 12, fontWeight: '700' },
-  badgeEarned: { color: '#16a34a' },
-  badgeLocked: { color: '#ef4444' },
+  iconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  statePill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    marginLeft: spacing.md,
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  error: { color: '#d00' },
 });

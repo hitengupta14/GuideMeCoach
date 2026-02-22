@@ -6,13 +6,13 @@ import { seedMuscleGroups } from '@/db/seed-data/muscle-groups'
 import { inArray } from 'drizzle-orm'
 
 async function seed() {
-  console.log('🌱 Seeding database...')
+console.log('Seeding database...')
 
   if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED !== 'true') {
     throw new Error('Seeding blocked in production. Set ALLOW_SEED=true to override intentionally.')
   }
 
-  console.log(`📚 Seed catalog contains ${SEED_EXERCISE_TOTAL} exercises`)
+console.log(`Seed catalog contains ${SEED_EXERCISE_TOTAL} exercises`)
 
   // Seed / upsert muscle groups first
   console.log('Ensuring muscle groups...')
@@ -30,7 +30,7 @@ async function seed() {
     .where(inArray(muscleGroups.name, seededMuscleNames as any))
 
   const muscleMap = Object.fromEntries(allMuscles.map((m) => [m.name, m.id]))
-  console.log(`✅ Muscle groups ready: ${allMuscles.length}`)
+console.log(`Muscle groups ready: ${allMuscles.length}`)
 
   // Combine all exercise data
   const allExercisesData = allSeedExercises
@@ -68,7 +68,7 @@ async function seed() {
       .returning({ id: exercises.id })
     insertedCount += inserted.length
   }
-  console.log(`✅ Inserted ${insertedCount} new exercises (existing kept)`)
+console.log(`Inserted ${insertedCount} new exercises (existing kept)`)
 
   // Fetch exercise ids for all slugs in the seed catalog
   const slugs = allExercisesData.map((e: any) => e.slug).filter(Boolean)
@@ -118,14 +118,14 @@ async function seed() {
   for (const batch of chunk(linksToInsert, 500)) {
     await db.insert(exerciseMuscles).values(batch as any)
   }
-  console.log(`✅ Added ${linksToInsert.length} new exercise-muscle relationships`)
+console.log(`Added ${linksToInsert.length} new exercise-muscle relationships`)
 
-  console.log('✅ Database seeded successfully!')
+console.log('Database seeded successfully!')
 }
 
 seed()
   .catch((error) => {
-    console.error('❌ Seeding failed:', error)
+console.error('Seeding failed:', error)
     process.exit(1)
   })
   .finally(() => {

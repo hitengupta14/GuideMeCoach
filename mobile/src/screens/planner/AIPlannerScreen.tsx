@@ -1,22 +1,21 @@
 import React, { useState } from 'react';
 import { useThemeStore } from '../../store/theme';
-import { lightColors, darkColors } from '../../theme/colors';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   Alert,
-  Switch,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigation } from '@react-navigation/native';
 import { apiClient } from '../../services/api';
 import { useAIQuota } from '../../hooks/useAIQuota';
 import UpgradeModal from '../../components/UpgradeModal';
+import ScreenHeader from '../../components/ScreenHeader';
 
 interface PlanFormData {
   goal: string;
@@ -29,6 +28,11 @@ interface PlanFormData {
 }
 
 export default function AIPlannerScreen() {
+  const navigation = useNavigation<any>();
+  const { colors } = useThemeStore();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const queryClient = useQueryClient();
+
   const [formData, setFormData] = useState<PlanFormData>({
     goal: 'muscle_building',
     durationWeeks: '4',
@@ -113,39 +117,58 @@ export default function AIPlannerScreen() {
   };
 
   const handleSavePlan = async () => {
-    Alert.alert('Save Plan', 'Save this plan to your library?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Save',
-        onPress: async () => {
-          try {
-            await apiClient.savePlan({
-              planData: generatedPlan,
-              name: 'AI Generated Plan',
-              description: 'Personalized plan generated on mobile',
-              durationWeeks: parseInt(formData.durationWeeks),
-            });
-            Alert.alert('Success', 'Plan saved successfully!');
-          } catch (e) {
-            Alert.alert('Error', 'Failed to save plan');
-          }
-        },
-      },
+    const planId = generatedPlan?.plan?.id;
+    if (!planId) {
+      Alert.alert('Not available', 'Could not find the saved plan id.');
+      return;
+    }
+    Alert.alert('Saved', 'This plan is already saved to your library.', [
+      { text: 'OK', style: 'cancel' },
+      { text: 'View plan', onPress: () => navigation.navigate('PlanDetail', { planId }) },
     ]);
   };
+
+  const headerIconBtnStyle = React.useMemo(
+    () => ({
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: `${colors.primary}14`,
+    }),
+    [colors.primary]
+  );
 
   if (generatedPlan && !showForm) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setShowForm(true)}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Your AI Plan</Text>
-          <TouchableOpacity onPress={handleSavePlan}>
-            <MaterialCommunityIcons name="download" size={24} color="#007AFF" />
-          </TouchableOpacity>
-        </View>
+        <ScreenHeader
+          title="Your AI Plan"
+          onBackPress={() => navigation.goBack()}
+          rightAction={
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setShowForm(true)}
+                activeOpacity={0.8}
+                style={headerIconBtnStyle}
+                accessibilityRole="button"
+                accessibilityLabel="Edit plan inputs"
+              >
+                <MaterialCommunityIcons name="pencil" size={20} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSavePlan}
+                activeOpacity={0.8}
+                style={headerIconBtnStyle}
+                accessibilityRole="button"
+                accessibilityLabel="View saved plan"
+              >
+                <MaterialCommunityIcons name="clipboard-text-outline" size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          }
+        />
 
         <ScrollView style={styles.scrollContent}>
           {/* Plan Summary */}
@@ -217,10 +240,33 @@ export default function AIPlannerScreen() {
           <TouchableOpacity
             style={styles.startButton}
             onPress={() => {
-              Alert.alert('Success', 'Plan started! Head to Workouts to log your first session.');
+              const planId = generatedPlan?.plan?.id;
+              if (!planId) {
+                Alert.alert('Missing plan', 'Could not find the plan id.');
+                return;
+              }
+
+              Alert.alert('Activate plan?', 'This will make this your active plan and take you to Today.', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Activate',
+                  onPress: async () => {
+                    try {
+                      await apiClient.updatePlan(planId, { isActive: true });
+                      await Promise.all([
+                        queryClient.invalidateQueries({ queryKey: ['plans'] }),
+                        queryClient.invalidateQueries({ queryKey: ['today'] }),
+                      ]);
+                      navigation.navigate('Home', { screen: 'Today' });
+                    } catch (e) {
+                      Alert.alert('Error', 'Failed to activate plan.');
+                    }
+                  },
+                },
+              ]);
             }}
           >
-            <MaterialCommunityIcons name="play" size={20} color="#fff" />
+            <MaterialCommunityIcons name="play" size={20} color={colors.textInverse} />
             <Text style={styles.startButtonText}>Start Plan</Text>
           </TouchableOpacity>
         </View>
@@ -230,11 +276,16 @@ export default function AIPlannerScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <MaterialCommunityIcons name="robot" size={28} color="#007AFF" />
-        <Text style={styles.headerTitle}>AI Workout Planner</Text>
-        <View style={{ width: 28 }} />
-      </View>
+      <ScreenHeader
+        title="AI Workout Planner"
+        subtitle="Generate a plan tailored to you."
+        onBackPress={() => navigation.goBack()}
+        rightAction={
+          <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <MaterialCommunityIcons name="robot" size={22} color={colors.primary} />
+          </View>
+        }
+      />
 
       <ScrollView style={styles.scrollContent}>
         {/* Goal Selection */}
@@ -381,7 +432,7 @@ export default function AIPlannerScreen() {
                     <MaterialCommunityIcons
                       name="check"
                       size={14}
-                      color="#fff"
+                      color={colors.textInverse}
                     />
                   )}
                 </View>
@@ -437,7 +488,7 @@ export default function AIPlannerScreen() {
                 name="home"
                 size={20}
                 color={
-                  formData.preferredLocation === 'home' ? '#fff' : '#007AFF'
+                  formData.preferredLocation === 'home' ? colors.textInverse : colors.primary
                 }
               />
               <Text
@@ -465,7 +516,7 @@ export default function AIPlannerScreen() {
                 name="dumbbell"
                 size={20}
                 color={
-                  formData.preferredLocation === 'gym' ? '#fff' : '#007AFF'
+                  formData.preferredLocation === 'gym' ? colors.textInverse : colors.primary
                 }
               />
               <Text
@@ -493,10 +544,10 @@ export default function AIPlannerScreen() {
           disabled={generatePlanMutation.isPending}
         >
           {generatePlanMutation.isPending ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.textInverse} />
           ) : (
             <>
-              <MaterialCommunityIcons name="star-circle" size={20} color="#fff" />
+              <MaterialCommunityIcons name="star-circle" size={20} color={colors.textInverse} />
               <Text style={styles.generateButtonText}>Generate Plan</Text>
             </>
           )}
@@ -513,313 +564,324 @@ export default function AIPlannerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-    flex: 1,
-    textAlign: 'center',
-  },
-  scrollContent: {
-    flex: 1,
-    padding: 16,
-  },
-  section: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 12,
-  },
-  optionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  optionButtonActive: {
-    backgroundColor: '#007AFF20',
-    borderColor: '#007AFF',
-  },
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#ccc',
-    marginRight: 12,
-  },
-  radioButtonActive: {
-    borderColor: '#007AFF',
-    backgroundColor: '#007AFF',
-  },
-  optionText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  optionTextActive: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  optionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  chipButton: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginBottom: 8,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    width: '30%',
-    alignItems: 'center',
-  },
-  chipButtonActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
-  checkboxGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '50%',
-    marginBottom: 12,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#ccc',
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#34C759',
-    borderColor: '#34C759',
-  },
-  checkboxLabel: {
-    fontSize: 14,
-    color: '#333',
-    textTransform: 'capitalize',
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  tag: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  tagActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  tagText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333',
-    textTransform: 'capitalize',
-  },
-  tagTextActive: {
-    color: '#fff',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  locationButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    backgroundColor: '#f0f0f0',
-    gap: 8,
-  },
-  locationButtonActive: {
-    backgroundColor: '#007AFF',
-  },
-  locationText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  locationTextActive: {
-    color: '#fff',
-  },
-  footer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  generateButton: {
-    flexDirection: 'row',
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  generateButtonLoading: {
-    opacity: 0.7,
-  },
-  generateButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  // Plan display styles
-  summaryCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  summaryValue: {
-    fontSize: 14,
-    color: '#000',
-    fontWeight: '600',
-  },
-  weekCard: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  weekTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 8,
-  },
-  dayCard: {
-    backgroundColor: '#fff',
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#FF9500',
-  },
-  dayHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  dayName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#000',
-  },
-  dayType: {
-    fontSize: 11,
-    color: '#666',
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  exercisesList: {
-    marginTop: 8,
-  },
-  exerciseItemPlan: {
-    paddingVertical: 6,
-  },
-  exerciseNamePlan: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  exerciseDetails: {
-    fontSize: 11,
-    color: '#999',
-  },
-  notesText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-  },
-  startButton: {
-    flexDirection: 'row',
-    backgroundColor: '#34C759',
-    paddingVertical: 14,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  startButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-});
+function createStyles(colors: any) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.card,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text,
+      flex: 1,
+      textAlign: 'center',
+    },
+    scrollContent: {
+      flex: 1,
+      padding: 16,
+    },
+    section: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    optionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.backgroundSecondary,
+    },
+    optionButtonActive: {
+      backgroundColor: `${colors.primary}18`,
+      borderColor: colors.primary,
+    },
+    radioButton: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.border,
+      marginRight: 12,
+    },
+    radioButtonActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
+    },
+    optionText: {
+      fontSize: 14,
+      color: colors.text,
+      fontWeight: '500',
+    },
+    optionTextActive: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    optionsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+    },
+    chipButton: {
+      backgroundColor: colors.backgroundTertiary,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 20,
+      marginBottom: 8,
+      marginRight: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      width: '30%',
+      alignItems: 'center',
+    },
+    chipButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    chipText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    chipTextActive: {
+      color: colors.textInverse,
+    },
+    checkboxGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    checkboxRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      width: '50%',
+      marginBottom: 12,
+    },
+    checkbox: {
+      width: 20,
+      height: 20,
+      borderRadius: 4,
+      borderWidth: 2,
+      borderColor: colors.border,
+      marginRight: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    checkboxChecked: {
+      backgroundColor: colors.success,
+      borderColor: colors.success,
+    },
+    checkboxLabel: {
+      fontSize: 14,
+      color: colors.text,
+      textTransform: 'capitalize',
+    },
+    tagsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    tag: {
+      backgroundColor: colors.backgroundTertiary,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      marginRight: 8,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    tagActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    tagText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
+      textTransform: 'capitalize',
+    },
+    tagTextActive: {
+      color: colors.textInverse,
+    },
+    locationRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    locationButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      borderRadius: 8,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      backgroundColor: colors.backgroundTertiary,
+      gap: 8,
+    },
+    locationButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    locationText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    locationTextActive: {
+      color: colors.textInverse,
+    },
+    footer: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: colors.card,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    generateButton: {
+      flexDirection: 'row',
+      backgroundColor: colors.primary,
+      paddingVertical: 14,
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    generateButtonLoading: {
+      opacity: 0.7,
+    },
+    generateButtonText: {
+      marginLeft: 8,
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.textInverse,
+    },
+    // Plan display styles
+    summaryCard: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    summaryLabel: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      fontWeight: '500',
+    },
+    summaryValue: {
+      fontSize: 14,
+      color: colors.text,
+      fontWeight: '600',
+    },
+    weekCard: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    weekTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    dayCard: {
+      backgroundColor: colors.card,
+      borderRadius: 6,
+      padding: 10,
+      marginBottom: 8,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.warning,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    dayHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    dayName: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    dayType: {
+      fontSize: 11,
+      color: colors.textSecondary,
+      backgroundColor: colors.backgroundTertiary,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    exercisesList: {
+      marginTop: 8,
+    },
+    exerciseItemPlan: {
+      paddingVertical: 6,
+    },
+    exerciseNamePlan: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 2,
+    },
+    exerciseDetails: {
+      fontSize: 11,
+      color: colors.textSecondary,
+    },
+    notesText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      lineHeight: 20,
+    },
+    startButton: {
+      flexDirection: 'row',
+      backgroundColor: colors.success,
+      paddingVertical: 14,
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    startButtonText: {
+      marginLeft: 8,
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.textInverse,
+    },
+  });
+}

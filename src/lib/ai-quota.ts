@@ -2,6 +2,34 @@ import { db } from '@/db'
 import { aiUsageQuotas, aiUsageLogs } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 
+let aiQuotaTablesAvailable: boolean | null = null
+
+function isMissingAiQuotaTableError(error: any) {
+  const message = String(error?.message || '')
+  return (
+    error?.code === '42P01' ||
+    /relation\s+["']?ai_usage_quotas["']?\s+does not exist/i.test(message) ||
+    /relation\s+["']?public\.ai_usage_quotas["']?\s+does not exist/i.test(message) ||
+    /relation\s+["']?ai_usage_logs["']?\s+does not exist/i.test(message) ||
+    /relation\s+["']?public\.ai_usage_logs["']?\s+does not exist/i.test(message)
+  )
+}
+
+function fallbackQuota(feature: AIFeature, isPremium: boolean) {
+  const now = new Date()
+  const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  return {
+    id: `fallback-${feature}`,
+    userId: 'unknown',
+    feature,
+    usedCount: 0,
+    monthlyLimit: isPremium ? AI_FEATURE_LIMITS.paid[feature] : AI_FEATURE_LIMITS.free[feature],
+    resetAt: resetDate,
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
 /**
  * AI Feature types with their default limits
  * Phase 1: Lock these quotas strictly
@@ -31,55 +59,67 @@ export async function getOrCreateQuota(
   feature: AIFeature,
   isPremium: boolean
 ) {
+  if (aiQuotaTablesAvailable === false) {
+    return fallbackQuota(feature, isPremium)
+  }
+
   const now = new Date()
   const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1) // First day of next month
 
-  // Try to find existing quota
-  const existing = await db.query.aiUsageQuotas.findFirst({
-    where: and(
-      eq(aiUsageQuotas.userId, userId),
-      eq(aiUsageQuotas.feature, feature)
-    ),
-  })
+  try {
+    // Try to find existing quota
+    const existing = await db.query.aiUsageQuotas.findFirst({
+      where: and(
+        eq(aiUsageQuotas.userId, userId),
+        eq(aiUsageQuotas.feature, feature)
+      ),
+    })
 
-  if (existing) {
-    // Check if we need to reset the quota (new month)
-    if (new Date(existing.resetAt) <= now) {
-      // Reset the quota
-      const [updated] = await db
-        .update(aiUsageQuotas)
-        .set({
-          usedCount: 0,
-          monthlyLimit: isPremium
-            ? AI_FEATURE_LIMITS.paid[feature]
-            : AI_FEATURE_LIMITS.free[feature],
-          resetAt: resetDate,
-          updatedAt: now,
-        })
-        .where(eq(aiUsageQuotas.id, existing.id))
-        .returning()
+    if (existing) {
+      // Check if we need to reset the quota (new month)
+      if (new Date(existing.resetAt) <= now) {
+        // Reset the quota
+        const [updated] = await db
+          .update(aiUsageQuotas)
+          .set({
+            usedCount: 0,
+            monthlyLimit: isPremium
+              ? AI_FEATURE_LIMITS.paid[feature]
+              : AI_FEATURE_LIMITS.free[feature],
+            resetAt: resetDate,
+            updatedAt: now,
+          })
+          .where(eq(aiUsageQuotas.id, existing.id))
+          .returning()
 
-      return updated
+        return updated
+      }
+
+      return existing
     }
 
-    return existing
+    // Create new quota
+    const [newQuota] = await db
+      .insert(aiUsageQuotas)
+      .values({
+        userId,
+        feature,
+        usedCount: 0,
+        monthlyLimit: isPremium
+          ? AI_FEATURE_LIMITS.paid[feature]
+          : AI_FEATURE_LIMITS.free[feature],
+        resetAt: resetDate,
+      })
+      .returning()
+
+    return newQuota
+  } catch (error) {
+    if (isMissingAiQuotaTableError(error)) {
+      aiQuotaTablesAvailable = false
+      return fallbackQuota(feature, isPremium)
+    }
+    throw error
   }
-
-  // Create new quota
-  const [newQuota] = await db
-    .insert(aiUsageQuotas)
-    .values({
-      userId,
-      feature,
-      usedCount: 0,
-      monthlyLimit: isPremium
-        ? AI_FEATURE_LIMITS.paid[feature]
-        : AI_FEATURE_LIMITS.free[feature],
-      resetAt: resetDate,
-    })
-    .returning()
-
-  return newQuota
 }
 
 /**
@@ -113,22 +153,34 @@ export async function decrementQuota(
   feature: AIFeature,
   isPremium: boolean
 ) {
+  if (aiQuotaTablesAvailable === false) {
+    return fallbackQuota(feature, isPremium)
+  }
+
   const quota = await getOrCreateQuota(userId, feature, isPremium)
 
   if (quota.usedCount >= quota.monthlyLimit) {
     throw new Error(`AI quota exceeded for feature: ${feature}`)
   }
 
-  const [updated] = await db
-    .update(aiUsageQuotas)
-    .set({
-      usedCount: quota.usedCount + 1,
-      updatedAt: new Date(),
-    })
-    .where(eq(aiUsageQuotas.id, quota.id))
-    .returning()
+  try {
+    const [updated] = await db
+      .update(aiUsageQuotas)
+      .set({
+        usedCount: quota.usedCount + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(aiUsageQuotas.id, quota.id))
+      .returning()
 
-  return updated
+    return updated
+  } catch (error) {
+    if (isMissingAiQuotaTableError(error)) {
+      aiQuotaTablesAvailable = false
+      return fallbackQuota(feature, isPremium)
+    }
+    throw error
+  }
 }
 
 /**
@@ -153,16 +205,25 @@ export async function logAIUsage({
   success?: boolean
   errorMessage?: string
 }) {
-  await db.insert(aiUsageLogs).values({
-    userId,
-    feature,
-    model,
-    tokensUsed,
-    estimatedCost,
-    responseTime,
-    success,
-    errorMessage,
-  })
+  if (aiQuotaTablesAvailable === false) return
+  try {
+    await db.insert(aiUsageLogs).values({
+      userId,
+      feature,
+      model,
+      tokensUsed,
+      estimatedCost,
+      responseTime,
+      success,
+      errorMessage,
+    })
+  } catch (error) {
+    if (isMissingAiQuotaTableError(error)) {
+      aiQuotaTablesAvailable = false
+      return
+    }
+    throw error
+  }
 }
 
 /**

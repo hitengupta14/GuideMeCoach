@@ -117,9 +117,9 @@ async function aiInsights(request: NextRequest) {
           exerciseStats.length > 0 ? `Training ${exerciseStats.length} different exercises` : 'Getting started with tracking',
         ],
         improvements: [
-          '🔒 Upgrade to Premium for AI-powered progress analysis',
-          '🔒 Get personalized recommendations based on your workout data',
-          '🔒 Identify plateau risks before they happen',
+          ' Upgrade to Premium for AI-powered progress analysis',
+          ' Get personalized recommendations based on your workout data',
+          ' Identify plateau risks before they happen',
         ],
         recommendations: [
           'Track all your workout metrics consistently',

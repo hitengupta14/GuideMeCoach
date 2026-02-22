@@ -281,7 +281,7 @@ export default function FormFeedbackComponent({ defaultExerciseName = '' }: Form
                   </h3>
                   {feedback.warningFlags.map((warning, idx) => (
                     <div key={idx} className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-900">
-                      ⚠️ {warning}
+                       {warning}
                     </div>
                   ))}
                 </div>
@@ -322,7 +322,7 @@ export default function FormFeedbackComponent({ defaultExerciseName = '' }: Form
                   </h3>
                   {feedback.progressionTips.map((tip, idx) => (
                     <p key={idx} className="text-green-900 text-sm">
-                      ✓ {tip}
+                       {tip}
                     </p>
                   ))}
                 </div>
@@ -348,7 +348,7 @@ export default function FormFeedbackComponent({ defaultExerciseName = '' }: Form
               <div className="flex-1 overflow-y-auto mb-4 space-y-4 bg-gray-50 rounded-lg p-4">
                 {consultationMessages.length === 0 && (
                   <p className="text-gray-600 text-center py-8 text-sm">
-                    💬 Start a live coaching conversation about your form
+                     Start a live coaching conversation about your form
                   </p>
                 )}
                 {consultationMessages.map((msg, idx) => (

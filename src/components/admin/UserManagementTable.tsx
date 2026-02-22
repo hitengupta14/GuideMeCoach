@@ -205,12 +205,12 @@ export default function UserManagementTable({
                   <div className="flex flex-col gap-1">
                     {user.status === 'blocked' && (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                        🚫 Blocked
+                         Blocked
                       </span>
                     )}
                     {user.status === 'deleted' && (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
-                        ✕ Deleted
+                         Deleted
                       </span>
                     )}
                     {user.isPremium && (

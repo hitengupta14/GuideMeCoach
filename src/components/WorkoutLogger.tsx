@@ -1219,7 +1219,7 @@ export default function WorkoutLogger({ planExercises, dayName, planId }: Workou
                 className="text-2xl leading-none text-gray-600 hover:text-gray-900"
                 aria-label="Close"
               >
-                ✕
+                
               </button>
             </div>
 

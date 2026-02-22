@@ -1,6 +1,6 @@
 import { db } from '@/db'
 import { workoutSessions, workoutLogs, exercises, users } from '@/db/schema'
-import { eq, gte, lte, desc, and } from 'drizzle-orm'
+import { eq, gte, lte, desc, and, inArray } from 'drizzle-orm'
 import { NextRequest } from 'next/server'
 import { verifySession } from '@/lib/auth-helpers'
 
@@ -45,13 +45,13 @@ export async function POST(req: Request) {
       .where(and(eq(workoutLogs.userId, userId), gte(workoutLogs.performedAt, start), lte(workoutLogs.performedAt, end)))
 
     // Get exercise names
-    const exerciseIds = [...new Set(logs.map(l => l.exerciseId))]
+    const exerciseIds = [...new Set(logs.map(l => l.exerciseId).filter(Boolean))]
     const exerciseMap = new Map()
     if (exerciseIds.length > 0) {
       const exs = await db
         .select({ id: exercises.id, name: exercises.name })
         .from(exercises)
-        .where(eq(exercises.id, exerciseIds[0])) // Simplified for demo
+        .where(inArray(exercises.id, exerciseIds))
 
       exs.forEach(ex => exerciseMap.set(ex.id, ex.name))
     }

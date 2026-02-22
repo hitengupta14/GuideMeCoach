@@ -6,10 +6,10 @@ import { SignJWT, createRemoteJWKSet, jwtVerify } from 'jose'
 import { getJwtSecretKey } from '@/lib/jwt'
 import { createRefreshToken } from '@/lib/refresh-token'
 import { getGlobalAppSettings } from '@/lib/app-settings'
-
-const JWT_SECRET = getJwtSecretKey()
+import { computeProfileCompletion, setProfileCompleteCookie } from '@/lib/profile-completion'
 
 export async function GET(request: NextRequest) {
+  const JWT_SECRET = getJwtSecretKey()
   try {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const appSettings = await getGlobalAppSettings()
@@ -179,6 +179,30 @@ export async function GET(request: NextRequest) {
       maxAge: 0,
       path: '/',
     })
+
+    const [profile] = await db
+      .select({
+        name: users.name,
+        height: users.height,
+        weight: users.weight,
+        age: users.age,
+        gender: users.gender,
+        experienceLevel: users.experienceLevel,
+        goals: users.goals,
+        medicalConditions: users.medicalConditions,
+        availableEquipment: users.availableEquipment,
+        timeAvailability: users.timeAvailability,
+        preferredLocation: users.preferredLocation,
+        targetWeight: users.targetWeight,
+      })
+      .from(users)
+      .where(eq(users.id, userRecord.id))
+      .limit(1)
+
+    if (profile) {
+      const completion = computeProfileCompletion(profile)
+      setProfileCompleteCookie(response, completion.isComplete)
+    }
 
     const userAgent = request.headers.get('user-agent') || undefined
     const platform = request.headers.get('x-platform') || undefined

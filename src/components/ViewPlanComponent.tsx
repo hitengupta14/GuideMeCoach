@@ -145,7 +145,7 @@ export default function ViewPlanComponent({ planId }: ViewPlanComponentProps) {
   if (error || !plan) {
     return (
       <div className="text-center py-12">
-        <div className="text-6xl mb-4">📋</div>
+        <div className="text-6xl mb-4"></div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Plan Not Found</h2>
         <p className="text-gray-600 mb-6">{error || "This plan doesn't exist or has been deleted."}</p>
         <Link
@@ -184,7 +184,7 @@ export default function ViewPlanComponent({ planId }: ViewPlanComponentProps) {
           <div className="flex flex-col items-end gap-2">
             {plan.isActive ? (
               <div className="text-sm font-semibold px-4 py-2 rounded-full bg-green-100 text-green-800">
-                ✅ Active
+                 Active
               </div>
             ) : (
               <button
@@ -278,7 +278,7 @@ export default function ViewPlanComponent({ planId }: ViewPlanComponentProps) {
           href="/planner/history"
           className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors text-center"
         >
-          📋 View All Plans
+           View All Plans
         </Link>
       </div>
     </div>

@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger'
 import { apiRateLimiter } from '@/lib/rate-limit'
 import { z } from 'zod'
 import { verifySession } from '@/lib/auth-helpers'
+import { computeProfileCompletion, setProfileCompleteCookie } from '@/lib/profile-completion'
 
 // Get user profile
 export async function GET(request: NextRequest, { params }: { params: { userId: string } }) {
@@ -102,26 +103,33 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
     // Validate input with Zod
     const validated = userProfileSchema.parse(body)
 
+    const updates: Record<string, any> = {
+      ...(validated.name && { name: validated.name }),
+      ...(validated.height !== undefined && { height: validated.height }),
+      ...(validated.weight !== undefined && { weight: validated.weight }),
+      ...(validated.age !== undefined && { age: validated.age }),
+      ...(validated.gender !== undefined && { gender: validated.gender }),
+      ...(validated.currentWeight !== undefined && { currentWeight: validated.currentWeight }),
+      ...(validated.targetWeight !== undefined && { targetWeight: validated.targetWeight }),
+      ...(validated.experienceLevel && { experienceLevel: validated.experienceLevel }),
+      ...(validated.goals && { goals: validated.goals }),
+      ...(validated.medicalConditions && { medicalConditions: validated.medicalConditions }),
+      ...(validated.availableEquipment && { availableEquipment: validated.availableEquipment }),
+      ...(validated.timeAvailability !== undefined && { timeAvailability: validated.timeAvailability }),
+      ...(validated.preferredLocation && { preferredLocation: validated.preferredLocation }),
+      ...(validated.weakAreas && { weakAreas: validated.weakAreas }),
+      ...(validated.painAreas && { painAreas: validated.painAreas }),
+      updatedAt: new Date(),
+    }
+
+    // Sync currentWeight to weight when only currentWeight is provided.
+    if (validated.currentWeight !== undefined && validated.weight === undefined) {
+      updates.weight = validated.currentWeight
+    }
+
     const updatedUser = await db
       .update(users)
-      .set({
-        ...(validated.name && { name: validated.name }),
-        ...(validated.height !== undefined && { height: validated.height }),
-        ...(validated.weight !== undefined && { weight: validated.weight }),
-        ...(validated.age !== undefined && { age: validated.age }),
-        ...(validated.gender !== undefined && { gender: validated.gender }),
-        ...(validated.currentWeight !== undefined && { currentWeight: validated.currentWeight }),
-        ...(validated.targetWeight !== undefined && { targetWeight: validated.targetWeight }),
-        ...(validated.experienceLevel && { experienceLevel: validated.experienceLevel }),
-        ...(validated.goals && { goals: validated.goals }),
-        ...(validated.medicalConditions && { medicalConditions: validated.medicalConditions }),
-        ...(validated.availableEquipment && { availableEquipment: validated.availableEquipment }),
-        ...(validated.timeAvailability !== undefined && { timeAvailability: validated.timeAvailability }),
-        ...(validated.preferredLocation && { preferredLocation: validated.preferredLocation }),
-        ...(validated.weakAreas && { weakAreas: validated.weakAreas }),
-        ...(validated.painAreas && { painAreas: validated.painAreas }),
-        updatedAt: new Date(),
-      })
+      .set(updates)
       .where(eq(users.id, userId))
       .returning()
 
@@ -133,7 +141,10 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
     // Don't return password hash
     const { passwordHash: _, ...userWithoutPassword } = updatedUser[0]
     logger.info('User profile updated', { userId: userId.substring(0, 8) + '***' })
-    return NextResponse.json(userWithoutPassword)
+    const response = NextResponse.json(userWithoutPassword)
+    const completion = computeProfileCompletion(updatedUser[0])
+    setProfileCompleteCookie(response, completion.isComplete)
+    return response
   } catch (error) {
     if (error instanceof z.ZodError) {
       logger.warn('Profile validation failed', { errors: error.issues })

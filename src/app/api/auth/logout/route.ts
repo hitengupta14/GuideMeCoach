@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
     // Delete the session cookie
     cookieStore.delete('session')
     cookieStore.delete('refresh_token')
+    cookieStore.delete('profile_complete')
     
     if (userId) {
       logger.info('User logged out', { userId })

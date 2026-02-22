@@ -3,6 +3,14 @@ import { API_BASE_URL, config } from '../config/api';
 type AuthTokens = { accessToken: string; refreshToken: string };
 type AuthUpdateHandler = (tokens: AuthTokens | null) => Promise<void> | void;
 
+const API_DEBUG = __DEV__ && (config as any).debug === true;
+function debugLog(...args: any[]) {
+  if (API_DEBUG) console.log(...args);
+}
+function debugWarn(...args: any[]) {
+  if (API_DEBUG) console.warn(...args);
+}
+
 class ApiError extends Error {
   status: number;
   data: any;
@@ -73,7 +81,7 @@ export const apiClient = {
         } catch {}
 
         if (!response.ok) {
-          console.warn('🔒 Session refresh failed', {
+          debugWarn(' Session refresh failed', {
             status: response.status,
             error: data?.error || data?.message || response.statusText,
           });
@@ -85,7 +93,7 @@ export const apiClient = {
         const accessToken = data?.data?.accessToken as string | undefined;
         const refreshToken = data?.data?.refreshToken as string | undefined;
         if (!accessToken || !refreshToken) {
-          console.warn('🔒 Session refresh returned invalid data');
+          debugWarn(' Session refresh returned invalid data');
           this.clearToken();
           await this._authUpdateHandler?.(null);
           return false;
@@ -95,7 +103,7 @@ export const apiClient = {
         await this._authUpdateHandler?.({ accessToken, refreshToken });
         return true;
       } catch (error) {
-        console.warn('🔒 Session refresh error', error);
+        debugWarn(' Session refresh error', error);
         return false;
       } finally {
         this._refreshInFlight = null;
@@ -112,23 +120,40 @@ export const apiClient = {
     didRefresh: boolean = false
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    console.log(`🔵 API ${options?.method || 'GET'}: ${url} (attempt ${retryCount + 1})`);
+    debugLog(` API ${options?.method || 'GET'}: ${url} (attempt ${retryCount + 1})`);
 
     try {
       // Add timeout to request
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.warn(`⏱️ Request timeout after ${config.timeout}ms for ${endpoint}`);
+        debugWarn(`⏱ Request timeout after ${config.timeout}ms for ${endpoint}`);
         controller.abort();
       }, config.timeout);
 
       const response = await fetch(url, {
         ...options,
         signal: controller.signal,
-        headers: {
-          ...config.headers,
-          ...options?.headers,
-        },
+        headers: (() => {
+          const merged: Record<string, any> = {
+            ...(config.headers as any),
+            ...(options?.headers as any),
+          };
+
+          if (this._accessToken) {
+            if (!merged.Authorization) merged.Authorization = `Bearer ${this._accessToken}`;
+            if (!merged.Cookie) merged.Cookie = `session=${this._accessToken}`;
+          }
+
+          const body: any = (options as any)?.body;
+          const isFormData =
+            typeof FormData !== 'undefined' && body && typeof body === 'object' && body instanceof FormData;
+          if (isFormData) {
+            // Let fetch set the correct multipart boundary.
+            delete merged['Content-Type'];
+          }
+
+          return merged;
+        })(),
       });
 
       clearTimeout(timeoutId);
@@ -154,11 +179,11 @@ export const apiClient = {
 
       if (!response.ok) {
         const errorMessage = data?.error || data?.message || response.statusText;
-        console.error('❌ API Error:', { endpoint, status: response.status, error: errorMessage, url });
+        debugWarn(' API Error:', { endpoint, status: response.status, error: errorMessage, url });
         throw new ApiError(errorMessage, response.status, data);
       }
 
-      console.log('✅ API Success:', endpoint);
+      debugLog(' API Success:', endpoint);
       return data as T;
     } catch (error: any) {
       const isAborted = error.name === 'AbortError';
@@ -166,7 +191,7 @@ export const apiClient = {
       const isNetworkError = !isApiError;
       const shouldRetry = (isAborted || isNetworkError) && retryCount < (config as any).maxRetries;
 
-      console.error('❌ API Error:', {
+      debugWarn(' API Error:', {
         endpoint,
         error: error.message,
         status: isApiError ? error.status : undefined,
@@ -179,7 +204,7 @@ export const apiClient = {
 
       if (shouldRetry) {
         const delay = (config as any).retryDelay * Math.pow(2, retryCount); // Exponential backoff
-        console.log(`🔄 Retrying ${endpoint} after ${delay}ms...`);
+        debugLog(` Retrying ${endpoint} after ${delay}ms...`);
         await new Promise<void>((resolve) => setTimeout(() => resolve(), delay));
         return (this.request as any)(endpoint, options, retryCount + 1, didRefresh) as Promise<T>;
       }
@@ -208,15 +233,31 @@ export const apiClient = {
   },
 
   // ===== Video (v1) =====
-  async uploadVideo(file: Blob, exerciseId: string) {
+  async createVideoUpload(input: {
+    exerciseId?: string;
+    fileName: string;
+    fileType: string;
+    fileSize?: number;
+  }) {
     const form = new FormData();
-    form.append('video', file as any);
-    form.append('exerciseId', exerciseId);
+    if (input.exerciseId) form.append('exerciseId', input.exerciseId);
+    form.append('fileName', input.fileName);
+    form.append('fileType', input.fileType);
+    if (typeof input.fileSize === 'number' && Number.isFinite(input.fileSize)) {
+      form.append('fileSize', String(input.fileSize));
+    }
     return this.request('/v1/video/upload', { method: 'POST', body: form });
   },
 
   async getVideoAnalysis(videoId: string) {
     return this.request(`/v1/video/${videoId}`, { method: 'GET' });
+  },
+
+  async analyzeVideo(videoId: string, notes?: string) {
+    return this.request(`/v1/video/${videoId}/analyze`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    });
   },
 
   // ===== Wearables (v1) =====
@@ -227,10 +268,28 @@ export const apiClient = {
     return res?.data ?? res;
   },
 
-  async connectWearable(provider: string, authCode?: string, refreshToken?: string) {
+  async connectWearable(provider: string, authCode?: string, refreshToken?: string, state?: string) {
     return this.request('/v1/wearables/connect', {
       method: 'POST',
-      body: JSON.stringify({ provider, authCode, refreshToken }),
+      body: JSON.stringify({ provider, authCode, refreshToken, state }),
+    });
+  },
+
+  async getWearableConnections() {
+    return this.request('/v1/wearables/connections', { method: 'GET' });
+  },
+
+  async syncWearables(payload: { days?: number; provider?: string } = {}) {
+    return this.request('/v1/wearables/sync', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async disconnectWearable(provider: string) {
+    return this.request('/v1/wearables/disconnect', {
+      method: 'POST',
+      body: JSON.stringify({ provider }),
     });
   },
 
@@ -247,6 +306,28 @@ export const apiClient = {
     });
   },
 
+  async cancelSubscription() {
+    const res: any = await this.request('/v1/subscription/cancel', { method: 'POST' });
+    return res?.data ?? res;
+  },
+
+  async getSubscriptionHistory(limit: number = 20) {
+    const sp = new URLSearchParams({ limit: String(limit) });
+    const res: any = await this.request(`/v1/subscription/history?${sp.toString()}`, { method: 'GET' });
+    return res?.data ?? res;
+  },
+
+  async getSubscriptionPayments(limit: number = 25) {
+    const sp = new URLSearchParams({ limit: String(limit) });
+    const res: any = await this.request(`/v1/subscription/payments?${sp.toString()}`, { method: 'GET' });
+    return res?.data ?? res;
+  },
+
+  async resumeSubscription() {
+    const res: any = await this.request('/v1/subscription/resume', { method: 'POST' });
+    return res?.data ?? res;
+  },
+
   // ===== Exercises =====
   async listExercises(params: Record<string, string | number | boolean> = {}) {
     const sp = new URLSearchParams();
@@ -261,15 +342,39 @@ export const apiClient = {
   },
 
   // ===== Workouts =====
-  async startWorkoutSession(userId: string, dayName: string, planId?: string) {
+  async startWorkoutSession(_userId: string, dayName: string, planId?: string) {
     return this.request('/workouts/sessions', {
       method: 'POST',
-      body: JSON.stringify({ userId, dayName, planId }),
+      body: JSON.stringify({ dayName, planId }),
     });
   },
 
-  async getWorkoutSessions(userId: string) {
-    return this.request(`/workouts/sessions?userId=${encodeURIComponent(userId)}`, { method: 'GET' });
+  async listWorkoutSessions() {
+    return this.request('/workouts/sessions', { method: 'GET' });
+  },
+
+  async getWorkoutSession(sessionId: string) {
+    return this.request(`/workouts/sessions/${encodeURIComponent(sessionId)}`, { method: 'GET' });
+  },
+
+  async updateWorkoutSession(
+    sessionId: string,
+    updates: { duration?: number; completedAt?: string | number | Date }
+  ) {
+    const completedAt =
+      updates.completedAt instanceof Date
+        ? updates.completedAt.toISOString()
+        : typeof updates.completedAt === 'number'
+          ? new Date(updates.completedAt).toISOString()
+          : updates.completedAt;
+
+    return this.request(`/workouts/sessions/${encodeURIComponent(sessionId)}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        duration: typeof updates.duration === 'number' ? updates.duration : undefined,
+        completedAt,
+      }),
+    });
   },
 
   async logExercise(entry: {
@@ -292,6 +397,23 @@ export const apiClient = {
     return this.request(`/workouts/logs?sessionId=${encodeURIComponent(sessionId)}`, { method: 'GET' });
   },
 
+  async saveWorkoutSet(payload: {
+    sessionId: string;
+    exerciseId: string;
+    setNumber: number;
+    completedReps?: number;
+    weight?: number;
+    rpe?: number;
+    notes?: string;
+    isWarmup?: boolean;
+  }) {
+    return this.request('/workouts/sets', { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  async getWorkoutSets(sessionId: string) {
+    return this.request(`/workouts/sets?sessionId=${encodeURIComponent(sessionId)}`, { method: 'GET' });
+  },
+
   // ===== Planner =====
   async generatePlan(preferences: any) {
     return this.request('/planner/generate', { method: 'POST', body: JSON.stringify(preferences) });
@@ -303,6 +425,226 @@ export const apiClient = {
 
   async getPlans() {
     return this.request('/planner/plans', { method: 'GET' });
+  },
+
+  async getPlan(planId: string) {
+    return this.request(`/planner/plans/${encodeURIComponent(planId)}`, { method: 'GET' });
+  },
+
+  async updatePlan(
+    planId: string,
+    updates: { name?: string; description?: string | null; durationWeeks?: number | null; planData?: any; isActive?: boolean }
+  ) {
+    return this.request(`/planner/plans/${encodeURIComponent(planId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  async deletePlan(planId: string) {
+    return this.request(`/planner/plans/${encodeURIComponent(planId)}`, { method: 'DELETE' });
+  },
+
+  // ===== Today =====
+  async getToday() {
+    return this.request('/today', { method: 'GET' });
+  },
+
+  // ===== Admin =====
+  async adminSystemHealth() {
+    return this.request('/admin/system/health', { method: 'GET' });
+  },
+
+  async adminActivityLogs(limit: number = 50) {
+    const sp = new URLSearchParams({ limit: String(limit) });
+    return this.request(`/admin/activity-logs?${sp.toString()}`, { method: 'GET' });
+  },
+
+  async adminAiLogs(limit: number = 50) {
+    const sp = new URLSearchParams({ limit: String(limit) });
+    return this.request(`/admin/ai-logs?${sp.toString()}`, { method: 'GET' });
+  },
+
+  async adminAnalyticsAiRequests() {
+    return this.request('/admin/analytics/ai-requests', { method: 'GET' });
+  },
+
+  async adminAnalyticsWorkouts() {
+    return this.request('/admin/analytics/workouts', { method: 'GET' });
+  },
+
+  async adminAnalyticsUserGrowth() {
+    return this.request('/admin/analytics/user-growth', { method: 'GET' });
+  },
+
+  async adminGetSettings() {
+    return this.request('/admin/settings', { method: 'GET' });
+  },
+
+  async adminUpdateSettings(payload: {
+    maintenanceMode?: boolean;
+    apiRateLimit?: number;
+    maxUploadSize?: number;
+    enableRegistration?: boolean;
+    enableSocialAuth?: boolean;
+  }) {
+    return this.request('/admin/settings', { method: 'PUT', body: JSON.stringify(payload) });
+  },
+
+  async adminListExercises(params: {
+    reviewStatus?: 'draft' | 'approved' | 'all';
+    limit?: number;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    category?: string;
+    difficulty?: string;
+  } = {}) {
+    const sp = new URLSearchParams();
+    if (params.reviewStatus) sp.append('reviewStatus', params.reviewStatus);
+    if (params.search) sp.append('search', params.search);
+    if (params.category) sp.append('category', params.category);
+    if (params.difficulty) sp.append('difficulty', params.difficulty);
+    if (typeof params.limit === 'number') sp.append('limit', String(params.limit));
+    if (typeof params.page === 'number') sp.append('page', String(params.page));
+    if (typeof params.pageSize === 'number') sp.append('pageSize', String(params.pageSize));
+    const qs = sp.toString();
+    return this.request(`/admin/exercises${qs ? `?${qs}` : ''}`, { method: 'GET' });
+  },
+
+  async adminSetExerciseReviewStatus(exerciseId: string, reviewStatus: 'draft' | 'approved') {
+    return this.request(`/admin/exercises/${encodeURIComponent(exerciseId)}/approve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reviewStatus }),
+    });
+  },
+
+  async adminGetExercise(exerciseId: string) {
+    return this.request(`/exercises/${encodeURIComponent(exerciseId)}`, { method: 'GET' });
+  },
+
+  async adminCreateExercise(payload: Record<string, any>) {
+    return this.request('/exercises', { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  async adminUpdateExercise(exerciseId: string, payload: Record<string, any>) {
+    return this.request(`/exercises/${encodeURIComponent(exerciseId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async adminDeleteExercise(exerciseId: string) {
+    return this.request(`/exercises/${encodeURIComponent(exerciseId)}`, { method: 'DELETE' });
+  },
+
+  async adminDashboardStats() {
+    return this.request('/admin/dashboard/stats', { method: 'GET' });
+  },
+
+  async adminListUsers(params: {
+    search?: string;
+    filter?: 'all' | 'premium' | 'admin' | 'unverified' | 'blocked' | 'deleted';
+    page?: number;
+    pageSize?: number;
+  } = {}) {
+    const sp = new URLSearchParams();
+    if (params.search) sp.append('search', params.search);
+    if (params.filter) sp.append('filter', params.filter);
+    if (typeof params.page === 'number') sp.append('page', String(params.page));
+    if (typeof params.pageSize === 'number') sp.append('pageSize', String(params.pageSize));
+    return this.request(`/admin/users?${sp.toString()}`, { method: 'GET' });
+  },
+
+  async adminGetUser(userId: string) {
+    return this.request(`/admin/users/${encodeURIComponent(userId)}`, { method: 'GET' });
+  },
+
+  async adminBlockUser(userId: string, reason?: string) {
+    return this.request(`/admin/users/${encodeURIComponent(userId)}/block`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  async adminUnblockUser(userId: string, reason?: string) {
+    return this.request(`/admin/users/${encodeURIComponent(userId)}/block`, {
+      method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  async adminDeleteUser(userId: string, payload: { reason?: string; type?: 'soft' | 'hard' } = {}) {
+    return this.request(`/admin/users/${encodeURIComponent(userId)}/delete`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async adminCancelUserSubscription(userId: string, reason?: string) {
+    return this.request(`/admin/users/${encodeURIComponent(userId)}/cancel-subscription`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  async adminVerifyUserEmail(userId: string, payload: { verified?: boolean; reason?: string } = {}) {
+    return this.request(`/admin/users/${encodeURIComponent(userId)}/verify-email`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async adminGrantUserSubscription(
+    userId: string,
+    payload: { planType?: 'premium' | 'premium-yearly'; durationDays?: number; reason?: string } = {}
+  ) {
+    return this.request(`/admin/users/${encodeURIComponent(userId)}/grant-subscription`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async adminSubscriptions() {
+    return this.request('/admin/subscriptions', { method: 'GET' });
+  },
+
+  async adminAdminUsers() {
+    return this.request('/admin/admin-users', { method: 'GET' });
+  },
+
+  async adminAuditLogs(limit: number = 200) {
+    const sp = new URLSearchParams({ limit: String(limit) });
+    return this.request(`/admin/audit-logs?${sp.toString()}`, { method: 'GET' });
+  },
+
+  async adminMetrics(params: { day?: string; metric?: string; q?: string; limit?: number } = {}) {
+    const sp = new URLSearchParams();
+    if (params.day) sp.append('day', params.day);
+    if (params.metric) sp.append('metric', params.metric);
+    if (params.q) sp.append('q', params.q);
+    if (typeof params.limit === 'number') sp.append('limit', String(params.limit));
+    return this.request(`/admin/metrics?${sp.toString()}`, { method: 'GET' });
+  },
+
+  async adminAiMonitoringStats() {
+    return this.request('/admin/ai-monitoring/stats', { method: 'GET' });
+  },
+
+  async adminEmailCampaigns() {
+    return this.request('/admin/emails/campaigns', { method: 'GET' });
+  },
+
+  async adminSendEmailCampaign(payload: {
+    name: string;
+    subject: string;
+    content: string;
+    audience: { segment: 'all' | 'premium' | 'inactive' | 'new_users'; days?: number };
+  }) {
+    return this.request('/admin/emails/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   },
 
   // ===== Analytics =====

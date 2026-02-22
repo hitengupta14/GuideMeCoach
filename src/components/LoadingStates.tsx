@@ -58,7 +58,7 @@ export function ErrorState({
 }) {
   return (
     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900 rounded-2xl p-8 text-center max-w-md mx-auto">
-      <div className="text-5xl mb-4">😕</div>
+      <div className="text-5xl mb-4"></div>
       <h3 className="text-xl font-semibold text-red-900 dark:text-red-200 mb-2">{title}</h3>
       <p className="text-red-700 dark:text-red-300 mb-4">{message}</p>
       {action && (
@@ -76,7 +76,7 @@ export function ErrorState({
 export function EmptyState({ 
   title = 'No results found', 
   message = 'Try adjusting your filters',
-  icon = '🔍'
+  icon = ''
 }: { 
   title?: string
   message?: string

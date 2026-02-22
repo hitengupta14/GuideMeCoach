@@ -8,7 +8,10 @@ export async function hashPassword(password: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const salt = crypto.randomBytes(16).toString('hex')
     crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derived) => {
-      if (err) reject(err)
+      if (err) {
+        reject(err)
+        return
+      }
       const hash = derived.toString('hex')
       resolve(`${salt}:${hash}`)
     })
@@ -31,15 +34,26 @@ export async function verifyPassword(password: string, passwordHash: string): Pr
   }
   
   // Otherwise, assume it's PBKDF2 format (salt:hash)
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const [salt, hash] = passwordHash.split(':')
     if (!salt || !hash) {
       resolve(false)
       return
     }
     crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derived) => {
-      if (err) reject(err)
-      resolve(hash === derived.toString('hex'))
+      if (err) {
+        console.error('PBKDF2 verification error:', err)
+        resolve(false)
+        return
+      }
+
+      const expected = Buffer.from(hash, 'hex')
+      if (expected.length !== derived.length) {
+        resolve(false)
+        return
+      }
+
+      resolve(crypto.timingSafeEqual(expected, derived))
     })
   })
 }

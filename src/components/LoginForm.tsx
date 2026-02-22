@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 
 function sanitizeRedirectPath(raw: string | null): string | null {
   if (!raw) return null
@@ -130,6 +131,15 @@ export default function LoginForm() {
         )}
 
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-6 sm:p-8">
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/brand/guidemecoach-logo.svg"
+              alt="GuideMeCoach"
+              width={260}
+              height={72}
+              className="h-8 sm:h-9 w-auto"
+            />
+          </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Log in</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">Welcome back to GuideMeCoach</p>
 

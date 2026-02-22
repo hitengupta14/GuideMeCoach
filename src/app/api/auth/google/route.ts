@@ -10,11 +10,26 @@ import { getPremiumStatus } from '@/lib/entitlements'
 import { logger } from '@/lib/logger'
 import { getGlobalAppSettings } from '@/lib/app-settings'
 
-const JWT_SECRET = getJwtSecretKey()
+function getAllowedGoogleClientIds(): string[] {
+  const ids = [
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_IOS_CLIENT_ID,
+    process.env.GOOGLE_ANDROID_CLIENT_ID,
+  ].filter(Boolean) as string[]
+
+  const extra = (process.env.GOOGLE_ALLOWED_CLIENT_IDS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  for (const id of extra) ids.push(id)
+  return Array.from(new Set(ids))
+}
 
 // This endpoint handles Google Sign-In from mobile apps
 // Mobile apps use expo-auth-session which gets the ID token directly from Google
 export async function POST(request: NextRequest) {
+  const JWT_SECRET = getJwtSecretKey()
   try {
     const appSettings = await getGlobalAppSettings()
     if (!appSettings.enableSocialAuth) {
@@ -34,8 +49,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    if (!clientId) {
+    const clientIds = getAllowedGoogleClientIds()
+    if (clientIds.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Google OAuth not configured' },
         { status: 500 }
@@ -44,11 +59,22 @@ export async function POST(request: NextRequest) {
 
     // Verify ID token with Google's JWKS
     const JWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'))
-    
-    const { payload } = await jwtVerify(idToken, JWKS, {
-      issuer: 'https://accounts.google.com',
-      audience: clientId,
-    })
+
+    let payload: any
+    try {
+      ;({ payload } = await jwtVerify(idToken, JWKS, {
+        issuer: ['https://accounts.google.com', 'accounts.google.com'],
+        audience: clientIds,
+      }))
+    } catch (error) {
+      logger.warn('Google ID token verification failed', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return NextResponse.json(
+        { success: false, error: 'Invalid Google token' },
+        { status: 401 }
+      )
+    }
 
     const email = (payload.email as string) || ''
     const name = (payload.name as string) || ''

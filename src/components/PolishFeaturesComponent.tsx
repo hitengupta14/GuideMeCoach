@@ -41,7 +41,7 @@ export default function PolishFeaturesComponent() {
         document.body.appendChild(element)
         element.click()
         document.body.removeChild(element)
-        alert('✅ JSON export downloaded successfully!')
+        alert(' JSON export downloaded successfully!')
       } else if (exportFormat === 'csv') {
         const blob = await res.blob()
         const url = window.URL.createObjectURL(blob)
@@ -52,11 +52,11 @@ export default function PolishFeaturesComponent() {
         link.click()
         document.body.removeChild(link)
         window.URL.revokeObjectURL(url)
-        alert('✅ CSV export downloaded successfully!')
+        alert(' CSV export downloaded successfully!')
       }
     } catch (error) {
       console.error('Export failed:', error)
-      alert('❌ Export failed. Please try again.')
+      alert(' Export failed. Please try again.')
     }
   }
 
@@ -97,10 +97,10 @@ export default function PolishFeaturesComponent() {
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="grid grid-cols-2 md:grid-cols-4 border-b border-gray-200">
           {[
-            { id: 'export', label: '📥 Export' },
-            { id: 'filter', label: '🔍 Filter' },
-            { id: 'joints', label: '🦴 Joints' },
-            { id: 'theme', label: '🎨 Theme' },
+            { id: 'export', label: ' Export' },
+            { id: 'filter', label: ' Filter' },
+            { id: 'joints', label: ' Joints' },
+            { id: 'theme', label: ' Theme' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -122,7 +122,7 @@ export default function PolishFeaturesComponent() {
             <div className="space-y-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-900">
-                  <strong>Export your data:</strong> Download your complete workout history, performance metrics, and personal data.
+                  <strong>Export your data:</strong>Download your complete workout history, performance metrics, and personal data.
                 </p>
               </div>
 
@@ -196,7 +196,7 @@ export default function PolishFeaturesComponent() {
             <div className="space-y-6">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <p className="text-sm text-green-900">
-                  <strong>Advanced filters:</strong> Find the perfect exercises based on your criteria.
+                  <strong>Advanced filters:</strong>Find the perfect exercises based on your criteria.
                 </p>
               </div>
 
@@ -287,7 +287,7 @@ export default function PolishFeaturesComponent() {
             <div className="space-y-6">
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <p className="text-sm text-purple-900">
-                  <strong>Joint involvement:</strong> Exclude exercises based on joint involvement for injury prevention.
+                  <strong>Joint involvement:</strong>Exclude exercises based on joint involvement for injury prevention.
                 </p>
               </div>
 
@@ -314,16 +314,16 @@ export default function PolishFeaturesComponent() {
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-sm text-yellow-900">
-                  <strong>Pro tip:</strong> Understanding which joints are involved in exercises helps you train safely around injuries.
+                  <strong>Pro tip:</strong>Understanding which joints are involved in exercises helps you train safely around injuries.
                 </p>
               </div>
 
               <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
                 <h4 className="font-bold text-indigo-900 mb-2">Common Joint Involvements:</h4>
                 <ul className="text-sm text-indigo-900 space-y-1">
-                  <li>• <strong>Compound Exercises:</strong> Involve 4+ joints (squats, deadlifts, presses)</li>
-                  <li>• <strong>Isolation Exercises:</strong> Target 1-2 joints (leg curls, bicep curls)</li>
-                  <li>• <strong>Mobility Work:</strong> 2-3 joints, lower intensity</li>
+                  <li>• <strong>Compound Exercises:</strong>Involve 4+ joints (squats, deadlifts, presses)</li>
+                  <li>• <strong>Isolation Exercises:</strong>Target 1-2 joints (leg curls, bicep curls)</li>
+                  <li>• <strong>Mobility Work:</strong>2-3 joints, lower intensity</li>
                 </ul>
               </div>
             </div>
@@ -334,7 +334,7 @@ export default function PolishFeaturesComponent() {
             <div className="space-y-6">
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <p className="text-sm text-amber-900">
-                  <strong>Choose your theme:</strong> Select between Light and Dark mode for comfortable viewing.
+                  <strong>Choose your theme:</strong>Select between Light and Dark mode for comfortable viewing.
                 </p>
               </div>
 
@@ -349,7 +349,7 @@ export default function PolishFeaturesComponent() {
                         : 'border-gray-300 hover:border-gray-400 bg-white'
                     }`}
                   >
-                    <div className="text-4xl mb-3">☀️</div>
+                    <div className="text-4xl mb-3"></div>
                     <p className="font-bold text-gray-900 mb-1">Light Mode</p>
                     <p className="text-xs text-gray-600">Bright and clear for daytime</p>
                   </button>
@@ -363,16 +363,16 @@ export default function PolishFeaturesComponent() {
                         : 'border-gray-300 hover:border-gray-400 bg-white'
                     }`}
                   >
-                    <div className="text-4xl mb-3">🌙</div>
+                    <div className="text-4xl mb-3"></div>
                     <p className="font-bold text-gray-900 mb-1">Dark Mode</p>
                     <p className="text-xs text-gray-600">Easy on eyes at night</p>
                   </button>
                 </div>
 
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm font-medium text-green-900 mb-2">✅ Theme Selected</p>
+                  <p className="text-sm font-medium text-green-900 mb-2">Theme Selected</p>
                   <p className="text-sm text-green-700">
-                    {theme === 'light' ? '☀️ Light Mode' : '🌙 Dark Mode'} is now active
+                    {theme === 'light' ? ' Light Mode' : ' Dark Mode'} is now active
                   </p>
                 </div>
               </div>
@@ -384,14 +384,14 @@ export default function PolishFeaturesComponent() {
       {/* Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-          <p className="text-sm font-medium text-blue-900 dark:text-blue-300">📊 Tip: Export Your Data</p>
+          <p className="text-sm font-medium text-blue-900 dark:text-blue-300">Tip: Export Your Data</p>
           <p className="text-xs text-blue-800 dark:text-blue-400 mt-1">
             Regularly export your workout data to keep backups and analyze trends in spreadsheets.
           </p>
         </div>
 
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
-          <p className="text-sm font-medium text-green-900 dark:text-green-300">🦴 Tip: Joint Safety</p>
+          <p className="text-sm font-medium text-green-900 dark:text-green-300">Tip: Joint Safety</p>
           <p className="text-xs text-green-800 dark:text-green-400 mt-1">
             Understanding joint involvement helps you train safely and avoid re-injury.
           </p>

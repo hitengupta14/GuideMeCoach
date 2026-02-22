@@ -10,12 +10,14 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeStore } from '../../store/theme';
+import ScreenHeader from '../../components/ScreenHeader';
 import { lightColors, darkColors } from '../../theme/colors';
 
 interface PricingPlan {
-  id: string;
+  id: 'free' | 'premium' | 'premium-yearly';
   name: string;
-  price: string;
+  priceIndia: string;
+  priceInternational: string;
   period: string;
   description: string;
   features: string[];
@@ -27,7 +29,8 @@ const PRICING_PLANS: PricingPlan[] = [
   {
     id: 'free',
     name: 'Free',
-    price: '₹0',
+    priceIndia: '₹0',
+    priceInternational: '$0',
     period: '/month',
     description: 'Perfect for getting started',
     features: [
@@ -42,7 +45,8 @@ const PRICING_PLANS: PricingPlan[] = [
   {
     id: 'premium',
     name: 'Premium',
-    price: '₹299',
+    priceIndia: '₹299',
+    priceInternational: '$5',
     period: '/month',
     description: 'AI-powered personalization',
     features: [
@@ -59,7 +63,8 @@ const PRICING_PLANS: PricingPlan[] = [
   {
     id: 'premium-yearly',
     name: 'Premium Yearly',
-    price: '₹2,499',
+    priceIndia: '₹2,499',
+    priceInternational: '$49',
     period: '/year',
     description: 'Best value - save up to 30%',
     features: [
@@ -74,11 +79,32 @@ const PRICING_PLANS: PricingPlan[] = [
   },
 ];
 
+const BILLED_PAISE = {
+  india: {
+    premium: 29900,
+    'premium-yearly': 249900,
+  },
+  international: {
+    premium: 41500,
+    'premium-yearly': 406700,
+  },
+} as const;
+
+function formatInrFromPaise(paise: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+  }).format(paise / 100);
+}
+
 export default function PricingScreen() {
   const { theme } = useThemeStore();
   const colors = theme === 'dark' ? darkColors : lightColors;
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedRegion, setSelectedRegion] = useState<'india' | 'international'>('india');
 
   const handleSelectPlan = (plan: PricingPlan) => {
     if (plan.id === 'free') {
@@ -88,7 +114,7 @@ export default function PricingScreen() {
 
     // Navigate to checkout
     // @ts-ignore - navigation type mismatch with dynamic routes
-    navigation.navigate('Checkout', { planId: plan.id });
+    navigation.navigate('Checkout', { planId: plan.id, displayRegion: selectedRegion });
   };
 
   const styles = StyleSheet.create({
@@ -116,19 +142,27 @@ export default function PricingScreen() {
       textAlign: 'center',
       marginBottom: 24,
     },
-    billingToggle: {
-      flexDirection: 'row',
-      backgroundColor: colors.card,
-      borderRadius: 12,
-      padding: 4,
-      alignSelf: 'center',
-      marginBottom: 12,
-    },
-    toggleButton: {
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      borderRadius: 8,
-      minWidth: 100,
+	    billingToggle: {
+	      flexDirection: 'row',
+	      backgroundColor: colors.card,
+	      borderRadius: 12,
+	      padding: 4,
+	      alignSelf: 'center',
+	      marginBottom: 12,
+	    },
+	    regionToggle: {
+	      flexDirection: 'row',
+	      backgroundColor: colors.card,
+	      borderRadius: 12,
+	      padding: 4,
+	      alignSelf: 'center',
+	      marginBottom: 6,
+	    },
+	    toggleButton: {
+	      paddingHorizontal: 24,
+	      paddingVertical: 12,
+	      borderRadius: 8,
+	      minWidth: 100,
       alignItems: 'center',
     },
     toggleButtonActive: {
@@ -139,9 +173,17 @@ export default function PricingScreen() {
       fontWeight: '600',
       color: colors.textSecondary,
     },
-    toggleButtonTextActive: {
-      color: '#FFFFFF',
-    },
+	    toggleButtonTextActive: {
+	      color: '#FFFFFF',
+	    },
+	    regionDisclaimer: {
+	      fontSize: 12,
+	      color: colors.textSecondary,
+	      textAlign: 'center',
+	      fontStyle: 'italic',
+	      marginBottom: 18,
+	      paddingHorizontal: 16,
+	    },
     savingsBadge: {
       backgroundColor: '#D1FAE5',
       paddingHorizontal: 12,
@@ -202,11 +244,18 @@ export default function PricingScreen() {
       fontWeight: 'bold',
       color: colors.text,
     },
-    period: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      marginLeft: 8,
-    },
+	    period: {
+	      fontSize: 14,
+	      color: colors.textSecondary,
+	      marginLeft: 8,
+	    },
+	    billedNote: {
+	      fontSize: 12,
+	      color: colors.textSecondary,
+	      fontStyle: 'italic',
+	      marginTop: -8,
+	      marginBottom: 12,
+	    },
     ctaButton: {
       backgroundColor: colors.card,
       borderWidth: 2,
@@ -280,12 +329,12 @@ export default function PricingScreen() {
       color: colors.textSecondary,
       marginBottom: 8,
     },
-    contactLink: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.primary,
-    },
-  });
+	    contactLink: {
+	      fontSize: 14,
+	      fontWeight: '600',
+	      color: colors.primary,
+	    },
+	  });
 
   const displayedPlans = billingPeriod === 'monthly'
     ? PRICING_PLANS.filter(p => p.id !== 'premium-yearly')
@@ -293,13 +342,15 @@ export default function PricingScreen() {
 
   return (
     <View style={styles.container}>
+      <ScreenHeader title="Pricing" onBackPress={() => navigation.goBack()} />
+
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Simple, Transparent Pricing</Text>
-          <Text style={styles.subtitle}>
-            Unlock AI-powered workout planning and personalized guidance
-          </Text>
+	        {/* Header */}
+	        <View style={styles.header}>
+	          <Text style={styles.title}>Simple, Transparent Pricing</Text>
+	          <Text style={styles.subtitle}>
+	            Unlock AI-powered workout planning and personalized guidance
+	          </Text>
 
           {/* Billing Toggle */}
           <View style={styles.billingToggle}>
@@ -337,68 +388,124 @@ export default function PricingScreen() {
             </TouchableOpacity>
           </View>
 
-          {billingPeriod === 'yearly' && (
-            <View style={styles.savingsBadge}>
-              <Text style={styles.savingsBadgeText}>Save 17%</Text>
-            </View>
-          )}
-        </View>
+	          {billingPeriod === 'yearly' && (
+	            <View style={styles.savingsBadge}>
+	              <Text style={styles.savingsBadgeText}>Save 17%</Text>
+	            </View>
+	          )}
 
-        {/* Pricing Cards */}
-        {displayedPlans.map((plan) => (
-          <View
-            key={plan.id}
-            style={[
-              styles.planCard,
-              plan.highlighted && styles.planCardHighlighted,
-            ]}
-          >
-            {plan.highlighted && (
-              <View style={styles.popularBadge}>
-                <Text style={styles.popularBadgeText}>Most Popular</Text>
-              </View>
-            )}
+	          {/* Region Toggle */}
+	          <View style={styles.regionToggle}>
+	            <TouchableOpacity
+	              style={[
+	                styles.toggleButton,
+	                selectedRegion === 'india' && styles.toggleButtonActive,
+	              ]}
+	              onPress={() => setSelectedRegion('india')}
+	            >
+	              <Text
+	                style={[
+	                  styles.toggleButtonText,
+	                  selectedRegion === 'india' && styles.toggleButtonTextActive,
+	                ]}
+	              >
+	                India
+	              </Text>
+	            </TouchableOpacity>
+	            <TouchableOpacity
+	              style={[
+	                styles.toggleButton,
+	                selectedRegion === 'international' && styles.toggleButtonActive,
+	              ]}
+	              onPress={() => setSelectedRegion('international')}
+	            >
+	              <Text
+	                style={[
+	                  styles.toggleButtonText,
+	                  selectedRegion === 'international' && styles.toggleButtonTextActive,
+	                ]}
+	              >
+	                International
+	              </Text>
+	            </TouchableOpacity>
+	          </View>
+	          <Text style={styles.regionDisclaimer}>
+	            Razorpay charges in INR. USD prices are a display preview and are billed as INR equivalents (your bank converts).
+	          </Text>
+	        </View>
 
-            <Text style={styles.planName}>{plan.name}</Text>
-            <Text style={styles.planDescription}>{plan.description}</Text>
+	        {/* Pricing Cards */}
+	        {displayedPlans.map((plan) => {
+	          const displayPrice =
+	            selectedRegion === 'india' ? plan.priceIndia : plan.priceInternational;
+	          const billedPaise =
+	            plan.id === 'free'
+	              ? null
+	              : selectedRegion === 'india'
+	                ? BILLED_PAISE.india[plan.id as 'premium' | 'premium-yearly']
+	                : BILLED_PAISE.international[plan.id as 'premium' | 'premium-yearly'];
+	          const billedLabel = billedPaise ? formatInrFromPaise(billedPaise) : null;
 
-            <View style={styles.priceContainer}>
-              <Text style={styles.price}>{plan.price}</Text>
-              <Text style={styles.period}>{plan.period}</Text>
-            </View>
+	          return (
+	            <View
+	              key={plan.id}
+	              style={[
+	                styles.planCard,
+	                plan.highlighted && styles.planCardHighlighted,
+	              ]}
+	            >
+	              {plan.highlighted && (
+	                <View style={styles.popularBadge}>
+	                  <Text style={styles.popularBadgeText}>Most Popular</Text>
+	                </View>
+	              )}
 
-            <TouchableOpacity
-              style={[
-                styles.ctaButton,
-                plan.highlighted && styles.ctaButtonHighlighted,
-              ]}
-              onPress={() => handleSelectPlan(plan)}
-            >
-              <Text
-                style={[
-                  styles.ctaButtonText,
-                  plan.highlighted && styles.ctaButtonTextHighlighted,
-                ]}
-              >
-                {plan.id === 'free' ? 'Current Plan' : 'Start Free Trial'}
-              </Text>
-            </TouchableOpacity>
+	              <Text style={styles.planName}>{plan.name}</Text>
+	              <Text style={styles.planDescription}>{plan.description}</Text>
 
-            <View style={styles.featuresList}>
-              {plan.features.map((feature, index) => (
-                <View key={index} style={styles.featureItem}>
-                  <MaterialCommunityIcons
-                    name="check-circle"
-                    size={20}
-                    color="#10B981"
-                    style={styles.featureIcon}
-                  />
-                  <Text style={styles.featureText}>{feature}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ))}
+	              <View style={styles.priceContainer}>
+	                <Text style={styles.price}>{displayPrice}</Text>
+	                <Text style={styles.period}>{plan.period}</Text>
+	              </View>
+	              {selectedRegion === 'international' && billedLabel && (
+	                <Text style={styles.billedNote}>
+	                  Billed in INR via Razorpay: {billedLabel} (bank converts)
+	                </Text>
+	              )}
+
+	              <TouchableOpacity
+	                style={[
+	                  styles.ctaButton,
+	                  plan.highlighted && styles.ctaButtonHighlighted,
+	                ]}
+	                onPress={() => handleSelectPlan(plan)}
+	              >
+	                <Text
+	                  style={[
+	                    styles.ctaButtonText,
+	                    plan.highlighted && styles.ctaButtonTextHighlighted,
+	                  ]}
+	                >
+	                  {plan.id === 'free' ? 'Current Plan' : 'Start Free Trial'}
+	                </Text>
+	              </TouchableOpacity>
+
+	              <View style={styles.featuresList}>
+	                {plan.features.map((feature, index) => (
+	                  <View key={index} style={styles.featureItem}>
+	                    <MaterialCommunityIcons
+	                      name="check-circle"
+	                      size={20}
+	                      color="#10B981"
+	                      style={styles.featureIcon}
+	                    />
+	                    <Text style={styles.featureText}>{feature}</Text>
+	                  </View>
+	                ))}
+	              </View>
+	            </View>
+	          );
+	        })}
 
         {/* FAQ Section */}
         <View style={styles.faqSection}>

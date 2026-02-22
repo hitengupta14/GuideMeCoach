@@ -195,10 +195,10 @@ export default function ProgressTracker({ userId }: ProgressTrackerProps) {
       <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-6 border border-indigo-200">
         <h3 className="text-lg font-bold text-gray-900 mb-3">Progress Summary</h3>
         <ul className="space-y-2 text-sm text-gray-700">
-          <li>✅ You've completed {stats.totalWorkouts} workouts</li>
-          <li>✅ Logged {stats.totalExercises} total exercises</li>
-          <li>🔥 Current workout streak: {stats.currentStreak} consecutive days</li>
-          <li>💪 Keep pushing! Consistency is key to long-term results</li>
+          <li>You've completed {stats.totalWorkouts} workouts</li>
+          <li>Logged {stats.totalExercises} total exercises</li>
+          <li>Current workout streak: {stats.currentStreak} consecutive days</li>
+          <li>Keep pushing! Consistency is key to long-term results</li>
         </ul>
       </div>
     </div>

@@ -135,13 +135,27 @@ async function streamChat(request: NextRequest) {
     // Decrement quota right before starting the stream.
     await decrementQuota(userId, 'chat', userIsPremium)
 
-    // Generate streaming response
+    // Generate streaming response and persist the assistant message when streaming completes.
     const stream = await generateStreamingChatResponse(messages, {
       name: user?.name || undefined,
       experienceLevel: user?.experienceLevel || undefined,
       goals: user?.goals || undefined,
       medicalConditions: user?.medicalConditions || undefined,
       age: user?.age || undefined,
+    }, {
+      onComplete: async (assistantContent: string) => {
+        await db.insert(chatMessages).values({
+          conversationId,
+          userId,
+          role: 'assistant',
+          content: assistantContent,
+        })
+
+        await db
+          .update(chatConversations)
+          .set({ updatedAt: new Date() })
+          .where(eq(chatConversations.id, conversationId))
+      },
     })
 
     await logAIUsage({

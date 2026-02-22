@@ -111,6 +111,9 @@ export async function generateStreamingChatResponse(
     goals?: string[]
     medicalConditions?: string[]
     age?: number
+  },
+  options?: {
+    onComplete?: (fullContent: string) => Promise<void> | void
   }
 ): Promise<ReadableStream> {
   if (!isOpenAIConfigured()) {
@@ -134,6 +137,7 @@ export async function generateStreamingChatResponse(
 
   // Convert OpenAI stream to web ReadableStream
   const encoder = new TextEncoder()
+  let accumulated = ''
   
   return new ReadableStream({
     async start(controller) {
@@ -141,9 +145,19 @@ export async function generateStreamingChatResponse(
         for await (const chunk of stream) {
           const content = chunk.choices[0]?.delta?.content || ''
           if (content) {
+            accumulated += content
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
           }
         }
+
+        if (typeof options?.onComplete === 'function' && accumulated.trim().length > 0) {
+          try {
+            await options.onComplete(accumulated)
+          } catch (error) {
+            logger.error('Streaming onComplete callback failed', error as Error)
+          }
+        }
+
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
         controller.close()
       } catch (error) {
@@ -1130,11 +1144,11 @@ Focus on:
 function getFallbackResponse(): string {
   return `I'm here to help with your fitness journey! I can assist with:
 
-💪 **Exercise Form & Technique** - Proper execution and common mistakes
-🔄 **Alternative Exercises** - Based on equipment or limitations  
-⚠️ **Safety & Injury Prevention** - Training safely and smart
-📈 **Progressive Overload** - How to keep making gains
-✨ **Motivation & Consistency** - Staying on track
+ **Exercise Form & Technique** - Proper execution and common mistakes
+ **Alternative Exercises** - Based on equipment or limitations  
+ **Safety & Injury Prevention** - Training safely and smart
+ **Progressive Overload** - How to keep making gains
+ **Motivation & Consistency** - Staying on track
 
 What would you like to know about?
 

@@ -7,6 +7,7 @@ import { useSession } from "@/hooks/useSession";
 import { useAPIError } from "@/hooks/useAPIError";
 import { apiWrapper } from "@/lib/api-wrapper";
 import { PricingRegionSelector } from "@/components/PricingRegionSelector";
+import { decidePricing, type PlanType } from "@/lib/pricing";
 
 // Add Razorpay types
 declare global {
@@ -61,6 +62,16 @@ export default function SubscribePage() {
   const planParam = Array.isArray((params as any).plan) ? (params as any).plan?.[0] : (params as any).plan;
   const planKey = (planParam || "premium") as keyof typeof PLANS;
   const plan = PLANS[planKey] || PLANS.premium;
+  const billingFrequencyLabel = plan.period === "year" ? "yearly" : "monthly";
+
+  const planType: PlanType = planKey === "premium-yearly" ? "premium-yearly" : "premium";
+  const formatInrFromPaise = (paise: number) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+    }).format(paise / 100);
 
   const [selectedRegion, setSelectedRegion] = useState<
     "india" | "international"
@@ -68,6 +79,12 @@ export default function SubscribePage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const billedPaise = decidePricing({
+    planType,
+    lockedTier: selectedRegion,
+  }).amountPaise;
+  const billedLabel = formatInrFromPaise(billedPaise);
 
   const handleSubscribe = async () => {
     if (!user?.id) return;
@@ -217,7 +234,7 @@ export default function SubscribePage() {
         {success && (
           <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg">
             <p className="text-green-800 dark:text-green-200">
-              ✓ Subscription successful! Redirecting to dashboard...
+               Subscription successful! Redirecting to dashboard...
             </p>
           </div>
         )}
@@ -243,20 +260,25 @@ export default function SubscribePage() {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               {plan.name}
             </h2>
-            <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-5xl font-bold text-gray-900 dark:text-white">
-                {selectedRegion === "india"
-                  ? plan.currencyIndia
-                  : plan.currencyInternational}
-                {selectedRegion === "india"
-                  ? plan.priceIndia
-                  : plan.priceInternational}
-              </span>
-              <span className="text-gray-600 dark:text-gray-400">
-                per {plan.period}
-              </span>
-            </div>
-          </div>
+	            <div className="flex items-baseline gap-2 mb-4">
+	              <span className="text-5xl font-bold text-gray-900 dark:text-white">
+	                {selectedRegion === "india"
+	                  ? plan.currencyIndia
+	                  : plan.currencyInternational}
+	                {selectedRegion === "india"
+	                  ? plan.priceIndia
+	                  : plan.priceInternational}
+	              </span>
+	              <span className="text-gray-600 dark:text-gray-400">
+	                per {plan.period}
+	              </span>
+	            </div>
+	            {selectedRegion === "international" && (
+	              <p className="text-xs text-gray-600 dark:text-gray-400">
+	                Billed in INR via Razorpay: <span className="font-semibold">{billedLabel}</span> (your bank converts)
+	              </p>
+	            )}
+	          </div>
 
           {/* Features List */}
           <div className="mb-8 space-y-3">
@@ -293,7 +315,7 @@ export default function SubscribePage() {
           </button>
 
           <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-            7-day free trial, then billed monthly. Cancel anytime.
+            7-day free trial, then billed {billingFrequencyLabel}. Cancel anytime.
           </p>
         </div>
 
@@ -315,15 +337,15 @@ export default function SubscribePage() {
               </p>
             </div>
 
-            <div>
-              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                Is there a free trial?
-              </h4>
-              <p className="text-gray-600 dark:text-gray-400">
-                Yes! You get a 7-day free trial. After that, you'll be charged
-                monthly unless you cancel.
-              </p>
-            </div>
+	            <div>
+	              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+	                Is there a free trial?
+	              </h4>
+	              <p className="text-gray-600 dark:text-gray-400">
+	                Yes! You get a 7-day free trial. After that, you'll be charged
+	                {billingFrequencyLabel} unless you cancel.
+	              </p>
+	            </div>
 
             <div>
               <h4 className="font-semibold text-gray-900 dark:text-white mb-2">

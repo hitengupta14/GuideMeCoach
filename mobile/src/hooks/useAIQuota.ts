@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../services/api';
+import { useAuthStore } from '../store/auth';
 
 export interface AIQuota {
   planner: number;
@@ -25,6 +26,7 @@ export interface UseAIQuotaResult {
  * and provides utilities to check feature access
  */
 export function useAIQuota(): UseAIQuotaResult {
+  const token = useAuthStore((s) => s.token);
   const [quotas, setQuotas] = useState<AIQuota | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -34,7 +36,14 @@ export function useAIQuota(): UseAIQuotaResult {
       setLoading(true);
       setError(null);
 
-      const response: any = await apiClient.request('/api/user/quotas', {
+      if (!token) {
+        setQuotas(null);
+        setLoading(false);
+        return;
+      }
+
+      // `apiClient.baseURL` is normalized to end with `/api`, so endpoints should not include `/api`.
+      const response: any = await apiClient.request('/user/quotas', {
         method: 'GET',
       });
 
@@ -65,11 +74,11 @@ export function useAIQuota(): UseAIQuotaResult {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     fetchQuotas();
-  }, [fetchQuotas]);
+  }, [fetchQuotas, token]);
 
   const canAccessFeature = useCallback(
     (feature: keyof Omit<AIQuota, 'resetDate'>): boolean => {

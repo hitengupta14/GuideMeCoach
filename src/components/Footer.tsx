@@ -1,10 +1,21 @@
+import Image from 'next/image'
+
 export function Footer() {
   return (
     <footer className="bg-gray-900 dark:bg-black text-gray-300 dark:text-gray-400 py-12 mt-16 border-t border-gray-800 dark:border-gray-900">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <h3 className="text-white dark:text-gray-200 font-bold text-lg mb-4">GuideMeCoach</h3>
+            <div className="flex items-center gap-3 mb-4">
+              <Image
+                src="/brand/guidemecoach-mark.svg"
+                alt="GuideMeCoach"
+                width={28}
+                height={28}
+                className="h-7 w-7"
+              />
+              <h3 className="text-white dark:text-gray-200 font-bold text-lg">GuideMeCoach</h3>
+            </div>
             <p className="text-sm leading-relaxed">
               Structured Exercise Knowledge Platform with medical-safe filtering 
               and personalized training guidance for Indian fitness enthusiasts.

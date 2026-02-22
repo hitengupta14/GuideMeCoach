@@ -21,7 +21,7 @@ export default function FormFeedbackPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <header className="bg-white shadow border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">💬 Form Feedback & Consultation</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Form Feedback & Consultation</h1>
           <p className="text-gray-600 mt-2">Get AI-powered feedback on your exercise form and technique</p>
         </div>
       </header>

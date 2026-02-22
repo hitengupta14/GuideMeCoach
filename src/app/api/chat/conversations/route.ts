@@ -14,7 +14,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
+    let body: any = null
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON body' },
+        { status: 400 }
+      )
+    }
     const { topic, title, firstMessage } = body
 
     if (!topic || !title) {
@@ -57,7 +65,18 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(conversation, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
+    const message = String(error?.message || '')
+    if (
+      error?.code === '42P01' ||
+      /relation\s+["']?chat_conversations["']?\s+does not exist/i.test(message) ||
+      /relation\s+["']?public\.chat_conversations["']?\s+does not exist/i.test(message)
+    ) {
+      return NextResponse.json(
+        { error: 'Chat tables are not initialized. Run database migrations.' },
+        { status: 503 }
+      )
+    }
     logger.error('Error creating conversation', error as Error)
     return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
   }
@@ -79,7 +98,18 @@ export async function GET(request: NextRequest) {
       .orderBy(chatConversations.updatedAt)
 
     return NextResponse.json(conversations)
-  } catch (error) {
+  } catch (error: any) {
+    const message = String(error?.message || '')
+    if (
+      error?.code === '42P01' ||
+      /relation\s+["']?chat_conversations["']?\s+does not exist/i.test(message) ||
+      /relation\s+["']?public\.chat_conversations["']?\s+does not exist/i.test(message)
+    ) {
+      return NextResponse.json(
+        { error: 'Chat tables are not initialized. Run database migrations.' },
+        { status: 503 }
+      )
+    }
     logger.error('Error fetching conversations', error as Error)
     return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 })
   }
@@ -88,7 +118,7 @@ export async function GET(request: NextRequest) {
 // Welcome messages based on topic
 function getWelcomeMessage(topic: string): string {
   const messages: Record<string, string> = {
-    exercise_form: `👋 Welcome! I'm your fitness coach, here to help you perfect your exercise form.
+    exercise_form: ` Welcome! I'm your fitness coach, here to help you perfect your exercise form.
 
 Whether you're learning a new movement or refining your technique, I can provide:
 - Detailed form breakdowns
@@ -98,7 +128,7 @@ Whether you're learning a new movement or refining your technique, I can provide
 
 What exercise would you like to work on?`,
     
-    alternative_exercises: `👋 Hi! I'm here to help you find the perfect exercise alternatives.
+    alternative_exercises: ` Hi! I'm here to help you find the perfect exercise alternatives.
 
 I can suggest substitutes based on:
 - Available equipment
@@ -108,7 +138,7 @@ I can suggest substitutes based on:
 
 Tell me what exercise you're looking to replace and why!`,
     
-    safety: `👋 Safety is our top priority! I'm here to help you train smart and avoid injuries.
+    safety: ` Safety is our top priority! I'm here to help you train smart and avoid injuries.
 
 I can help with:
 - Pain assessment and alternatives
@@ -118,14 +148,14 @@ I can help with:
 
 What safety concerns do you have?`,
     
-    general: `👋 Welcome! I'm your AI fitness coach, ready to help with all your training questions.
+    general: ` Welcome! I'm your AI fitness coach, ready to help with all your training questions.
 
 I can assist with:
-💪 Exercise technique
-📈 Progressive overload
-🛡️ Injury prevention
-🎯 Training programming
-✨ Motivation tips
+ Exercise technique
+ Progressive overload
+ Injury prevention
+ Training programming
+ Motivation tips
 
 What's on your mind today?`,
   }
