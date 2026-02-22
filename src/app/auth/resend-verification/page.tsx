@@ -3,6 +3,7 @@
 import { useEffect, useState, FormEvent, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { csrfFetch } from '@/lib/csrf-client'
 
 function ResendVerificationContent() {
   const [email, setEmail] = useState('')
@@ -23,7 +24,7 @@ function ResendVerificationContent() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/auth/resend-verification', {
+      const response = await csrfFetch('/api/auth/resend-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

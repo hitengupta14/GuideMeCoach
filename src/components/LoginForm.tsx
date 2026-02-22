@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { csrfFetch } from '@/lib/csrf-client'
 
 function sanitizeRedirectPath(raw: string | null): string | null {
   if (!raw) return null
@@ -76,7 +77,7 @@ export default function LoginForm() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await csrfFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include', // Important: Include cookies

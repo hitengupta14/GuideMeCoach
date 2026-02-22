@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { csrfFetch } from '@/lib/csrf-client'
 
 function ResetPasswordContent() {
   const [step, setStep] = useState<'request' | 'reset'>('request')
@@ -30,7 +31,7 @@ function ResetPasswordContent() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
+      const response = await csrfFetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -73,7 +74,7 @@ function ResetPasswordContent() {
     setLoading(true)
 
 	    try {
-	      const response = await fetch('/api/auth/reset-password', {
+	      const response = await csrfFetch('/api/auth/reset-password', {
 	        method: 'PUT',
 	        headers: { 'Content-Type': 'application/json' },
 	        body: JSON.stringify({ token, password: newPassword, confirmPassword }),

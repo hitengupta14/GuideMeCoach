@@ -5,7 +5,14 @@
 import { Resend } from 'resend'
 import { logger } from './logger'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+let resendInstance: Resend | null = null
+
+function getResendInstance(): Resend {
+  if (!resendInstance) {
+    resendInstance = new Resend(process.env.RESEND_API_KEY)
+  }
+  return resendInstance
+}
 
 interface EmailOptions {
   to: string
@@ -33,6 +40,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       return true
     }
 
+    const resend = getResendInstance()
     // Send via Resend
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'GuideMeCoach <onboarding@resend.dev>',
