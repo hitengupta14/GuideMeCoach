@@ -13,9 +13,8 @@ import { computeProfileCompletion, setProfileCompleteCookie } from '@/lib/profil
 
 export const dynamic = 'force-dynamic'
 
-const JWT_SECRET = getJwtSecretKey()
-
 async function getSession(request: NextRequest) {
+  const JWT_SECRET = getJwtSecretKey()
   try {
     let token = request.cookies.get('session')?.value ?? null
     const refreshToken = request.cookies.get('refresh_token')?.value ?? null

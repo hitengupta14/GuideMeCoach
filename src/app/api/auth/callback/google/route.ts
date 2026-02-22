@@ -8,9 +8,8 @@ import { createRefreshToken } from '@/lib/refresh-token'
 import { getGlobalAppSettings } from '@/lib/app-settings'
 import { computeProfileCompletion, setProfileCompleteCookie } from '@/lib/profile-completion'
 
-const JWT_SECRET = getJwtSecretKey()
-
 export async function GET(request: NextRequest) {
+  const JWT_SECRET = getJwtSecretKey()
   try {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const appSettings = await getGlobalAppSettings()

@@ -14,8 +14,6 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
-const JWT_SECRET = getJwtSecretKey()
-
 type UserStatus = 'active' | 'blocked' | 'deleted' | 'suspended' | (string & {})
 
 async function isUserActive(userId: string): Promise<boolean> {
@@ -42,6 +40,7 @@ async function isUserActive(userId: string): Promise<boolean> {
 export async function verifySession(
   request: NextRequest
 ): Promise<string | null> {
+  const JWT_SECRET = getJwtSecretKey()
   try {
     let userId: string | null = null
 

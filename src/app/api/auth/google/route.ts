@@ -10,8 +10,6 @@ import { getPremiumStatus } from '@/lib/entitlements'
 import { logger } from '@/lib/logger'
 import { getGlobalAppSettings } from '@/lib/app-settings'
 
-const JWT_SECRET = getJwtSecretKey()
-
 function getAllowedGoogleClientIds(): string[] {
   const ids = [
     process.env.GOOGLE_CLIENT_ID,
@@ -31,6 +29,7 @@ function getAllowedGoogleClientIds(): string[] {
 // This endpoint handles Google Sign-In from mobile apps
 // Mobile apps use expo-auth-session which gets the ID token directly from Google
 export async function POST(request: NextRequest) {
+  const JWT_SECRET = getJwtSecretKey()
   try {
     const appSettings = await getGlobalAppSettings()
     if (!appSettings.enableSocialAuth) {

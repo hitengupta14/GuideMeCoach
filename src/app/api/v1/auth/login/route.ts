@@ -13,9 +13,8 @@ import { logger } from '@/lib/logger';
 import { createRefreshToken } from '@/lib/refresh-token';
 import { z } from 'zod';
 
-const JWT_SECRET = getJwtSecretKey();
-
 async function login(req: NextRequest) {
+  const JWT_SECRET = getJwtSecretKey();
   try {
     // Rate limiting
     const rateLimitResult = await authRateLimiter(req);

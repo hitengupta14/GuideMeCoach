@@ -13,9 +13,8 @@ import { getJwtSecretKey } from '@/lib/jwt'
 import { withApiTelemetry } from '@/lib/api-telemetry'
 import { computeProfileCompletion, setProfileCompleteCookie } from '@/lib/profile-completion'
 
-const JWT_SECRET = getJwtSecretKey()
-
 async function login(request: NextRequest) {
+  const JWT_SECRET = getJwtSecretKey()
   try {
     // Rate limiting
     const rateLimitResult = await authRateLimiter(request)

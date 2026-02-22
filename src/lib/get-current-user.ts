@@ -5,9 +5,8 @@ import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { getJwtSecretKey } from '@/lib/jwt'
 
-const JWT_SECRET = getJwtSecretKey()
-
 export async function getCurrentUser() {
+  const JWT_SECRET = getJwtSecretKey()
   try {
     const cookieStore = await cookies()
     const sessionToken = cookieStore.get('session')?.value
@@ -58,6 +57,7 @@ export async function getCurrentAdminUserFromRequest(request?: any) {
 
   // Fallback: Check authorization header (for API calls or if cookie fails)
   if (request) {
+    const JWT_SECRET = getJwtSecretKey()
     try {
       const authHeader = request.headers?.get?.('authorization')
       if (authHeader?.startsWith('Bearer ')) {
