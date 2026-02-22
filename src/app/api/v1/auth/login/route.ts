@@ -181,4 +181,8 @@ async function login(req: NextRequest) {
   }
 }
 
-export const POST = withApiTelemetry(login, { name: 'v1.auth.login', includeUserId: false })
+const handler = withApiTelemetry(login, { name: 'v1.auth.login', includeUserId: false });
+
+export async function POST(request: NextRequest) {
+  return handler(request, undefined);
+}

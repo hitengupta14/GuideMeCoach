@@ -224,4 +224,8 @@ async function login(request: NextRequest) {
   }
 }
 
-export const POST = withApiTelemetry(login, { name: 'auth.login', includeUserId: false })
+const handler = withApiTelemetry(login, { name: 'auth.login', includeUserId: false })
+
+export async function POST(request: NextRequest) {
+  return handler(request, undefined)
+}
