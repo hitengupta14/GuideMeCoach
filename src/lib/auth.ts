@@ -1,5 +1,14 @@
 import crypto from 'crypto'
-import bcrypt from 'bcrypt'
+
+type BcryptModule = typeof import('bcrypt')
+let bcryptPromise: Promise<BcryptModule> | null = null
+
+async function loadBcrypt(): Promise<BcryptModule> {
+  if (!bcryptPromise) {
+    bcryptPromise = import('bcrypt')
+  }
+  return bcryptPromise
+}
 
 /**
  * Hash a password using PBKDF2
@@ -26,6 +35,8 @@ export async function verifyPassword(password: string, passwordHash: string): Pr
   // Check if it's a bcrypt hash (starts with $2a$, $2b$, or $2y$)
   if (passwordHash.startsWith('$2a$') || passwordHash.startsWith('$2b$') || passwordHash.startsWith('$2y$')) {
     try {
+      const mod = await loadBcrypt()
+      const bcrypt = (mod as any).default ?? mod
       return await bcrypt.compare(password, passwordHash)
     } catch (error) {
       console.error('Bcrypt verification error:', error)
